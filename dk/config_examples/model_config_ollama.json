@@ -1,0 +1,9 @@
+{
+  "provider": "ollama",
+  "model": "gemma3:4b",
+  "base_url": "http://localhost:11434/api/generate",
+  "parameters": {
+    "temperature": 0.7,
+    "max_tokens": 1000
+  }
+}
