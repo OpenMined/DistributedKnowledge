@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "DistributedKnowledge": {
+      "command": "dk",
+      "args": ["-userId", "Bob", "-private", "private_key", "-public", "public_key","-queriesFile", "/home/ubuntu/shared_workspace/bob/surveys/queries.json", "-answersFile", "/home/ubuntu/shared_workspace/bob/surveys/answers.json", "-automaticApproval" , "/home/ubuntu/shared_workspace/bob/surveys/automatic_approval.json", "-rag_sources", "/home/ubuntu/shared_workspace/bob/rag_sources.jsonl", "-vector_db", "/home/ubuntu/shared_workspace/bob/surveys/vector_db", "-modelConfig", "/home/ubuntu/shared_workspace/bob/model_config.json"]
+    }
+  }
+}
+
+
