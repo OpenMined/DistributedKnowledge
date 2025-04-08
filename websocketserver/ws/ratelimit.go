@@ -19,6 +19,8 @@ type RateLimiter struct {
 
 // TokenBucket implements the token bucket algorithm for rate limiting.
 type TokenBucket struct {
+	// mu protects all bucket fields from concurrent access
+	mu sync.Mutex
 	// tokens is the current number of tokens in the bucket
 	tokens float64
 	// lastRefill is the last time the bucket was refilled
@@ -40,23 +42,35 @@ func NewRateLimiter(rate float64, capacity int) *RateLimiter {
 
 // Allow returns true if the request is allowed for the given user.
 func (rl *RateLimiter) Allow(userID string) bool {
+	// First, try to get an existing bucket with a read lock
 	rl.lockMap.RLock()
 	bucket, exists := rl.buckets[userID]
 	rl.lockMap.RUnlock()
 
 	if !exists {
-		// Create a new bucket for this user
+		// If the bucket doesn't exist, acquire a write lock to create it
 		rl.lockMap.Lock()
-		bucket = &TokenBucket{
-			tokens:     float64(rl.capacity),
-			lastRefill: time.Now(),
-			capacity:   rl.capacity,
-			rate:       rl.rate,
+		// Check again after acquiring the write lock (double-checked locking)
+		bucket, exists = rl.buckets[userID]
+		if !exists {
+			// Create a new bucket for this user, starting with 1 less than capacity
+			// to account for this first request
+			bucket = &TokenBucket{
+				tokens:     float64(rl.capacity) - 1.0, // Consume one token for the first request
+				lastRefill: time.Now(),
+				capacity:   rl.capacity,
+				rate:       rl.rate,
+			}
+			rl.buckets[userID] = bucket
+			rl.lockMap.Unlock()
+			return true
 		}
-		rl.buckets[userID] = bucket
 		rl.lockMap.Unlock()
-		return true
 	}
+
+	// For existing buckets, we need to lock the bucket itself
+	bucket.mu.Lock()
+	defer bucket.mu.Unlock()
 
 	// Refill tokens based on elapsed time
 	now := time.Now()
