@@ -28,7 +28,7 @@ type Server struct {
 	db          *sql.DB
 	authService *auth.Service
 	clients     map[string]*Client // mapping from user_id to client connection
-	rateLimiter *RateLimiter       // rate limiter for message processing
+	RateLimiter *RateLimiter       // rate limiter for message processing
 	mu          sync.RWMutex
 }
 
@@ -38,7 +38,7 @@ func NewServer(db *sql.DB, authService *auth.Service, messageRate float64, messa
 		db:          db,
 		authService: authService,
 		clients:     make(map[string]*Client),
-		rateLimiter: NewRateLimiter(messageRate, messageBurst),
+		RateLimiter: NewRateLimiter(messageRate, messageBurst),
 	}
 }
 
@@ -117,7 +117,7 @@ func (s *Server) unregisterClient(client *Client) {
 	}
 	s.mu.Unlock()
 	// Clean up rate limiter for this user
-	s.rateLimiter.RemoveUser(client.userID)
+	s.RateLimiter.RemoveUser(client.userID)
 	log.Printf("User %s disconnected", client.userID)
 }
 
@@ -195,7 +195,7 @@ func (c *Client) readPump() {
 			log.Printf("Received message from %s: %s", c.userID, message)
 
 			// Apply rate limiting
-			if !c.server.rateLimiter.Allow(c.userID) {
+			if !c.server.RateLimiter.Allow(c.userID) {
 				log.Printf("Rate limit exceeded for user %s", c.userID)
 
 				// Send rate limit error message to client
@@ -280,16 +280,7 @@ func (c *Client) writePump() {
 // It retrieves both direct messages (to_user equals userID) and broadcast messages (is_broadcast = TRUE)
 // that have not yet been delivered (as tracked in broadcast_deliveries).
 func (s *Server) RetrieveUndeliveredMessages(userID string) {
-	query := `
-      SELECT m.id, m.from_user, m.to_user, m.timestamp, m.content, m.status, m.is_broadcast, m.signature
-      FROM messages m
-      LEFT JOIN broadcast_deliveries bd ON m.id = bd.message_id AND bd.user_id = ?
-      WHERE (
-            (m.to_user = ? AND m.status = 'pending')
-            OR (m.is_broadcast = TRUE AND m.status = 'pending')
-          )
-        AND bd.message_id IS NULL
-    `
+	query := "SELECT m.id, m.from_user, m.to_user, m.timestamp, m.content, m.status, m.is_broadcast, m.signature FROM messages m LEFT JOIN broadcast_deliveries bd ON m.id = bd.message_id AND bd.user_id = ? WHERE ((m.to_user = ? AND m.status = 'pending') OR (m.is_broadcast = TRUE AND m.status = 'pending')) AND bd.message_id IS NULL"
 	rows, err := s.db.Query(query, userID, userID)
 	if err != nil {
 		log.Printf("Failed to retrieve undelivered messages for %s: %v", userID, err)
@@ -298,7 +289,6 @@ func (s *Server) RetrieveUndeliveredMessages(userID string) {
 	defer rows.Close()
 	for rows.Next() {
 		var msg models.Message
-		// models.Message must have IsBroadcast and Signature fields.
 		if err := rows.Scan(&msg.ID, &msg.From, &msg.To, &msg.Timestamp, &msg.Content, &msg.Status, &msg.IsBroadcast, &msg.Signature); err != nil {
 			log.Printf("Error scanning message for %s: %v", userID, err)
 			continue
@@ -307,14 +297,12 @@ func (s *Server) RetrieveUndeliveredMessages(userID string) {
 		if err := s.deliverMessage(msg); err != nil {
 			log.Printf("Error delivering undelivered message %d to %s: %v", msg.ID, userID, err)
 		}
-		// For broadcast messages, record the delivery so that they are not delivered again.
 		if msg.IsBroadcast {
 			insertDeliveryQuery := "INSERT INTO broadcast_deliveries (message_id, user_id) VALUES (?, ?)"
 			if _, err := s.db.Exec(insertDeliveryQuery, msg.ID, userID); err != nil {
 				log.Printf("Failed to record broadcast delivery for message %d to user %s: %v", msg.ID, userID, err)
 			}
 		} else {
-			// For direct messages, update the status to 'delivered'.
 			updateQuery := "UPDATE messages SET status = ? WHERE id = ?"
 			if _, err := s.db.Exec(updateQuery, "delivered", msg.ID); err != nil {
 				log.Printf("Failed to update message status for msg %d: %v", msg.ID, err)
