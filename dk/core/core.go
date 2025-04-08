@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"dk/client/lib"
+	dk_client "dk/client/lib"
 	"dk/utils"
 	"encoding/json"
 	"fmt"
@@ -11,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	dk_client "dk/client/lib"
 )
 
 func HandleRequests(ctx context.Context) {
@@ -84,6 +83,7 @@ func HandleQuery(ctx context.Context, msg lib.Message) (string, error) {
 
 	// Get LLM provider
 	llmProvider, err := LLMProviderFromContext(ctx)
+
 	if err != nil {
 		// If no LLM provider in context, try to load from config
 		if params.ModelConfigFile != nil {
@@ -106,6 +106,7 @@ func HandleQuery(ctx context.Context, msg lib.Message) (string, error) {
 
 	// Retrieve relevant documents
 	docs, err := retrieveDocuments(ctx, query.Message, 3)
+
 	if err != nil {
 		return "", fmt.Errorf("failed to retrieve documents: %v", err)
 	}

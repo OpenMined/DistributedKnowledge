@@ -78,6 +78,10 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 			})
 		}
 		log.Println("Adding documents to chromem-go, including creating their embeddings via Ollama API...")
+		if len(docs) == 0 {
+			log.Println("There's no content to generate the RAG. Skipping it for now")
+			return
+		}
 		err = chromemCollection.AddDocuments(ctx, docs, runtime.NumCPU())
 		if err != nil {
 			panic(err)

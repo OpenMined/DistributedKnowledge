@@ -11,30 +11,78 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 )
 
 func loadParameters() utils.Parameters {
 	params := utils.Parameters{}
+
+	// These flags remain unchanged.
 	params.PrivateKeyPath = flag.String("private", "path/to/private_key.pem", "Path to the private key file in PEM format")
 	params.PublicKeyPath = flag.String("public", "path/to/public_key.pem", "Path to the public key file in PEM format")
 	params.UserID = flag.String("userId", "defaultUser", "User ID for authentication")
-	params.QueriesFile = flag.String("queriesFile", "default_queries.json", "Path to the JSON file containing queries")
-	params.AnswersFile = flag.String("answersFile", "default_answers.json", "Path to the JSON file containing answers")
-	params.AutomaticApprovalFile = flag.String("automaticApproval", "default_automatic_approval.json", "Path to the JSON file for automatic approval settings")
-	params.VectorDBPath = flag.String("vector_db", "/path/to/vector_db", "Path to the vector database file")
+	// Keep the rag_sources flag so that it isn’t nil.
 	params.RagSourcesFile = flag.String("rag_sources", "/path/to/rag_sources.jsonl", "Path to the JSONL file containing source data")
-	params.ModelConfigFile = flag.String("modelConfig", "./config/model_config.json", "Path to the LLM provider configuration file")
-
 	params.ServerURL = flag.String("server", "https://localhost:8080", "Address to the websocket server")
+
+	// New flag for projectPath (base directory).
+	projectPath := flag.String("project_path", "~/.config", "Base directory for project configuration")
+
 	flag.Parse()
+
+	// Generate the dependent file paths from the projectPath.
+	basePath := *projectPath
+	queriesFile := basePath + "/queries.json"
+	answersFile := basePath + "/answers.json"
+	automaticApprovalFile := basePath + "/automatic_approval.json"
+	vectorDBPath := basePath + "/vector_db"
+	modelConfigFile := basePath + "/model_config.json"
+
+	// Set the values in the Parameters struct using the generated strings.
+	params.QueriesFile = &queriesFile
+	params.AnswersFile = &answersFile
+	params.AutomaticApprovalFile = &automaticApprovalFile
+	params.VectorDBPath = &vectorDBPath
+	params.ModelConfigFile = &modelConfigFile
+
 	return params
+}
+
+func ensureModelConfigFile(modelConfigPath string) {
+	if _, err := os.Stat(modelConfigPath); os.IsNotExist(err) {
+		// Ensure that the parent directory exists.
+		configDir := filepath.Dir(modelConfigPath)
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			log.Fatalf("Failed to create config directory %s: %v", configDir, err)
+		}
+
+		// Default model configuration content.
+		defaultConfig := `{
+  "provider": "openai",
+  "api_key": "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",
+  "model": "gpt-4o-mini",
+  "parameters": {
+    "temperature": 0.7,
+    "max_tokens": 1000
+  }
+}`
+		// Write the default configuration to modelConfigPath.
+		if err := os.WriteFile(modelConfigPath, []byte(defaultConfig), 0644); err != nil {
+			log.Fatalf("Failed to write model config file at %s: %v", modelConfigPath, err)
+		}
+		log.Printf("Created default model config file at %s", modelConfigPath)
+	}
 }
 
 func main() {
 	params := loadParameters()
 	rootCtx := context.Background()
+
+	// Ensure the model configuration file exists.
+	// ensureModelConfigFile(*params.ModelConfigFile)
+
 	publicKey, privateKey, err := utils.LoadOrCreateKeys(*params.PrivateKeyPath, *params.PublicKeyPath)
 	if err != nil {
 		log.Fatalf("Failed to load or create keys: %v", err)
@@ -59,7 +107,7 @@ func main() {
 	rootCtx = utils.WithChromemCollection(rootCtx, chromemCollection)
 	core.FeedChromem(rootCtx, *params.RagSourcesFile, false)
 
-	// Load LLM model configuration and create provider
+	// Load LLM model configuration and create provider.
 	modelConfig, err := core.LoadModelConfig(*params.ModelConfigFile)
 	if err != nil {
 		log.Printf("Warning: Failed to load model config: %v", err)
@@ -75,7 +123,7 @@ func main() {
 
 	mcpServer := mcp_server.NewMCPServer()
 
-	// Store LLM provider for reuse in the MCP context
+	// Store LLM provider for reuse in the MCP context.
 	var llmProvider core.LLMProvider
 	if p, err := core.LLMProviderFromContext(rootCtx); err == nil {
 		llmProvider = p
@@ -87,7 +135,7 @@ func main() {
 			ctx = utils.WithParams(ctx, params)
 			ctx = utils.WithChromemCollection(ctx, chromemCollection)
 			ctx = utils.WithDK(ctx, client)
-			// Add LLM provider to MCP context if available
+			// Add LLM provider to MCP context if available.
 			if llmProvider != nil {
 				ctx = core.WithLLMProvider(ctx, llmProvider)
 			}
