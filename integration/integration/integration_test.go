@@ -2,10 +2,9 @@ package integration
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/rsa"
 	"database/sql"
-	// "encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -29,13 +28,13 @@ type TestServer struct {
 	URL         string
 }
 
-// TestClient represents a test client with keys.
+// TestClient represents a test client with ed25519 keys.
 type TestClient struct {
 	Client     *lib.Client
 	UserID     string
 	Username   string
-	PrivateKey *rsa.PrivateKey
-	PublicKey  *rsa.PublicKey
+	PrivateKey ed25519.PrivateKey
+	PublicKey  ed25519.PublicKey
 }
 
 // SetupTestServer initializes a test server with in-memory SQLite.
@@ -88,25 +87,24 @@ func CloseTestServer(ts *TestServer) {
 	ts.DB.Close()
 }
 
-// CreateTestClient creates a new test client with a randomly generated keypair.
+// CreateTestClient creates a new test client with a randomly generated ed25519 keypair.
 func CreateTestClient(t *testing.T, ts *TestServer, userID, username string) *TestClient {
-	// Generate RSA key pair.
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	// Generate ed25519 key pair.
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		t.Fatalf("Failed to generate RSA key pair: %v", err)
+		t.Fatalf("Failed to generate ed25519 key pair: %v", err)
 	}
-	publicKey := &privateKey.PublicKey
 
 	// Create WebSocket client.
-	client := lib.NewClient(ts.URL, userID, privateKey, publicKey)
+	client := lib.NewClient(ts.URL, userID, priv, pub)
 	client.SetInsecure(true) // Skip TLS verification for test server
 
 	return &TestClient{
 		Client:     client,
 		UserID:     userID,
 		Username:   username,
-		PrivateKey: privateKey,
-		PublicKey:  publicKey,
+		PrivateKey: priv,
+		PublicKey:  pub,
 	}
 }
 
@@ -297,7 +295,6 @@ func TestRateLimiting(t *testing.T) {
 
 	// Override rate limiter with strict limits.
 	// 2 messages per second with burst of 3.
-	// (Note: Here we assume ws.Server now exports its RateLimiter field.)
 	ts.WSServer.RateLimiter = ws.NewRateLimiter(2.0, 3)
 
 	// Create test client.
@@ -436,7 +433,6 @@ func TestReconnection(t *testing.T) {
 	}
 
 	// Set a short reconnect interval for testing.
-	// Use the client’s setter rather than directly accessing an unexported field.
 	client.Client.SetReconnectInterval(200 * time.Millisecond)
 
 	// Connect client.
