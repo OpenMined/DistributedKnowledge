@@ -32,11 +32,10 @@ func NewOpenAIProvider(config ModelConfig) (*OpenAIProvider, error) {
 // GenerateAnswer implements LLMProvider interface
 func (p *OpenAIProvider) GenerateAnswer(ctx context.Context, question string, docs []Document) (string, error) {
 	// Construct a prompt that includes the question and context from the documents.
-	prompt := fmt.Sprintf("You are an AI assistant that answers questions based on the context provided in the documents.\n\nQuestion: %s\n\nDocuments:\n", question)
+	prompt := "Question:" + question // fmt.Sprintf("You are an AI assistant that answers questions based on the context provided in the documents.\n\nQuestion: %s\n\nDocuments:\n", question)
 	for i, doc := range docs {
 		prompt += fmt.Sprintf("Document %d - %s:\n%s\n\n", i+1, doc.FileName, doc.Content)
 	}
-	prompt += "Answer:"
 
 	// Default to GPT-3.5 if not specified
 	model := p.config.Model
@@ -48,7 +47,7 @@ func (p *OpenAIProvider) GenerateAnswer(ctx context.Context, question string, do
 	chatReq := openai.ChatCompletionRequest{
 		Model: model,
 		Messages: []openai.ChatCompletionMessage{
-			{Role: "system", Content: "You are a helpful AI assistant. Your task is to answer questions based on the context provided in the documents. Answer in first person."},
+			{Role: "system", Content: GenerateAnswerPrompt},
 			{Role: "user", Content: prompt},
 		},
 	}
@@ -91,7 +90,7 @@ func (p *OpenAIProvider) CheckAutomaticApproval(ctx context.Context, answer stri
 	prompt := fmt.Sprintf("Query:'%s'\n\n'Queried From:'%s'\n\n My Answer: '%s'\n\nConditions: %s\n",
 		query.Question, query.From, answer, string(formatted))
 
-  systemPrompt := "You are an AI assistant responsible for verifying that if given fields=(query, queried from, and answer). Check if they satisfies all specified conditions with no tolerance for minor deviations. Evaluate the answer against each condition, and then return only a JSON object with a two keys, 'result' and 'reason', set to true if every condition is met, or false if any condition fails. The 'reason' key should contain a brief explanation of why the result is true or false. Do not include any additional text or formatting. If condition list is empty, return false."
+	systemPrompt := CheckAutomaticApprovalPrompt
 
 	// Use ChatCompletion for automatic approval check
 	chatReq := openai.ChatCompletionRequest{

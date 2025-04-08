@@ -55,7 +55,7 @@ func NewAnthropicProvider(config ModelConfig) (*AnthropicProvider, error) {
 // GenerateAnswer implements LLMProvider interface
 func (p *AnthropicProvider) GenerateAnswer(ctx context.Context, question string, docs []Document) (string, error) {
 	// Construct the system prompt and user prompt
-	systemPrompt := "You are a helpful AI assistant. Your task is to answer questions based on the context provided in the documents. Answer in first person."
+	systemPrompt := GenerateAnswerPrompt
 
 	// Construct a prompt that includes the question and context from the documents
 	userPrompt := fmt.Sprintf("Question: %s\n\nDocuments:\n", question)
@@ -157,7 +157,8 @@ func (p *AnthropicProvider) CheckAutomaticApproval(ctx context.Context, answer s
 	}
 
 	// System prompt for evaluation
-  systemPrompt := "You are an AI assistant responsible for verifying that if given fields=(query, queried from, and answer). Check if they satisfies all specified conditions with no tolerance for minor deviations. Evaluate the answer against each condition, and then return only a JSON object with a two keys, 'result' and 'reason', set to true if every condition is met, or false if any condition fails. The 'reason' key should contain a brief explanation of why the result is true or false. Do not include any additional text or formatting. If condition list is empty, return false."
+	systemPrompt := CheckAutomaticApprovalPrompt
+
 	// User prompt with data to evaluate
 	userPrompt := fmt.Sprintf("Query:'%s'\n\n'Queried From:'%s'\n\n My Answer: '%s'\n\nConditions: %s\n",
 		query.Question, query.From, answer, string(formatted))

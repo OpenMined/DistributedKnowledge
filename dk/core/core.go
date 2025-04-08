@@ -158,9 +158,14 @@ func HandleQuery(ctx context.Context, msg lib.Message) (string, error) {
 			raw, err := os.ReadFile(*params.AutomaticApprovalFile)
 			if err == nil {
 				if err := json.Unmarshal(raw, &conditions); err == nil {
-					reason, automaticApproval, err = llmProvider.CheckAutomaticApproval(ctx, answer, newQuery, conditions)
-					if err != nil {
-						reason = fmt.Sprintf("Error checking automatic approval: %v", err)
+					if len(conditions) != 0 {
+						reason, automaticApproval, err = llmProvider.CheckAutomaticApproval(ctx, answer, newQuery, conditions)
+						if err != nil {
+							reason = fmt.Sprintf("Error checking automatic approval: %v", err)
+							automaticApproval = false
+						}
+					} else {
+						reason = "There's not condition for automatic approval"
 						automaticApproval = false
 					}
 				} else {
