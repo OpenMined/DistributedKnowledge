@@ -75,6 +75,14 @@ func NewClient(serverURL, userID string, privateKey ed25519.PrivateKey, publicKe
 	return client
 }
 
+func (c *Client) Token() string {
+	return c.jwtToken
+}
+
+func (c *Client) SetReconnectInterval(interval time.Duration) {
+	c.reconnectInterval = interval
+}
+
 // signMessage generates a cryptographic signature of the message content
 // The signature covers all critical fields: From, To, Content, and Timestamp
 func (c *Client) signMessage(msg *Message) error {
