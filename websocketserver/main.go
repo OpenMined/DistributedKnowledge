@@ -9,11 +9,40 @@ import (
 	"syscall"
 	"time"
 
+	"fmt"
+	"io"
 	"websocketserver/auth"
 	"websocketserver/config"
 	"websocketserver/db"
 	"websocketserver/ws"
 )
+
+func downloadHandler(w http.ResponseWriter, r *http.Request) {
+	// Specify the path to the binary file you wish to serve.
+	// Update "path/to/your/binary" to point to the correct file location.
+	filePath := "./binaries/dk"
+	// Name the file as it will be offered for download.
+	fileName := "dk"
+
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		log.Printf("Error opening file %s: %v", filePath, err)
+		return
+	}
+	defer file.Close()
+
+	// Set the headers to indicate a file download.
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+	w.Header().Set("Content-Type", "application/octet-stream")
+
+	// Stream the file to the client.
+	if _, err := io.Copy(w, file); err != nil {
+		http.Error(w, "Error downloading file", http.StatusInternalServerError)
+		log.Printf("Error copying file data: %v", err)
+	}
+}
 
 func main() {
 	// Load configuration
@@ -48,6 +77,7 @@ func main() {
 	mux.HandleFunc("/auth/register", authService.HandleRegistration)
 	mux.HandleFunc("/auth/login", authService.HandleLogin)
 	mux.HandleFunc("/auth/users/", authService.HandleGetUserInfo)
+	mux.HandleFunc("/download", downloadHandler)
 
 	// Setup HTTPS server (ensure you have valid TLS certificate files).
 	srv := &http.Server{
