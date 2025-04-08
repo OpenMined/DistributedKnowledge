@@ -14,8 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	// "github.com/dgrijalva/jwt-go"
 	// "websocketserver/models"
+	"github.com/golang-jwt/jwt"
 )
 
 // Service provides authentication operations.
