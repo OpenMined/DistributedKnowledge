@@ -20,6 +20,7 @@ type Parameters struct {
 	VectorDBPath          *string
 	RagSourcesFile        *string
 	ModelConfigFile       *string
+	ServerURL             *string
 }
 
 type RemoteMessage struct {

@@ -26,6 +26,8 @@ func loadParameters() utils.Parameters {
 	params.VectorDBPath = flag.String("vector_db", "/path/to/vector_db", "Path to the vector database file")
 	params.RagSourcesFile = flag.String("rag_sources", "/path/to/rag_sources.jsonl", "Path to the JSONL file containing source data")
 	params.ModelConfigFile = flag.String("modelConfig", "./config/model_config.json", "Path to the LLM provider configuration file")
+
+	params.ServerURL = flag.String("server", "https://localhost:8080", "Address to the websocket server")
 	flag.Parse()
 	return params
 }
@@ -38,7 +40,7 @@ func main() {
 		log.Fatalf("Failed to load or create keys: %v", err)
 	}
 
-	client := dk_client.NewClient("https://localhost:8080", *params.UserID, privateKey, publicKey)
+	client := dk_client.NewClient(*params.ServerURL, *params.UserID, privateKey, publicKey)
 	client.SetInsecure(true)
 	if err := client.Register(*params.UserID); err != nil {
 		log.Printf("Registration failed: %v", err)
