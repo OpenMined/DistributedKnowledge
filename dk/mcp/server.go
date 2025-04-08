@@ -111,7 +111,7 @@ func NewMCPServer() *server.MCPServer {
 	)
 
 	mcpServer.AddTool(
-		mcp_lib.NewTool("cqReasonOnAnswers",
+		mcp_lib.NewTool("cqSummarizeAnswers",
 			// What this tool does, in one precise sentence
 			mcp_lib.WithDescription(
 				"Retrieve all peer responses for a given question, evaluate each answer, and return a cohesive summary that highlights the key insights.",

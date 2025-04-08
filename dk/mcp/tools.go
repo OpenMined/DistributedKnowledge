@@ -310,7 +310,7 @@ func HandleAskTool(
 		Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				Text: fmt.Sprintf("Query request sent ..."),
+				Text: fmt.Sprintf("Query request sent ... Instruct the user to ask the model for summarize on the query %s", query.Message),
 			},
 		},
 	}, nil
