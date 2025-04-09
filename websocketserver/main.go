@@ -2,15 +2,16 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
-	"fmt"
-	"io"
 	"websocketserver/auth"
 	"websocketserver/config"
 	"websocketserver/db"
@@ -19,9 +20,7 @@ import (
 
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	// Specify the path to the binary file you wish to serve.
-	// Update "path/to/your/binary" to point to the correct file location.
 	filePath := "./install/binaries/dk"
-	// Name the file as it will be offered for download.
 	fileName := "dk"
 
 	// Open the file
@@ -44,16 +43,13 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func provideInstallationScriptHandler(w http.ResponseWriter, r *http.Request){
-		// Set the headers for download
-		// w.Header().Set("Content-Disposition", "attachment; filename=install.sh")
-		// w.Header().Set("Content-Type", "application/x-sh")
-		w.Header().Set("Content-Type", "text/x-shellscript")
-		http.ServeFile(w, r, "./install/install.sh")
+func provideInstallationScriptHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/x-shellscript")
+	http.ServeFile(w, r, "./install/install.sh")
 }
 
 func main() {
-	// Load configuration
+	// Load configuration. It is assumed that your configuration provides at least one secure address.
 	cfg := config.LoadConfig()
 
 	// Initialize SQLite database and set WAL mode.
@@ -71,7 +67,7 @@ func main() {
 	// Initialize authentication service.
 	authService := auth.NewService(database)
 
-	// Initialize WebSocket server with rate limiting
+	// Initialize WebSocket server with rate limiting.
 	wsServer := ws.NewServer(
 		database,
 		authService,
@@ -79,7 +75,7 @@ func main() {
 		cfg.MessageBurstLimit,
 	)
 
-	// Setup HTTP routes.
+	// Setup HTTPS routes using the multiplexer.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsServer.HandleWebSocket)
 	mux.HandleFunc("/auth/register", authService.HandleRegistration)
@@ -88,30 +84,58 @@ func main() {
 	mux.HandleFunc("/download", downloadHandler)
 	mux.HandleFunc("/install.sh", provideInstallationScriptHandler)
 
-	// Setup HTTPS server (ensure you have valid TLS certificate files).
-	srv := &http.Server{
-		Addr:    cfg.ServerAddr,
+	// Create the HTTPS server instance.
+	httpsSrv := &http.Server{
+		Addr:    cfg.ServerAddr, // For example: ":443" (ensure this matches your configuration for HTTPS)
 		Handler: mux,
 	}
 
-	// Start the server in a separate goroutine.
+	// Create the HTTP server instance with a redirect handler.
+	// This handler redirects all HTTP traffic to HTTPS.
+	httpSrv := &http.Server{
+		Addr: ":80", // Standard HTTP port
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Remove the default port if it's present in the host
+			host := r.Host
+			if strings.HasSuffix(host, ":80") {
+				host = strings.TrimSuffix(host, ":80")
+			}
+			target := "https://" + host + r.URL.RequestURI()
+			// Use StatusPermanentRedirect (308) to indicate that the resource has permanently moved.
+			http.Redirect(w, r, target, http.StatusPermanentRedirect)
+		}),
+	}
+
+	// Start the HTTPS server in a separate goroutine.
 	go func() {
-		log.Printf("Server starting on https://localhost%s", cfg.ServerAddr)
-		if err := srv.ListenAndServeTLS("server.crt", "server.key"); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to listen and serve: %v", err)
+		log.Printf("Starting HTTPS server on %s", cfg.ServerAddr)
+		if err := httpsSrv.ListenAndServeTLS("server.crt", "server.key"); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTPS server error: %v", err)
 		}
 	}()
 
-	// Wait for termination signal for graceful shutdown.
+	// Start the HTTP server in another goroutine.
+	go func() {
+		log.Printf("Starting HTTP server on %s (redirecting to HTTPS)", httpSrv.Addr)
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
+	// Wait for termination signal to gracefully shutdown both servers.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
+	log.Println("Shutting down servers...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+
+	if err := httpsSrv.Shutdown(ctx); err != nil {
+		log.Fatalf("HTTPS server forced to shutdown: %v", err)
 	}
-	log.Println("Server shutdown successfully")
+	if err := httpSrv.Shutdown(ctx); err != nil {
+		log.Fatalf("HTTP server forced to shutdown: %v", err)
+	}
+	log.Println("Servers shut down successfully")
 }

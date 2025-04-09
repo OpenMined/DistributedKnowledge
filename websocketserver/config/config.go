@@ -45,7 +45,7 @@ func GetEnvInt(key string, defaultVal int) int {
 // LoadConfig loads the application configuration from environment variables.
 func LoadConfig() *Config {
 	return &Config{
-		ServerAddr:        GetEnv("SERVER_ADDR", ":8080"),
+		ServerAddr:        GetEnv("SERVER_ADDR", ":443"),
 		MessageRateLimit:  GetEnvFloat("MESSAGE_RATE_LIMIT", 5.0), // 5 messages per second by default
 		MessageBurstLimit: GetEnvInt("MESSAGE_BURST_LIMIT", 10),   // burst of 10 messages by default
 	}
