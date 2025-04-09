@@ -110,6 +110,19 @@ func NewMCPServer() *server.MCPServer {
 		HandleAcceptQuestionTool,
 	)
 
+	// Tool: Reject Query
+	mcpServer.AddTool(
+		mcp_lib.NewTool("cqRejectQuery",
+			mcp_lib.WithDescription("Mark a pending query as 'rejected'."),
+			mcp_lib.WithString(
+				"id",
+				mcp_lib.Description("Unique identifier of the query to reject."),
+				mcp_lib.Required(),
+			),
+		),
+		HandleRejectQuestionTool,
+	)
+
 	mcpServer.AddTool(
 		mcp_lib.NewTool("cqSummarizeAnswers",
 			// What this tool does, in one precise sentence
@@ -138,24 +151,6 @@ func NewMCPServer() *server.MCPServer {
 		HandleAnswerListTool,
 	)
 
-	// Tool: Get Answer
-	// mcpServer.AddTool(
-	//     mcp_lib.NewTool("cqGetAnswer",
-	//         mcp_lib.WithDescription("Fetch answers for a specified query."),
-	//         mcp_lib.WithString(
-	//             "query",
-	//             mcp_lib.Description("The text of the query to retrieve answers for."),
-	//             mcp_lib.Required(),
-	//         ),
-	//         mcp_lib.WithNumber(
-	//           "delay",
-	//           mcp_lib.Description("Delay in seconds before fetching answers."),
-	//           mcp_lib.DefaultNumber(0),
-	//        ),
-	//     ),
-	//     HandleGetAnswerTool,
-	// )
-
 	// Tool: Update RAG Knowledge Base
 	mcpServer.AddTool(
 		mcp_lib.NewTool("cqUpdateRagKnowledgeBase",
@@ -169,68 +164,23 @@ func NewMCPServer() *server.MCPServer {
 		HandleUpdateRagSourcesTool,
 	)
 
-	// Tool: List Queries
-	//  mcpServer.AddTool(
-	//    mcp_lib.NewTool("cqListQueries",
-	//      mcp_lib.WithDescription("Lists all queries."),
-	//      mcp_lib.WithString("status", mcp_lib.Description("Filter by status (optional)")),
-	//      mcp_lib.WithString("from", mcp_lib.Description("Filter by sender (optional)")),
-	//    ),
-	//    HandleListQueriesTool,
-	//  )
-	//
-	// mcpServer.AddTool(
-	// 	mcp_lib.NewTool("cqAddAutoApprovalCondition",
-	// 		mcp_lib.WithDescription("Extracts a condition from a sentence and appends it to automatic_approval.json."),
-	// 		mcp_lib.WithString("sentence", mcp_lib.Description("Sentence containing the condition"), mcp_lib.Required()),
-	// 	),
-	// 	HandleAddApprovalConditionTool,
-	// )
-	//
-	//
-	// mcpServer.AddTool(
-	// 	mcp_lib.NewTool("cqRemoveAutoApprovalCondition",
-	// 		mcp_lib.WithDescription("Removes a specific condition from automatic_approval.json."),
-	// 		mcp_lib.WithString("condition", mcp_lib.Description("The condition text to remove"), mcp_lib.Required()),
-	// 	),
-	// 	HandleRemoveApprovalConditionTool,
-	// )
-	//
-	// mcpServer.AddTool(
-	// 	mcp_lib.NewTool("cqListAutoApprovalConditions",
-	// 		mcp_lib.WithDescription("Lists all automatic approval conditions from automatic_approval.json."),
-	// 		mcp_lib.WithBoolean("flag", mcp_lib.DefaultBool(false), mcp_lib.Description("Ignore this parameter")),
-	// 	),
-	// 	HandleListApprovalConditionsTool,
-	// )
-	//
-	// mcpServer.AddTool(
-	// 	mcp_lib.NewTool("cqAcceptQuery",
-	// 		mcp_lib.WithDescription("Accepts a pending query by updating its status to 'accepted'."),
-	// 		mcp_lib.WithString("id", mcp_lib.Description("ID of the query to accept"), mcp_lib.Required()),
-	// 	),
-	// 	HandleAcceptQuestionTool,
-	// )
-	//
-	// // Tool: Get Answers
-	// mcpServer.AddTool(
-	// 	mcp_lib.NewTool("cqGetAnswer",
-	// 		mcp_lib.WithDescription("Retrieves answer for a given query question."),
-	// 		mcp_lib.WithString("query", mcp_lib.Description("Question of the query to retrieve answers for"), mcp_lib.Required()),
-	// 	),
-	// 	HandleGetAnswersTool,
-	// )
-
-	// -------------------------------------------------------------------------
-	// New Tool Registration: Add RAG Resource
-	// -------------------------------------------------------------------------
-	// mcpServer.AddTool(
-	// 	mcp_lib.NewTool("cqUpdateRagKnowledgeBase",
-	// 		mcp_lib.WithDescription("Adds a new RAG resource by loading a file's content, appending it to the rag_sources file, and refreshing the vector database."),
-	// 		mcp_lib.WithString("file_path", mcp_lib.Description("Path to the file to add as a RAG resource"), mcp_lib.Required()),
-	// 	),
-	// 	HandleUpdateRagSourcesTool,
-	// )
+	// Tool: Update Answer Content
+	mcpServer.AddTool(
+		mcp_lib.NewTool("cqUpdateEditAnswer",
+			mcp_lib.WithDescription("Edit an specific answer content with a new content."),
+			mcp_lib.WithString(
+				"query_id",
+				mcp_lib.Description("Query ID of the answer that will get its content updated."),
+				mcp_lib.Required(),
+			),
+			mcp_lib.WithString(
+				"new_answer",
+				mcp_lib.Description("New Answer to be updated."),
+				mcp_lib.Required(),
+			),
+		),
+		HandleUpdateAnswerTool,
+	)
 
 	return mcpServer
 }

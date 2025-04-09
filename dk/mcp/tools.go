@@ -828,6 +828,118 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 	}, nil
 }
 
+func HandleRejectQuestionTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	params, err := utils.ParamsFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	args := request.Params.Arguments
+
+	id, ok := args["id"].(string)
+	if !ok || strings.TrimSpace(id) == "" {
+		return nil, fmt.Errorf("'id' parameter is required")
+	}
+
+	queriesData, err := core.LoadQueries(*params.QueriesFile)
+	if err != nil {
+		return nil, err
+	}
+
+	qry, exists := queriesData.Queries[id]
+	if !exists {
+		return nil, fmt.Errorf("query with ID '%s' not found", id)
+	}
+
+	// Update status to "rejected" if not already.
+	qry.Status = "rejected"
+	queriesData.Queries[id] = qry
+
+	if err := core.SaveQueries(*params.QueriesFile, queriesData); err != nil {
+		return nil, err
+	}
+
+	dkClient, err := utils.DkFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't retrieve DK from context: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	answerMessage := utils.AnswerMessage{
+		Query:  qry.Question,
+		Answer: "This query was rejected!",
+		From:   dkClient.UserID,
+	}
+
+	jsonAnswer, err := json.Marshal(answerMessage)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't marshal answer: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	query := utils.RemoteMessage{
+		Type:    "answer",
+		Message: string(jsonAnswer),
+	}
+
+	jsonData, err := json.Marshal(query)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't marshal query: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	err = dkClient.SendMessage(dk_client.Message{
+		From:      dkClient.UserID,
+		To:        qry.From,
+		Content:   string(jsonData),
+		Timestamp: time.Now(),
+	})
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't send message: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	return &mcp_lib.CallToolResult{
+		Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				Text: fmt.Sprintf("Question '%s' has been rejected.\n", qry.Question),
+			},
+		},
+	}, nil
+}
+
 func HandleAcceptQuestionTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
 	params, err := utils.ParamsFromContext(ctx)
 	if err != nil {
@@ -935,6 +1047,130 @@ func HandleAcceptQuestionTool(ctx context.Context, request mcp_lib.CallToolReque
 			mcp_lib.TextContent{
 				Type: "text",
 				Text: fmt.Sprintf("Question '%s' has been accepted.\n", qry.Question),
+			},
+		},
+	}, nil
+}
+
+// HandleUpdateAnswerTool updates the answer associated with a given query_id in the queries JSON file.
+//
+// Input Parameters:
+// - "query_id": the identifier for the query (string or integer)
+// - "new_answer": the new answer content that will replace the existing answer
+//
+// The JSON file is expected to conform to this format:
+//
+//	{
+//	  "queries": {
+//	    "qry-xxx": {
+//	      "id": "qry-xxx",
+//	      "from": "UserName",
+//	      "question": "...",
+//	      "answer": "...",
+//	      "documents_related": [...],
+//	      "status": "...",
+//	      "reason": "..."
+//	    },
+//	    ...
+//	  }
+//	}
+//
+// The function validates the inputs, loads the queries from the file defined in the context parameters,
+// updates the answer for the specified query_id, saves the file back, and returns a success message or an error.
+func HandleUpdateAnswerTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	// Retrieve runtime parameters from the context.
+	parameters, err := utils.ParamsFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	// Get the queries file path from the parameters.
+	queriesFile := *parameters.QueriesFile
+
+	// Retrieve input arguments
+	args := request.Params.Arguments
+
+	// Retrieve and validate the 'query_id' parameter.
+	queryID, ok := args["query_id"].(string)
+	if !ok || strings.TrimSpace(queryID) == "" {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "'query_id' parameter is required",
+				},
+			},
+		}, nil
+	}
+
+	// Retrieve and validate the 'new_answer' parameter.
+	newAnswer, ok := args["new_answer"].(string)
+	if !ok || strings.TrimSpace(newAnswer) == "" {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "'new_answer' parameter is required",
+				},
+			},
+		}, nil
+	}
+
+	// Load the existing queries data from the queries file.
+	queriesData, err := core.LoadQueries(queriesFile)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Error loading queries file: %v", err),
+				},
+			},
+		}, nil
+	}
+
+	// Verify that a query exists with the provided queryID.
+	query, exists := queriesData.Queries[queryID]
+	if !exists {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("No query found for id: %s", queryID),
+				},
+			},
+		}, nil
+	}
+
+	// Update the "answer" field with the new answer.
+	query.Answer = newAnswer
+	queriesData.Queries[queryID] = query
+
+	// Save the updated queries data back to the queries file.
+	if err := core.SaveQueries(queriesFile, queriesData); err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Error saving updated queries file: %v", err),
+				},
+			},
+		}, nil
+	}
+
+	// Return a success response.
+	return &mcp_lib.CallToolResult{
+		Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				Text: fmt.Sprintf("Successfully updated answer for query_id '%s'.", queryID),
 			},
 		},
 	}, nil
