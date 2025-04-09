@@ -2,17 +2,18 @@ package mcp
 
 import (
 	"context"
-	dk_client "dk/client/lib"
+	dk_client "dk/client"
 	"dk/core"
 	"dk/utils"
 	"encoding/json"
 	"fmt"
-	mcp_lib "github.com/mark3labs/mcp-go/mcp"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	mcp_lib "github.com/mark3labs/mcp-go/mcp"
 )
 
 // Tool: Get Answers for Query

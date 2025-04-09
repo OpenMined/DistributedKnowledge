@@ -3,7 +3,7 @@ package utils
 import (
 	"context"
 	"crypto/ed25519"
-	"dk/client/lib"
+	"dk/client"
 	"encoding/hex"
 	"fmt"
 	"github.com/philippgille/chromem-go"

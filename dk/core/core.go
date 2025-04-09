@@ -2,8 +2,7 @@ package core
 
 import (
 	"context"
-	"dk/client/lib"
-	dk_client "dk/client/lib"
+	dk_client "dk/client"
 	"dk/utils"
 	"encoding/json"
 	"fmt"
@@ -66,7 +65,7 @@ func retrieveDocuments(ctx context.Context, question string, numResults int) ([]
 	return results, nil
 }
 
-func HandleQuery(ctx context.Context, msg lib.Message) (string, error) {
+func HandleQuery(ctx context.Context, msg dk_client.Message) (string, error) {
 	var query utils.RemoteMessage
 	err := json.Unmarshal([]byte(msg.Content), &query)
 	if err != nil || strings.TrimSpace(query.Message) == "" {
@@ -231,7 +230,7 @@ func HandleQuery(ctx context.Context, msg lib.Message) (string, error) {
 	return answer, nil
 }
 
-func HandleAnswer(ctx context.Context, msg lib.Message) (string, error) {
+func HandleAnswer(ctx context.Context, msg dk_client.Message) (string, error) {
 	params, err := utils.ParamsFromContext(ctx)
 	if err != nil {
 		return "", err

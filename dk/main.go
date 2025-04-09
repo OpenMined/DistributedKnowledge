@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	dk_client "dk/client/lib"
+	dk_client "dk/client"
 	"dk/core"
 	mcp_server "dk/mcp"
 	"dk/utils"
