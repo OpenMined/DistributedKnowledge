@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -11,7 +12,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
 	"websocketserver/auth"
 	"websocketserver/config"
 	"websocketserver/db"
@@ -48,6 +48,16 @@ func provideInstallationScriptHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "./install/install.sh")
 }
 
+func serveHome(w http.ResponseWriter, r *http.Request) {
+	log.Println("Parsing Files")
+	tmpl := template.Must(template.ParseFiles("templates/index.html"))
+
+	log.Println("Parsed")
+	tmpl.Execute(w, nil)
+
+	log.Println("Executed")
+}
+
 func main() {
 	// Load configuration. It is assumed that your configuration provides at least one secure address.
 	cfg := config.LoadConfig()
@@ -80,9 +90,14 @@ func main() {
 	mux.HandleFunc("/ws", wsServer.HandleWebSocket)
 	mux.HandleFunc("/auth/register", authService.HandleRegistration)
 	mux.HandleFunc("/auth/login", authService.HandleLogin)
+	mux.HandleFunc("/", serveHome)
 	mux.HandleFunc("/auth/users/", authService.HandleGetUserInfo)
 	mux.HandleFunc("/download", downloadHandler)
 	mux.HandleFunc("/install.sh", provideInstallationScriptHandler)
+
+	// static files (e.g., JS libs like htmx)
+	fs := http.FileServer(http.Dir("static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Create the HTTPS server instance.
 	httpsSrv := &http.Server{
