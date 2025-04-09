@@ -20,7 +20,7 @@ import (
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	// Specify the path to the binary file you wish to serve.
 	// Update "path/to/your/binary" to point to the correct file location.
-	filePath := "./binaries/dk"
+	filePath := "./install/binaries/dk"
 	// Name the file as it will be offered for download.
 	fileName := "dk"
 
@@ -42,6 +42,14 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error downloading file", http.StatusInternalServerError)
 		log.Printf("Error copying file data: %v", err)
 	}
+}
+
+func provideInstallationScriptHandler(w http.ResponseWriter, r *http.Request){
+		// Set the headers for download
+		// w.Header().Set("Content-Disposition", "attachment; filename=install.sh")
+		// w.Header().Set("Content-Type", "application/x-sh")
+		w.Header().Set("Content-Type", "text/x-shellscript")
+		http.ServeFile(w, r, "./install/install.sh")
 }
 
 func main() {
@@ -78,6 +86,7 @@ func main() {
 	mux.HandleFunc("/auth/login", authService.HandleLogin)
 	mux.HandleFunc("/auth/users/", authService.HandleGetUserInfo)
 	mux.HandleFunc("/download", downloadHandler)
+	mux.HandleFunc("/install.sh", provideInstallationScriptHandler)
 
 	// Setup HTTPS server (ensure you have valid TLS certificate files).
 	srv := &http.Server{
