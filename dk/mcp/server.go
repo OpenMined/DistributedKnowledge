@@ -14,20 +14,6 @@ func NewMCPServer() *server.MCPServer {
 		server.WithLogging(),
 	)
 
-	// Tool: Ask New Query (Remote)
-	// mcpServer.AddTool(
-	// 	mcp_lib.NewTool("cqAskQuestion",
-	// 		mcp_lib.WithDescription("Creates a new query item to be sent to a peer/group of peers, identified by the '@' (eg. @peer1, @peer2, @peer3) or to the network (if no peer mentioned)."),
-	// 		mcp_lib.WithString("question", mcp_lib.Description("The question for the query"), mcp_lib.Required()),
-	//      mcp_lib.WithArray(
-	//        "peers",
-	//        mcp_lib.Description("The list of peers to send the query to. Remove the '@' from the peer name. If no peers are mentioned, peers list is empty and query."), mcp_lib.Required(),
-	// 			mcp_lib.Items(map[string]any{"type": "string"}),
-	//      ),
-	// 	),
-	// 	HandleAskTool,
-	// )
-
 	// Tool: Ask Question
 	mcpServer.AddTool(
 		mcp_lib.NewTool("cqAskQuestion",
@@ -152,17 +138,13 @@ func NewMCPServer() *server.MCPServer {
 	)
 
 	// Tool: Update RAG Knowledge Base
-	mcpServer.AddTool(
-		mcp_lib.NewTool("cqUpdateRagKnowledgeBase",
-			mcp_lib.WithDescription("Add a document to the RAG knowledge base and refresh the vector database."),
-			mcp_lib.WithString(
-				"file_path",
-				mcp_lib.Description("Filesystem path to the document to add."),
-				mcp_lib.Required(),
-			),
-		),
-		HandleUpdateRagSourcesTool,
-	)
+	mcpServer.AddTool(mcp_lib.NewTool("updateKnowledgeSources",
+		mcp_lib.WithDescription("Updates knowledge sources by saving provided file name and content or file path, then refreshing the vector database."),
+		// Two string parameters: file_name and file_content.
+		mcp_lib.WithString("file_name", mcp_lib.Description("The name of the file to add (e.g., mydocument.pdf)")),
+		mcp_lib.WithString("file_content", mcp_lib.Description("The content of the file")),
+		mcp_lib.WithString("file_path", mcp_lib.Description("The content of the file")),
+	), HandleUpdateRagSourcesTool)
 
 	// Tool: Update Answer Content
 	mcpServer.AddTool(
