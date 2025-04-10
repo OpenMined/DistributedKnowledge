@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	openai "github.com/sashabaranov/go-openai"
+	"os"
 )
 
 // OpenAIProvider implements the LLMProvider interface for OpenAI
@@ -21,6 +21,13 @@ func NewOpenAIProvider(config ModelConfig) (*OpenAIProvider, error) {
 	// Set custom base URL if provided
 	if config.BaseURL != "" {
 		cfg.BaseURL = config.BaseURL
+	}
+
+	if config.ApiKey == "" {
+		config.ApiKey = os.Getenv("OPENAI_API_KEY")
+		if config.ApiKey == "" {
+			return nil, fmt.Errorf("no OpenAI API key provided")
+		}
 	}
 
 	return &OpenAIProvider{

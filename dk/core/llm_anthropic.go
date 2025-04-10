@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -44,6 +45,14 @@ type AnthropicResponse struct {
 
 // NewAnthropicProvider creates a new Anthropic provider from a ModelConfig
 func NewAnthropicProvider(config ModelConfig) (*AnthropicProvider, error) {
+
+	if config.ApiKey == "" {
+		config.ApiKey = os.Getenv("ANTHROPIC_API_KEY")
+		if config.ApiKey == "" {
+			return nil, fmt.Errorf("no Anthropic API key provided")
+		}
+	}
+
 	return &AnthropicProvider{
 		client: &http.Client{
 			Timeout: 120 * time.Second,
