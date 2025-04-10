@@ -15,7 +15,7 @@ echo "Detected OS: $OS_TYPE"
 # -----------------------------------------------------------------------------
 # Prompt for installation directory for the binary (default: /usr/local/bin)
 DEFAULT_INSTALL_PATH="/usr/local/bin"
-read -p "Enter the installation directory for MyApp binary [default: $DEFAULT_INSTALL_PATH]: " INSTALL_PATH </dev/tty
+read -p "Enter the installation directory for Distributed Knowledge binary [default: $DEFAULT_INSTALL_PATH]: " INSTALL_PATH </dev/tty
 if [ -z "$INSTALL_PATH" ]; then
     INSTALL_PATH="$DEFAULT_INSTALL_PATH"
 fi
@@ -327,20 +327,6 @@ EOF
 fi
 echo "MCP configuration file updated successfully."
 
-# -----------------------------------------------------------------------------
-# 9. Download / Install DK executable
-# -----------------------------------------------------------------------------
-echo "Installing the Distributed Knowledge App..."
-if command -v curl > /dev/null 2>&1; then
-    echo "Using curl to download the binary."
-    curl -fsSL "https://distributedknowledge.org/download" -o "$INSTALL_PATH/dk"
-elif command -v wget > /dev/null 2>&1; then
-    echo "Using wget to download the binary."
-    wget -q "https://distributedknowledge.org/download" -O "$INSTALL_PATH/dk"
-else
-    echo "Error: Neither curl nor wget is installed." >&2
-    exit 1
-fi
 
 chmod +x "$INSTALL_PATH/dk"
 
@@ -348,11 +334,35 @@ chmod +x "$INSTALL_PATH/dk"
 # 9. OS-specific Post-Installation Steps
 # -----------------------------------------------------------------------------
 if [ "$OS_TYPE" == "Darwin" ]; then
-    echo "Running macOS-specific steps..."
-    # For example, add $INSTALL_PATH to your PATH.
+    # -----------------------------------------------------------------------------
+    # 9. Download / Install DK executable
+    # -----------------------------------------------------------------------------
+    echo "Installing the Distributed Knowledge App..."
+    if command -v curl > /dev/null 2>&1; then
+        echo "Using curl to download the binary."
+        curl -fsSL "https://distributedknowledge.org/download/mac" -o "$INSTALL_PATH/dk"
+    elif command -v wget > /dev/null 2>&1; then
+        echo "Using wget to download the binary."
+        wget -q "https://distributedknowledge.org/download/mac" -O "$INSTALL_PATH/dk"
+    else
+        echo "Error: Neither curl nor wget is installed." >&2
+        exit 1
+    fi
 elif [ "$OS_TYPE" == "Linux" ]; then
-    echo "Running Linux-specific steps..."
-    # For example, install a systemd service.
+    # -----------------------------------------------------------------------------
+    # 9. Download / Install DK executable
+    # -----------------------------------------------------------------------------
+    echo "Installing the Distributed Knowledge App..."
+    if command -v curl > /dev/null 2>&1; then
+        echo "Using curl to download the binary."
+        curl -fsSL "https://distributedknowledge.org/download/linux" -o "$INSTALL_PATH/dk"
+    elif command -v wget > /dev/null 2>&1; then
+        echo "Using wget to download the binary."
+        wget -q "https://distributedknowledge.org/download/linux" -O "$INSTALL_PATH/dk"
+    else
+        echo "Error: Neither curl nor wget is installed." >&2
+        exit 1
+    fi
 fi
 
 echo "Installation complete!"
