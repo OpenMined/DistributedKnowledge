@@ -1,227 +1,241 @@
 #!/usr/bin/env bash
 set -e
 
-# Determine the OS type
+# -----------------------------------------------------------------------------
+# Pastel Color Palette Setup using tput
+# -----------------------------------------------------------------------------
+if [ "$(tput colors)" -ge 256 ]; then
+    # Using 256-color indices for pastel-like colors
+    PASTEL_BLUE=$(tput setaf 153)    # Pastel blue
+    PASTEL_GREEN=$(tput setaf 120)   # Pastel green
+    PASTEL_PURPLE=$(tput setaf 176)  # Pastel purple
+    PASTEL_ORANGE=$(tput setaf 215)  # Pastel orange
+else
+    # Fallback to basic colors if 256 colors not supported
+    PASTEL_BLUE=$(tput setaf 4)
+    PASTEL_GREEN=$(tput setaf 2)
+    PASTEL_PURPLE=$(tput setaf 5)
+    PASTEL_ORANGE=$(tput setaf 3)
+fi
+RESET=$(tput sgr0)
+
+
+cat << 'EOF'                                                                                                
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                              ::::::::                                              
+                                             ::::::::::                                             
+                                            ::::::::::::                                            
+                                           ::::::::::::::                                           
+                                       :::::::::::::::::::::-                                       
+                                    :::::::   :::::::    -------                                    
+                                 ::::::       :::            -------                                
+                      --------:::::-         ::::               --------------                      
+                    ------------:            :::                   ------------                     
+                    -----------             :::                      -----------                    
+                    --------------:-        ::-                     ------------                    
+                     --------- ----:::::-  :--                   =-------------                     
+                       -------:      ---------                 -----    =----                       
+                        --- ----          -------          -------       ---                        
+                        ---   ----        --- ------     ------          --=                        
+                        ---    ----      ---      ----------             ---                        
+                        ---      ----   ----      -------=               ===                        
+                        ---        ---- ---    -------------             ===                        
+                        ---         --------------       -=--=           ===                        
+                        ---           --------             ======        ===                        
+                        ---          ---------                =====      ===                        
+                        ---        -----    -----               =====    ===                        
+                      =------   -------       ----===             ============                      
+                     ===----------- ---          ========           ===========                     
+                    ======-----     ---               ==========    ============                    
+                    ========--=     ---                    =====================                    
+                     =======------   --=                           ============                     
+                       =====   ------=--=                      =======  =====                       
+                                  ------===                ========                                 
+                                      =======  ======   =======                                     
+                                         ==================                                         
+                                            ============                                            
+                                            ===========                                             
+                                             =========                                              
+                                               ======                                               
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                         ____  _     _        _ _           _           _ 
+                        |  _ \(_)___| |_ _ __(_) |__  _   _| |_ ___  __| |
+                        | | | | / __| __| '__| | '_ \| | | | __/ _ \/ _` |
+                        | |_| | \__ \ |_| |  | | |_) | |_| | ||  __/ (_| |
+                        |____/|_|___/\__|_|  |_|_.__/ \__,_|\__\___|\__,_|
+                        | |/ /_ __   _____      _| | ___  __| | __ _  ___ 
+                        | ' /| '_ \ / _ \ \ /\ / / |/ _ \/ _` |/ _` |/ _ \
+                        | . \| | | | (_) \ V  V /| |  __/ (_| | (_| |  __/
+                        |_|\_\_| |_|\___/ \_/\_/ |_|\___|\__,_|\__, |\___|
+                                                               |___/                                                                                                          
+                                                                                                                            
+                                                                                                    
+                                                                                                    
+                                                                                                    
+EOF
+
+# -----------------------------------------------------------------------------
+# 1. OS Detection
+# -----------------------------------------------------------------------------
 OS_TYPE=$(uname -s)
-echo "Detected OS: $OS_TYPE"
 
 # -----------------------------------------------------------------------------
-# 1. Environment Check - Verify if 'ollama' is installed, prompt to install if not.
+# 3. Installation Directories and Configuration Paths
 # -----------------------------------------------------------------------------
-# (ollama installation code remains unchanged...)
+INSTALL_PATH="/usr/local/bin"
+
+read -p "${PASTEL_BLUE}MCP config file path${RESET} [default: ${PASTEL_GREEN}$HOME/.mcp.json${RESET}]: " MCP_CONFIG_DIR </dev/tty
+MCP_CONFIG_DIR=${MCP_CONFIG_DIR:-$HOME/.mcp.json}
 
 # -----------------------------------------------------------------------------
-# 2. System Recognition and Basic Installation Directories
+# 4. User Configuration: Credentials, Server, and Project Directories
 # -----------------------------------------------------------------------------
-# Prompt for installation directory for the binary (default: /usr/local/bin)
-DEFAULT_INSTALL_PATH="/usr/local/bin"
-read -p "Enter the installation directory for Distributed Knowledge binary [default: $DEFAULT_INSTALL_PATH]: " INSTALL_PATH </dev/tty
-if [ -z "$INSTALL_PATH" ]; then
-    INSTALL_PATH="$DEFAULT_INSTALL_PATH"
-fi
-
-# MCP configuration path (default: ~/.mcp.json)
-DEFAULT_MCP_CONFIG_DIR="$HOME/.mcp.json"
-read -p "Enter the directory for the MCP config file [default: $DEFAULT_MCP_CONFIG_DIR]: " MCP_CONFIG_DIR </dev/tty
-if [ -z "$MCP_CONFIG_DIR" ]; then
-    MCP_CONFIG_DIR="$DEFAULT_MCP_CONFIG_DIR"
-fi
-
-# -----------------------------------------------------------------------------
-# 3. User Input Prompts for Detailed Configuration
-# -----------------------------------------------------------------------------
-# User credentials and server details
-read -p "Enter your User ID: " USER_ID </dev/tty
+read -p "${PASTEL_BLUE}Enter your User ID${RESET}: " USER_ID </dev/tty
 if [ -z "$USER_ID" ]; then
     echo "Error: User ID is required. Exiting."
     exit 1
 fi
 
-DEFAULT_SERVER_ADDRESS="https://distributedknowledge.org"
-read -p "Enter the Server Address [default: $DEFAULT_SERVER_ADDRESS]: " SERVER_ADDRESS </dev/tty
-if [ -z "$SERVER_ADDRESS" ]; then
-    SERVER_ADDRESS="$DEFAULT_SERVER_ADDRESS"
-fi
+SERVER_ADDRESS="https://distributedknowledge.org"
 
-# Project Directory (must be provided)
-DEFAULT_PROJECT_DIR="$HOME/.config"
-read -p "Enter the Project Directory [default: $HOME/.config]: " PROJECT_DIR </dev/tty
-if [ -z "$PROJECT_DIR" ]; then
-    PROJECT_DIR="$DEFAULT_PROJECT_DIR"
-fi
-PROJECT_DIR+="/dk"
-
-# Project sub-directories
-QUERIES_DIR="$PROJECT_DIR/queries.json"
-ANSWERS_DIR="$PROJECT_DIR/answers.json"
-AUTO_APPROVAL="$PROJECT_DIR/auto_approval.json"
-DEFAULT_VECTOR_DB_DIR="$PROJECT_DIR/vector_db"
+PROJECT_DIR="$HOME/.config/dk"
+VECTOR_DB_DIR="$PROJECT_DIR/vector_db"
 KEYS_PATH="$PROJECT_DIR/keys"
 
 # -----------------------------------------------------------------------------
-# 3A. Rag Source File Configuration
+# 4A. Rag Source File Configuration
 # -----------------------------------------------------------------------------
-# New behavior: if the user does not specify a Rag source file, default to $PROJECT_DIR/rag_sources.jsonl.
-# The prompt now includes a comment explaining that if left blank, a sample rag source will be generated.
-DEFAULT_RAG_FILE="$PROJECT_DIR/rag_sources.jsonl"
-mkdir -p $PROJECT_DIR
-read -p "Enter the path for Rag source file [default: $DEFAULT_RAG_FILE] (if left blank, a sample rag source will be generated): " RAG_DIR </dev/tty
-if [ -z "$RAG_DIR" ]; then
-    RAG_DIR="$DEFAULT_RAG_FILE"
-    echo "No Rag source file provided. Creating sample file at $RAG_DIR..."
-    # Embedded sample content from your provided rag_sources.jsonl file:
-    cat << 'EOF' > "$RAG_DIR"
+RAG_FILE="$PROJECT_DIR/rag_sources.jsonl"
+mkdir -p "$PROJECT_DIR"
+cat << 'EOF' > "$RAG_FILE"
 {
   "file": "relationships_questionnaire.md",
-  "text": "# Relationships Questionnaire\n\n1. **What qualities do you value in a friend?**\n   I value honesty, loyalty, empathy, and a good sense of humor in a friend.\n\n2. **How do you build and maintain strong relationships?**\n   Through open communication, mutual respect, and spending quality time together.\n\n3. **Who has been your greatest mentor or role model?**\n   My greatest mentor has been Sarah, who taught me the importance of resilience and persistence.\n\n4. **What do you look for in a partner?**\n   I look for someone who shares my values, is kind, and intellectually stimulating.\n\n5. **How do you resolve conflicts with loved ones?**\n   By communicating openly, listening, and finding a compromise.\n\n6. **How do you show appreciation to others?**\n   Through small gestures, kind words, and spending quality time together.\n\n7. **What role does trust play in your relationships?**\n   Trust is the foundation of any strong relationship, ensuring honesty and emotional safety.\n\n8. **How have your relationships shaped you?**\n   They’ve taught me empathy, patience, and the value of surrounding myself with supportive people.\n\n9. **What is a lesson you've learned from a past relationship?**\n   Communication is key to avoiding misunderstandings and resolving issues.\n\n10. **How do you support others emotionally?**\n   By listening, offering reassurance, and providing comfort when needed."
+  "text": "# Relationships Questionnaire\n\n1. **What qualities do you value in a friend?**\n   I value honesty, loyalty, empathy, and a good sense of humor in a friend.\n\n2. **How do you build and maintain strong relationships?**\n   Through open communication, mutual respect, and spending quality time together.\n\n3. **Who has been your greatest mentor or role model?**\n   My greatest mentor has been Sarah, who taught me the importance of resilience and persistence.\n\n4. **What do you look for in a partner?**\n   I look for someone who shares my values, is kind, and intellectually stimulating.\n\n5. **How do you resolve conflicts with loved ones?**\n   By communicating openly, listening, and finding a compromise.\n\n6. **How do you show appreciation to others?**\n   Through small gestures, kind words, and spending quality time together.\n\n7. **What role does trust play in your relationships?**\n   Trust is the foundation of any strong relationship.\n\n8. **How have your relationships shaped you?**\n   They’ve taught me empathy and the value of supportive people.\n\n9. **What is a lesson you've learned from a past relationship?**\n   Communication is key to resolving issues.\n\n10. **How do you support others emotionally?**\n   By listening and offering reassurance."
 }
 {
   "file": "career_aspirations_questionnaire.md",
-  "text": "# Career Aspirations Questionnaire\n\n1. **What career path are you currently pursuing?**\n   I’m pursuing a career in digital marketing, focusing on content strategy and brand development.\n\n2. **What inspired you to choose this field?**\n   A marketing campaign I saw during college really inspired me, as it showed the power of storytelling in connecting with an audience.\n\n3. **What skills do you want to develop professionally?**\n   I want to enhance my leadership and project management skills, especially in large-scale campaigns.\n\n4. **What does success mean to you in your career?**\n   Success is about achieving personal growth, building meaningful relationships, and making a tangible impact through my work.\n\n5. **What challenges have you faced in your career journey?**\n   I’ve faced challenges like adapting to fast-changing industry trends, but it’s taught me how to stay agile and always keep learning.\n\n6. **How do you stay motivated at work?**\n   I stay motivated by setting goals, celebrating small wins, and focusing on the bigger picture.\n\n7. **What role does passion play in your career decisions?**\n   Passion drives me to give my best effort and stay committed to my goals, even during difficult times.\n\n8. **Where do you see yourself in five years?**\n   I see myself in a senior marketing role, leading a team and driving major projects that impact the company’s growth.\n\n9. **Who is someone in your field you admire?**\n   I admire Emma Thompson, whose innovative campaigns have changed how brands engage with consumers globally.\n\n10. **What is your proudest career accomplishment so far?**\n   My proudest accomplishment was leading a project that increased our company’s social media engagement by 40%."
+  "text": "# Career Aspirations Questionnaire\n\n1. **What career path are you pursuing?**\n   Digital marketing focusing on content strategy and brand development.\n\n2. **What inspired your career choice?**\n   A college marketing campaign that showcased storytelling's power.\n\n3. **Which skills do you want to develop?**\n   Leadership and project management for large campaigns.\n\n4. **What does career success mean to you?**\n   Personal growth, meaningful relationships, and measurable impact.\n\n5. **What challenges have you faced?**\n   Adapting to fast-changing industry trends.\n\n6. **How do you stay motivated?**\n   Setting goals and celebrating small wins.\n\n7. **Role of passion in your decisions?**\n   It drives commitment, even during tough times.\n\n8. **Where do you see yourself in five years?**\n   In a senior marketing role leading impactful projects.\n\n9. **Who do you admire in your field?**\n   Emma Thompson for her innovative campaigns.\n\n10. **Your proudest career accomplishment?**\n   Leading a project that boosted social media engagement by 40%."
 }
 {
   "file": "creativity_and_expression_questionnaire.md",
-  "text": "# Creativity and Expression Questionnaire\n\n1. **What does creativity mean to you?**\n   Creativity is about thinking outside the box, generating new ideas, and finding innovative ways to express myself.\n\n2. **In what ways do you express your creativity?**\n   I express it through writing and photography, often capturing moments that tell a deeper story.\n\n3. **Do you prefer structured or spontaneous creative processes?**\n   I lean toward spontaneity but appreciate structure for complex projects that require detailed planning.\n\n4. **Who inspires your creative work?**\n   I’m inspired by artists like Frida Kahlo and filmmakers like Wes Anderson, who use their work to convey deep emotions.\n\n5. **What is your favorite creative project you’ve done?**\n   My favorite project was creating a photo series on city life, where I explored contrasts between old architecture and modern culture.\n\n6. **How do you deal with creative blocks?**\n   I step away from the project, go for a walk, or engage with other forms of art to get the creative juices flowing again.\n\n7. **What role does creativity play in your everyday life?**\n   Creativity helps me solve problems, stay inspired, and approach everyday tasks in new and interesting ways.\n\n8. **Do you prefer to share your work or keep it private?**\n   I enjoy sharing my work with others to get feedback, but I also like to keep personal projects private for myself.\n\n9. **What medium do you feel most comfortable with (writing, art, music, etc.)?**\n   I feel most comfortable with photography, as it allows me to visually express stories and emotions.\n\n10. **How do you nurture and grow your creativity?**\n   By trying new hobbies, seeking inspiration from different cultures, and pushing myself to step outside my comfort zone."
+  "text": "# Creativity and Expression Questionnaire\n\n1. **What does creativity mean to you?**\n   Thinking outside the box and expressing new ideas.\n\n2. **How do you express creativity?**\n   Through writing and photography that tell deeper stories.\n\n3. **Do you prefer structured or spontaneous processes?**\n   A blend of both, favoring spontaneity for inspiration.\n\n4. **Who inspires your creative work?**\n   Artists like Frida Kahlo and filmmakers like Wes Anderson.\n\n5. **Favorite creative project?**\n   Creating a photo series capturing city life contrasts.\n\n6. **How do you overcome creative blocks?**\n   By taking a break or trying different art forms.\n\n7. **Role of creativity in daily life?**\n   It enhances problem solving and innovation.\n\n8. **Do you share your work or keep it private?**\n   I value both sharing for feedback and private reflection.\n\n9. **Preferred creative medium?**\n   Photography for visual storytelling.\n\n10. **How do you nurture creativity?**\n   Experimenting with new hobbies and seeking diverse inspirations."
 }
 {
   "file": "health_and_wellness_questionnaire.md",
-  "text": "# Health and Wellness Questionnaire\n\n1. **How do you define wellness in your life?**\n   Wellness is a holistic approach to well-being that includes physical fitness, mental clarity, and emotional balance.\n\n2. **What does a healthy day look like for you?**\n   A healthy day includes morning exercise, balanced meals, taking time to relax, and getting plenty of sleep.\n\n3. **How do you stay physically active?**\n   I stay active with a combination of running, yoga, and weightlifting.\n\n4. **What role does mental health play in your life?**\n   Mental health is essential for maintaining overall well-being and helping me handle daily challenges.\n\n5. **What habits help you sleep and rest well?**\n   I follow a bedtime routine where I avoid screens and practice mindfulness before going to sleep.\n\n6. **How do you handle illness or setbacks?**\n   I focus on taking care of myself, staying patient, and seeking support when necessary to recover quickly.\n\n7. **Do you follow a specific diet or nutrition plan?**\n   I follow a balanced diet with lots of vegetables, lean proteins, and whole grains.\n\n8. **How do you manage screen time and digital wellness?**\n   I set daily limits for screen time and take frequent breaks to reduce strain on my eyes and mind.\n\n9. **What activities help you unwind?**\n   I unwind by reading, practicing meditation, or going for a nature walk.\n\n10. **How do you set and maintain health goals?**\n   I set specific, measurable goals and track my progress regularly to stay motivated."
+  "text": "# Health and Wellness Questionnaire\n\n1. **How do you define wellness?**\n   A balance of physical fitness, mental clarity, and emotional stability.\n\n2. **Describe a healthy day.**\n   Exercise, balanced meals, downtime, and adequate sleep.\n\n3. **How do you stay active?**\n   Running, yoga, and weightlifting.\n\n4. **Role of mental health?**\n   Critical for overall well-being.\n\n5. **Tips for good sleep?**\n   A relaxed routine and screen-free time before bed.\n\n6. **Handling setbacks?**\n   Self-care, patience, and seeking support.\n\n7. **Diet preferences?**\n   A balanced diet with vegetables, lean proteins, and whole grains.\n\n8. **Managing screen time?**\n   Setting limits and taking regular breaks.\n\n9. **Favorite unwinding activity?**\n   Reading, meditation, or nature walks.\n\n10. **How do you set health goals?**\n   With clear targets and regular progress checks."
 }
 {
   "file": "dreams_and_imagination_questionnaire.md",
-  "text": "# Dreams and Imagination Questionnaire\n\n1. **What’s one dream you’ve had since childhood?**\n   Since childhood, I’ve dreamed of traveling the world, experiencing new cultures, and documenting my journey through photography.\n\n2. **What role does imagination play in your life?**\n   Imagination fuels my creativity, helping me to see beyond the obvious and find new solutions to problems.\n\n3. **If you could live any alternate life, what would it look like?**\n   I’d live a life as a traveling photographer, capturing the beauty of the world while experiencing different cultures firsthand.\n\n4. **What’s the most fantastical idea you've ever thought of?**\n   One of the most fantastical ideas I’ve had was creating a self-sustaining city in the middle of a forest that uses renewable energy.\n\n5. **Have any of your dreams influenced real-life actions?**\n   Yes, my dream of becoming a photographer inspired me to pursue photography seriously and turn it into a career.\n\n6. **What inspires your daydreams?**\n   Daydreams are inspired by nature, adventure, and the idea of exploring unknown places.\n\n7. **What’s something impossible you wish could happen?**\n   I wish humans could live sustainably on Mars, making space travel a common part of everyday life.\n\n8. **Do you believe dreams have meanings?**\n   I believe dreams can offer insights into our subconscious and reflect our deeper emotions or desires.\n\n9. **How do you tap into your imagination?**\n   I tap into it by reading, listening to music, and exploring new experiences that push my boundaries.\n\n10. **What future do you envision for yourself and the world?**\n   I envision a future where I’ve traveled the world, learned new skills, and contributed to environmental sustainability through my work."
+  "text": "# Dreams and Imagination Questionnaire\n\n1. **A dream from childhood?**\n   Traveling and exploring diverse cultures through photography.\n\n2. **Role of imagination?**\n   Fueling creativity and innovative thinking.\n\n3. **Alternate life scenario?**\n   Living as a traveling photographer experiencing new cultures.\n\n4. **Most fantastical idea?**\n   A self-sustaining city in a forest using renewable energy.\n\n5. **Dream influencing reality?**\n   Pursuing photography as a serious career.\n\n6. **Inspiration for daydreams?**\n   Nature, adventure, and the unknown.\n\n7. **Something impossible you wish for?**\n   Humans living sustainably on Mars.\n\n8. **Do dreams have meaning?**\n   They offer insights into our subconscious.\n\n9. **How do you tap into imagination?**\n   Through reading, music, and new experiences.\n\n10. **Vision for the future?**\n   Personal travel, new skills, and contributing to sustainability."
 }
 EOF
-fi
 
 # -----------------------------------------------------------------------------
-# 4. LLM Provider, Model Selection, and API Key Configuration
+# 5. LLM Provider and Model Selection
 # -----------------------------------------------------------------------------
 echo ""
-echo "Select the LLM provider for generating answers:"
-echo "1) OpenAI"
-echo "2) Anthropic"
-echo "3) Ollama [local]"
-read -p "Enter your choice [1-3]: " LLM_PROVIDER_CHOICE </dev/tty
-
-case "$LLM_PROVIDER_CHOICE" in
-  1)
-    LLM_PROVIDER="openai"
-    ;;
-  2)
-    LLM_PROVIDER="anthropic"
-    ;;
-  3)
-    LLM_PROVIDER="ollama"
-    ;;
-  *)
-    echo "Invalid choice. Exiting."
-    exit 1
-    ;;
+echo "${PASTEL_PURPLE}Select LLM provider:${RESET}"
+echo "  1) OpenAI"
+echo "  2) Anthropic"
+echo "  3) Ollama [local]"
+read -p "${PASTEL_BLUE}Choice${RESET} [1-3]: " choice </dev/tty
+case "$choice" in
+  1) LLM_PROVIDER="openai" ;;
+  2) LLM_PROVIDER="anthropic" ;;
+  3) LLM_PROVIDER="ollama" ;;
+  *) echo "Invalid choice. Exiting." && exit 1 ;;
 esac
 
 if [ "$LLM_PROVIDER" == "openai" ]; then
     echo ""
-    echo "Select an OpenAI model:"
-    echo "1) gpt-4o-mini"
-    echo "2) gpt-4o"
-    read -p "Enter your choice [1-2]: " MODEL_CHOICE </dev/tty
-    case "$MODEL_CHOICE" in
-      1)
-        SELECTED_MODEL="gpt-4o-mini"
-        ;;
-      2)
-        SELECTED_MODEL="gpt-4o"
-        ;;
-      *)
-        echo "Invalid choice. Exiting."
-        exit 1
-        ;;
+    echo "${PASTEL_PURPLE}Select OpenAI model:${RESET}"
+    echo "  1) gpt-4o-mini"
+    echo "  2) gpt-4o"
+    read -p "${PASTEL_BLUE}Choice${RESET} [1-2]: " choice </dev/tty
+    case "$choice" in
+      1) SELECTED_MODEL="gpt-4o-mini" ;;
+      2) SELECTED_MODEL="gpt-4o" ;;
+      *) echo "Invalid choice. Exiting." && exit 1 ;;
     esac
 elif [ "$LLM_PROVIDER" == "anthropic" ]; then
     echo ""
-    echo "Select an Anthropic model:"
-    echo "1) claude-3.5-haiku"
-    echo "2) claude-3.7-sonnet"
-    read -p "Enter your choice [1-2]: " MODEL_CHOICE </dev/tty
-    case "$MODEL_CHOICE" in
-      1)
-        SELECTED_MODEL="claude-3.5-haiku"
-        ;;
-      2)
-        SELECTED_MODEL="claude-3.7-sonnet"
-        ;;
-      *)
-        echo "Invalid choice. Exiting."
-        exit 1
-        ;;
+    echo "${PASTEL_PURPLE}Select Anthropic model:${RESET}"
+    echo "  1) claude-3.5-haiku"
+    echo "  2) claude-3.7-sonnet"
+    read -p "${PASTEL_BLUE}Choice${RESET} [1-2]: " choice </dev/tty
+    case "$choice" in
+      1) SELECTED_MODEL="claude-3.5-haiku" ;;
+      2) SELECTED_MODEL="claude-3.7-sonnet" ;;
+      *) echo "Invalid choice. Exiting." && exit 1 ;;
     esac
 elif [ "$LLM_PROVIDER" == "ollama" ]; then
     echo ""
-    echo "Select an Ollama model:"
-    echo "1) gemma3:4b"
-    echo "2) qwen2.5:latest"
-    echo "3) deepseek-r1:7b"
-    read -p "Enter your choice [1-3]: " MODEL_CHOICE </dev/tty
-    case "$MODEL_CHOICE" in
-      1)
-        SELECTED_MODEL="gemma3:4b"
-        ;;
-      2)
-        SELECTED_MODEL="qwen2.5:latest"
-        ;;
-      3)
-        SELECTED_MODEL="deepseek-r1:7b"
-        ;;
-      *)
-        echo "Invalid choice. Exiting."
-        exit 1
-        ;;
+    echo "${PASTEL_PURPLE}Select Ollama model:${RESET}"
+    echo "  1) gemma3:4b"
+    echo "  2) qwen2.5:latest"
+    echo "  3) deepseek-r1:7b"
+    read -p "${PASTEL_BLUE}Choice${RESET} [1-3]: " choice </dev/tty
+    case "$choice" in
+      1) SELECTED_MODEL="gemma3:4b" ;;
+      2) SELECTED_MODEL="qwen2.5:latest" ;;
+      3) SELECTED_MODEL="deepseek-r1:7b" ;;
+      *) echo "Invalid choice. Exiting." && exit 1 ;;
     esac
 fi
 
-# For OpenAI or Anthropic, prompt for the API Key. (If left empty, the corresponding environment variable will be used.)
+# For OpenAI or Anthropic, read the API key directly into API_KEY
 if [ "$LLM_PROVIDER" == "openai" ]; then
-    read -p "Enter your OPENAI_API_KEY (if empty, the environment variable will be used): " OPENAI_API_KEY </dev/tty
-    API_KEY="$OPENAI_API_KEY"
+    read -p "${PASTEL_BLUE}Enter OPENAI_API_KEY (leave blank to use env variable)${RESET}: " API_KEY </dev/tty
 elif [ "$LLM_PROVIDER" == "anthropic" ]; then
-    read -p "Enter your ANTHROPIC_API_KEY (if empty, the environment variable will be used): " ANTHROPIC_API_KEY </dev/tty
-    API_KEY="$ANTHROPIC_API_KEY"
+    read -p "${PASTEL_BLUE}Enter ANTHROPIC_API_KEY (leave blank to use env variable)${RESET}: " API_KEY </dev/tty
+fi
+
+
+echo ""
+echo ""
+echo ""
+echo "${PASTEL_PURPLE}Installing / Pulling Ollama Models ${RESET}"
+# -----------------------------------------------------------------------------
+# 2. Dependency Check: Verify if 'ollama' is installed
+# -----------------------------------------------------------------------------
+if ! command -v ollama &>/dev/null; then
+    echo "Dependency missing: 'ollama' is not installed."
+    read -p "${PASTEL_BLUE}Install Ollama now?${RESET} [Y/n]: " install_ollama </dev/tty
+    if [[ "$install_ollama" =~ ^[Yy]$ || -z "$install_ollama" ]]; then
+        echo "Please visit https://ollama.ai/download to install Ollama, then re-run this script."
+    fi
+    exit 1
+else
+    echo "'ollama' is installed."
+fi
+
+echo "Pulling latest nomic-embed-text image from Ollama..."
+ollama pull nomic-embed-text
+
+if [ "$LLM_PROVIDER" == "ollama" ]; then
+    echo "Pulling model '$SELECTED_MODEL' via Ollama..."
+    ollama pull "$SELECTED_MODEL"
 fi
 
 # -----------------------------------------------------------------------------
-# 5. Create Necessary Directories
+# 6. Create Required Directories
 # -----------------------------------------------------------------------------
-echo "Creating required directories..."
-# mkdir -p "$PROJECT_DIR" "$QUERIES_DIR" "$ANSWERS_DIR" "$DEFAULT_VECTOR_DB_DIR" "$KEYS_PATH"
+mkdir -p "$PROJECT_DIR" "$VECTOR_DB_DIR" "$KEYS_PATH"
 
 # -----------------------------------------------------------------------------
-# 6. Install the Binary and Set Permissions
+# 7. Generate MCP and Model Configuration Files
 # -----------------------------------------------------------------------------
-echo "Installing the binary..."
-# cp myapp "$INSTALL_PATH/"
-# chmod +x "$INSTALL_PATH/myapp"
-
-# -----------------------------------------------------------------------------
-# 7. Set Up the MCP Configuration File
-# -----------------------------------------------------------------------------
-echo "Setting up MCP configuration file..."
-echo "User ID: $USER_ID"
-echo "Server Address: $SERVER_ADDRESS"
-echo "Project Directory: $PROJECT_DIR"
-echo "Queries Directory: $QUERIES_DIR"
-echo "Answers Directory: $ANSWERS_DIR"
-echo "Keys Path: $KEYS_PATH"
-echo "Rag Source: $RAG_DIR"
-
-# -----------------------------------------------------------------------------
-# 8. Generate LLM Model Configuration JSON
-# -----------------------------------------------------------------------------
-echo "Creating LLM model configuration file at $PROJECT_DIR/model_config.json..."
-
-mkdir -p "$PROJECT_DIR"
-mkdir -p "$KEYS_PATH"
-
 if [ "$LLM_PROVIDER" == "ollama" ]; then
     cat << EOF > "$PROJECT_DIR/model_config.json"
 {
@@ -247,14 +261,8 @@ else
 }
 EOF
 fi
-echo "Model configuration file created successfully."
 
-# -----------------------------------------------------------------------------
-# 8.5. Update MCP Configuration File
-# -----------------------------------------------------------------------------
-echo "Updating MCP configuration file at $MCP_CONFIG_DIR..."
 if [ ! -f "$MCP_CONFIG_DIR" ]; then
-    echo "MCP configuration file does not exist. Creating a new one..."
     cat << EOF > "$MCP_CONFIG_DIR"
 {
   "mcpServers": {
@@ -265,7 +273,7 @@ if [ ! -f "$MCP_CONFIG_DIR" ]; then
         "-private", "$KEYS_PATH/private_key",
         "-public", "$KEYS_PATH/public_key",
         "-project_path", "$PROJECT_DIR",
-        "-rag_sources", "$RAG_DIR",
+        "-rag_sources", "$RAG_FILE",
         "-server", "$SERVER_ADDRESS"
       ]
     }
@@ -273,27 +281,26 @@ if [ ! -f "$MCP_CONFIG_DIR" ]; then
 }
 EOF
 else
-    echo "MCP configuration file already exists. Adding new DistributedKnowledge entry..."
     if grep -q '"mcpServers"' "$MCP_CONFIG_DIR"; then
-        awk -v install_path="$INSTALL_PATH/dk" \
-            -v user_id="$USER_ID" \
-            -v keys_path="$KEYS_PATH" \
-            -v project_dir="$PROJECT_DIR" \
-            -v rag_dir="$RAG_DIR" \
-            -v server_address="$SERVER_ADDRESS" '
+        awk -v ip="$INSTALL_PATH/dk" \
+            -v uid="$USER_ID" \
+            -v kp="$KEYS_PATH" \
+            -v pd="$PROJECT_DIR" \
+            -v rg="$RAG_FILE" \
+            -v sa="$SERVER_ADDRESS" '
 BEGIN { inBlock=0; inserted=0 }
 /"mcpServers"[[:space:]]*:[[:space:]]*{/ { inBlock=1 }
 {
   if (inBlock && /^[[:space:]]*}\s*$/ && inserted==0) {
     print "    },\"DistributedKnowledge\": {"
-    print "        \"command\": \"" install_path "\","
+    print "        \"command\": \"" ip "\","
     print "        \"args\": ["
-    print "            \"-userId\", \"" user_id "\","
-    print "            \"-private\", \"" keys_path "/private_key\","
-    print "            \"-public\", \"" keys_path "/public_key\","
-    print "            \"-project_path\", \"" project_dir "\","
-    print "            \"-rag_sources\", \"" rag_dir "\","
-    print "            \"-server\", \"" server_address "\""
+    print "            \"-userId\", \"" uid "\","
+    print "            \"-private\", \"" kp "/private_key\","
+    print "            \"-public\", \"" kp "/public_key\","
+    print "            \"-project_path\", \"" pd "\","
+    print "            \"-rag_sources\", \"" rg "\","
+    print "            \"-server\", \"" sa "\""
     print "        ]"
     print "    }"
     inserted=1
@@ -303,7 +310,6 @@ BEGIN { inBlock=0; inserted=0 }
 }
 ' "$MCP_CONFIG_DIR" > "$MCP_CONFIG_DIR.tmp" && mv "$MCP_CONFIG_DIR.tmp" "$MCP_CONFIG_DIR"
     else
-        echo "No \"mcpServers\" key found in MCP configuration file. Adding one..."
         cat << EOF > "$MCP_CONFIG_DIR.tmp"
 {
   "mcpServers": {
@@ -314,7 +320,7 @@ BEGIN { inBlock=0; inserted=0 }
         "-private", "$KEYS_PATH/private_key",
         "-public", "$KEYS_PATH/public_key",
         "-project_path", "$PROJECT_DIR",
-        "-rag_sources", "$RAG_DIR",
+        "-rag_sources", "$RAG_FILE",
         "-server", "$SERVER_ADDRESS"
       ]
     }
@@ -325,44 +331,53 @@ EOF
         mv "$MCP_CONFIG_DIR.tmp" "$MCP_CONFIG_DIR"
     fi
 fi
-echo "MCP configuration file updated successfully."
-
-
-chmod +x "$INSTALL_PATH/dk"
 
 # -----------------------------------------------------------------------------
-# 9. OS-specific Post-Installation Steps
+# 8. OS-Specific Post-Installation: Download DK Executable
 # -----------------------------------------------------------------------------
 if [ "$OS_TYPE" == "Darwin" ]; then
-    # -----------------------------------------------------------------------------
-    # 9. Download / Install DK executable
-    # -----------------------------------------------------------------------------
-    echo "Installing the Distributed Knowledge App..."
-    if command -v curl > /dev/null 2>&1; then
-        echo "Using curl to download the binary."
-        curl -fsSL "https://distributedknowledge.org/download/mac" -o "$INSTALL_PATH/dk"
-    elif command -v wget > /dev/null 2>&1; then
-        echo "Using wget to download the binary."
-        wget -q "https://distributedknowledge.org/download/mac" -O "$INSTALL_PATH/dk"
+    if command -v curl &>/dev/null; then
+        sudo curl -fsSL "https://distributedknowledge.org/download/mac" -o "$INSTALL_PATH/dk"
+    elif command -v wget &>/dev/null; then
+        sudo wget -q "https://distributedknowledge.org/download/mac" -O "$INSTALL_PATH/dk"
     else
-        echo "Error: Neither curl nor wget is installed." >&2
+        echo "Error: Neither curl nor wget is available." >&2
         exit 1
     fi
 elif [ "$OS_TYPE" == "Linux" ]; then
-    # -----------------------------------------------------------------------------
-    # 9. Download / Install DK executable
-    # -----------------------------------------------------------------------------
-    echo "Installing the Distributed Knowledge App..."
-    if command -v curl > /dev/null 2>&1; then
-        echo "Using curl to download the binary."
-        curl -fsSL "https://distributedknowledge.org/download/linux" -o "$INSTALL_PATH/dk"
-    elif command -v wget > /dev/null 2>&1; then
-        echo "Using wget to download the binary."
-        wget -q "https://distributedknowledge.org/download/linux" -O "$INSTALL_PATH/dk"
+    if command -v curl &>/dev/null; then
+        sudo curl -fsSL "https://distributedknowledge.org/download/linux" -o "$INSTALL_PATH/dk"
+    elif command -v wget &>/dev/null; then
+        sudo wget -q "https://distributedknowledge.org/download/linux" -O "$INSTALL_PATH/dk"
     else
-        echo "Error: Neither curl nor wget is installed." >&2
+        echo "Error: Neither curl nor wget is available." >&2
         exit 1
     fi
 fi
 
-echo "Installation complete!"
+sudo chmod +x "$INSTALL_PATH/dk"
+
+echo ""
+echo ""
+echo ""
+echo ""
+echo "$PASTEL_PURPLE Configuration $RESET"
+echo ""
+echo "$PASTEL_GREEN User ID: $PASTEL_ORANGE $USER_ID"
+echo "$PASTEL_GREEN Server: $PASTEL_ORANGE $SERVER_ADDRESS"
+echo "$PASTEL_GREEN Project Directory: $PASTEL_ORANGE $PROJECT_DIR"
+echo "$PASTEL_GREEN Model: $PASTEL_ORANGE $SELECTED_MODEL"
+echo "$RESET"
+
+cat << 'EOF'
+
+·····························································································································································
+:  ____    _  __    ___                 _             _   _           _     _                      ____                               _          _          :
+: |  _ \  | |/ /   |_ _|  _ __    ___  | |_    __ _  | | | |   __ _  | |_  (_)   ___    _ __      / ___|   ___    _ __ ___    _ __   | |   ___  | |_    ___ :
+: | | | | | ' /     | |  | '_ \  / __| | __|  / _` | | | | |  / _` | | __| | |  / _ \  | '_ \    | |      / _ \  | '_ ` _ \  | '_ \  | |  / _ \ | __|  / _ \:
+: | |_| | | . \     | |  | | | | \__ \ | |_  | (_| | | | | | | (_| | | |_  | | | (_) | | | | |   | |___  | (_) | | | | | | | | |_) | | | |  __/ | |_  |  __/:
+: |____/  |_|\_\   |___| |_| |_| |___/  \__|  \__,_| |_| |_|  \__,_|  \__| |_|  \___/  |_| |_|    \____|  \___/  |_| |_| |_| | .__/  |_|  \___|  \__|  \___|:
+:                                                                                                                            |_|                            :
+·····························································································································································
+
+EOF

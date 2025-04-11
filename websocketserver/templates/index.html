@@ -22,13 +22,62 @@
     src="https://cdn.jsdelivr.net/npm/franken-ui@2.0.0/dist/js/icon.iife.js"
     type="module"
   ></script>
-
+  <link rel="stylesheet" href="/static/style.css" />
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans">
+<body class="bg-gray-800 text-gray-100 font-sans">
   <!-- 
     NAVBAR 
     --------------------------------------------------------------------------------
   -->
+  <!-- 
+    NAVBAR 
+    --------------------------------------------------------------------------------
+  -->
+  <nav class="bg-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo Section -->
+        <div class="flex-shrink-0">
+          <a href="#" class="flex items-center">
+            <!-- Placeholder custom logo icon SVG -->
+            <!--<svg class="h-8 w-8 text-blue-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">-->
+            <!--  <path d="M10 0L2 6.928V13.072L10 20l8-6.928V6.928L10 0z" />-->
+            <!--</svg>-->
+
+            <img src="/static/images/om_logo.svg" width="160" height="160" data-uk-svg />
+            <!--<span class="ml-2 text-white font-bold text-xl">Distributed Knowledge</span>-->
+          </a>
+        </div>
+        <!-- Desktop Navigation Links -->
+        <div class="hidden md:flex space-x-4 items-center">
+          <img src="/static/images/x_logo.svg" width="24" height="24" data-uk-svg />
+          <img src="/static/images/github_logo.svg" width="24" height="24" data-uk-svg />
+          <a class="uk-btn uk-btn-default bg-gray-50 text-gray-700" href="">Get Involved</a>
+        </div>
+        <!-- Mobile Menu Button -->
+        <div class="md:hidden">
+          <button id="mobile-menu-button" class="text-gray-300 hover:text-white focus:outline-none focus:text-white" aria-label="Toggle navigation">
+            <!-- Placeholder custom hamburger menu SVG -->
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Menu (hidden by default) -->
+    <div id="mobile-menu" class="hidden md:hidden">
+      <div class="px-2 pt-2 pb-3 space-y-1">
+        <a href="#" class="block text-gray-300 hover:text-white px-3 py-2 rounded-md text-base font-medium">Home</a>
+        <a href="#" class="block text-gray-300 hover:text-white px-3 py-2 rounded-md text-base font-medium">Features</a>
+        <a href="#" class="block text-gray-300 hover:text-white px-3 py-2 rounded-md text-base font-medium">Pricing</a>
+        <a href="#" class="block text-gray-300 hover:text-white px-3 py-2 rounded-md text-base font-medium">Contact</a>
+      </div>
+    </div>
+  </nav>
 
   <!-- 
     HERO SECTION 
@@ -37,61 +86,143 @@
     "connection" animations in the background. 
   -->
   <section
+    id="hero-section"
     class="relative w-full"
     style="height: calc(100vh - 3rem);" 
   >
     <!-- Animated Graph Canvas -->
-    <canvas
-      id="graph-canvas"
-      class="absolute inset-0 w-full h-full pointer-events-none"
-    ></canvas>
+    <!--<canvas-->
+    <!--  id="graph-canvas"-->
+    <!--  class="absolute inset-0 w-full h-full pointer-events-none"-->
+    <!--></canvas>-->
 
     <!-- Hero Content -->
     <div
       class="relative z-10 flex flex-col justify-center items-center h-full text-center px-4"
     >
+
+      <img src="/static/images/dk_logo.png" width="160" height="160" data-uk-svg />
       <!-- Title -->
-      <h1 class="text-5xl font-extrabold mb-4">
+      <h1 class="text-5xl font-bold mb-4 text-gray-50">
         Distributed Knowledge
       </h1>
       <!-- Subtitle -->
-      <p class="text-xl text-gray-300 mb-8">
+      <p class="text-xl text-gray-200 mb-8">
         Collective intelligence emerges where data connects.
+          <!--A new path to collective intelligence: <span class='text-red-400'>private</span>, <span class='text-yellow-400'>dynamic</span>, and <span class='text-teal-400'>owned by all</span>.-->
       </p>
 
       <!-- Command + Copy Button -->
-      <div class="flex items-center space-x-2">
-        <!-- Text Field with command -->
-        <input
-          id="install-command"
-          class="w-full max-w-md px-4 py-2 rounded border border-gray-600 bg-gray-800 text-gray-200"
-          readonly
-          value="curl -sSL https://distributedknowledge.org/install.sh | bash"
-        />
-        <!-- Copy Button -->
-        <button
-          id="copy-button"
-          class="flex items-center justify-center p-2 bg-blue-500 hover:bg-blue-600 text-white rounded transition uk-btn"
-          title="Copy to Clipboard"
-        >
-          <!-- Simple icon (could be from Franken UI icon set) -->
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M8 16H6a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v6a2 2 0 01-2 2h-2m-2 0v5m-4 0h4"
-            />
-          </svg>
-        </button>
+      <div class="flex items-center space-x-6">
+
+          <div >
+              <ul class="uk-subnav uk-subnav-primary space-x-4" uk-switcher>
+                <li>
+                    <button class='flex space-x-2 uk-btn uk-btn-default !rounded-md'>
+                      <p>Windows</p> 
+                      <img src="/static/images/windows_logo.svg" width="24" height="24" data-uk-svg /> 
+                    </button>
+                </li>
+
+                <li>
+                  <button class='flex space-x-2 uk-btn uk-btn-default !rounded-md'>
+                   <p>macOS</p> 
+                   <img src="/static/images/apple_logo.svg" width="24" height="24" data-uk-svg /> 
+                  </button>
+
+                </li>
+                <li>
+                  <button class='flex space-x-2 uk-btn uk-btn-default !rounded-md'>
+                   <p>Linux</p> 
+                   <img src="/static/images/linux_logo.svg" width="24" height="24" data-uk-svg /> 
+                  </button >
+                </li>
+              </ul>
+
+              <ul class="uk-switcher mt-4">
+                <li>
+                  <button type=""></button>
+                </li>
+
+                <li class='space-y-2'>
+                  <h3>Install with one command:</h3> 
+                  <div class='flex space-x-2'>
+                        <!-- Text Field with command -->
+                        <input
+                          id="install-command"
+                          class="w-full max-w-md px-4 py-2 rounded border border-gray-600 bg-gray-800 text-gray-200"
+                          readonly
+                          value="curl -sSL https://distributedknowledge.org/install.sh | bash"
+                        />
+                        <!-- Copy Button -->
+                        <button
+                          id="copy-button"
+                          class="flex items-center justify-center p-2 bg-gray-50 hover:bg-blue-600 text-gray-700 rounded transition uk-btn"
+                          title="Copy to Clipboard"
+                        >
+                          <!-- Simple icon (could be from Franken UI icon set) -->
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M8 16H6a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v6a2 2 0 01-2 2h-2m-2 0v5m-4 0h4"
+                            />
+                          </svg>
+                        </button>
+                  </div>
+                </li>
+                <li class='space-y-2'>
+                  <h3>Install with one command:</h3> 
+                  <div class='flex space-x-2'>
+                        <!-- Text Field with command -->
+                        <input
+                          id="install-command"
+                          class="w-full max-w-md px-4 py-2 rounded border border-gray-600 bg-gray-800 text-gray-200"
+                          readonly
+                          value="curl -sSL https://distributedknowledge.org/install.sh | bash"
+                        />
+                        <!-- Copy Button -->
+                        <button
+                          id="copy-button"
+                          class="flex items-center justify-center p-2 bg-gray-50 hover:bg-blue-600 text-gray-700 rounded transition uk-btn"
+                          title="Copy to Clipboard"
+                        >
+                          <!-- Simple icon (could be from Franken UI icon set) -->
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M8 16H6a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v6a2 2 0 01-2 2h-2m-2 0v5m-4 0h4"
+                            />
+                          </svg>
+                        </button>
+                  </div>
+                </li>
+              </ul>
+        </div>
       </div>
     </div>
+  <!-- Floating and Animated "Learn More" CTA Wrapper -->
+
+  <div class="absolute bottom-8 inset-x-0 flex justify-center">
+    <a id="learn-more-cta" href="#learn-more" uk-scroll class="uk-btn uk-btn-default bg-gray-50 text-gray-700 py-3 px-6 rounded-full shadow-lg hover:bg-blue-600 animate-bounce transition duration-500">
+      Learn More
+    </a>
+  </div>
   </section>
 
   <!-- 
@@ -99,18 +230,19 @@
     --------------------------------------------------------------------------------
     3 columns x 2 rows grid. Each cell: icon, bolded small title, description.
   -->
-  <section class="py-16 px-4">
+  <!--<section class="py-16 px-4 bg-gray-950">-->
+  <section id="learn-more" class="min-h-screen flex flex-col justify-center items-center px-4 bg-gray-950">
       <div class='flex justify-center item-center text-center'>
-        <h2 class='h2 text-3xl font-bold py-12'>
+        <h2 class='h2 text-3xl text-gray-50 font-bold py-12'>
           Collaborative Context,</br>Confidential Data
         </h2>
       </div>
     <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
       <!-- Repeated cell block, total 6 items (2 rows) so you can do 6 <div> cells -->
       <!-- 1 -->
-      <div class="flex flex-col items-center text-center space-y-2">
+      <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
         <!-- Icon (placeholder) -->
-        <div class="text-blue-500 mb-2">
+        <div class="mb-2">
           <i data-lucide="lock"></i>
         </div>
         <!-- Title + Description -->
@@ -121,8 +253,8 @@
       </div>
 
       <!-- 2 -->
-      <div class="flex flex-col items-center text-center space-y-2">
-        <div class="text-blue-500 mb-2">
+      <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
+        <div class="mb-2">
           <!-- Another icon -->
           <i data-lucide="refresh-ccw"></i>
         </div>
@@ -133,8 +265,8 @@
       </div>
 
       <!-- 3 -->
-      <div class="flex flex-col items-center text-center space-y-2">
-        <div class="text-blue-500 mb-2">
+      <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
+        <div class="mb-2">
           <!-- Icon -->
           <i data-lucide="waypoints"></i>
         </div>
@@ -145,8 +277,8 @@
       </div>
 
       <!-- 4 -->
-      <div class="flex flex-col items-center text-center space-y-2">
-        <div class="text-blue-500 mb-2">
+      <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
+        <div class="mb-2">
           <!-- Icon -->
           <!--<i data-lucide="lock"></i>-->
           <img src="/static/images/ollama.svg" width="24" height="24" data-uk-svg />
@@ -158,8 +290,8 @@
       </div>
 
       <!-- 5 -->
-      <div class="flex flex-col items-center text-center space-y-2">
-        <div class="text-blue-500 mb-2">
+      <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
+        <div class="mb-2">
           <!-- Icon -->
           <i data-lucide="key"></i>
         </div>
@@ -170,8 +302,8 @@
       </div>
 
       <!-- 6 -->
-      <div class="flex flex-col items-center text-center space-y-2">
-        <div class="text-blue-500 mb-2">
+      <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
+        <div class="mb-2">
           <!-- Icon -->
           <!--<i data-lucide="lock"></i>-->
           <img src="/static/images/mcp.svg" width="24" height="24" data-uk-svg />
@@ -190,10 +322,33 @@
   -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var cta = document.getElementById('learn-more-cta');
+      var hero = document.getElementById('hero-section');
+
+      if (!hero) {
+        console.error('No element found with id "hero-section"');
+        return; // Stop further execution if hero is missing.
+      }
+      
+      // Use Intersection Observer to detect if hero section is in view
+      var observer = new IntersectionObserver(function(entries) {
+        if (!entries[0].isIntersecting) {
+          cta.classList.add('opacity-0');
+        } else {
+          cta.classList.remove('opacity-0');
+        }
+      }, {
+        root: null,
+        threshold: 0
+      });
+      
+      observer.observe(hero);
+    });
+
     lucide.createIcons();
   </script>
   <!-- External JS -->
   <script src="/static/index.js"></script>
-  <!--<script src="/static/index.js"></script>-->
 </body>
 </html>

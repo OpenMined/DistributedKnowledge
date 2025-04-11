@@ -20,12 +20,12 @@ const canvas = document.getElementById("graph-canvas");
 if (canvas) {
   const ctx = canvas.getContext("2d");
   let w, h;
-  
+
   function initCanvas() {
     w = canvas.width = canvas.offsetWidth;
     h = canvas.height = canvas.offsetHeight;
   }
-  
+
   // On resize, reinitialize canvas size
   window.addEventListener("resize", initCanvas);
   initCanvas();
@@ -51,7 +51,7 @@ if (canvas) {
       // Draw point (circle)
       ctx.beginPath();
       ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-      ctx.fillStyle = "#3B82F6";
+      ctx.fillStyle = "#FCFCFD"; //"#3B82F6";
       ctx.fill();
     });
 
@@ -63,7 +63,7 @@ if (canvas) {
         const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
         // If points are within a certain distance, draw a connecting line
         if (dist < 120) {
-          ctx.strokeStyle = "rgba(59, 130, 246, 0.3)"; // #3B82F6 with alpha
+          ctx.strokeStyle = "rgba(252, 252, 253, 0.3)"; //"rgba(59, 130, 246, 0.3)"; // #3B82F6 with alpha
           ctx.beginPath();
           ctx.moveTo(p1.x, p1.y);
           ctx.lineTo(p2.x, p2.y);
