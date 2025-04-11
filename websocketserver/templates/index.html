@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Distributed Knowledge</title>
   <!-- Tailwind CSS (via CDN) -->
+  <link rel="icon" type="image/png" href="/static/favicon.ico">
   <script src="https://cdn.tailwindcss.com"></script>
   <link
     rel="stylesheet"
@@ -117,8 +118,8 @@
 
           <div >
               <ul class="uk-subnav uk-subnav-primary space-x-4" uk-switcher>
-                <li>
-                    <button class='flex space-x-2 uk-btn uk-btn-default !rounded-md'>
+              <li>
+                    <button id='windows-button' href="https://www.google.com" class='flex space-x-2 uk-btn uk-btn-default !rounded-md'>
                       <p>Windows</p> 
                       <img src="/static/images/windows_logo.svg" width="24" height="24" data-uk-svg /> 
                     </button>
@@ -345,7 +346,11 @@
       
       observer.observe(hero);
     });
-
+ 
+    document.getElementById('windows-button').addEventListener('click', function(event) { 
+     event.preventDefault(); // Prevent default action
+     window.location.href += "/download/windows"; // Manually navigate
+   });
     lucide.createIcons();
   </script>
   <!-- External JS -->

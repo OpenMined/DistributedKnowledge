@@ -68,6 +68,31 @@ func downloadMacHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func downloadWindowsHandler(w http.ResponseWriter, r *http.Request) {
+	// Specify the path to the binary file you wish to serve.
+	filePath := "./install/binaries/windows_dk.exe"
+	fileName := "DK Installer.exe"
+
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		log.Printf("Error opening file %s: %v", filePath, err)
+		return
+	}
+	defer file.Close()
+
+	// Set the headers to indicate a file download.
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+	w.Header().Set("Content-Type", "application/octet-stream")
+
+	// Stream the file to the client.
+	if _, err := io.Copy(w, file); err != nil {
+		http.Error(w, "Error downloading file", http.StatusInternalServerError)
+		log.Printf("Error copying file data: %v", err)
+	}
+}
+
 func provideInstallationScriptHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/x-shellscript")
 	http.ServeFile(w, r, "./install/install.sh")
@@ -119,6 +144,7 @@ func main() {
 	mux.HandleFunc("/auth/users/", authService.HandleGetUserInfo)
 	mux.HandleFunc("/download/linux", downloadLinuxHandler)
 	mux.HandleFunc("/download/mac", downloadMacHandler)
+	mux.HandleFunc("/download/windows", downloadWindowsHandler)
 	mux.HandleFunc("/install.sh", provideInstallationScriptHandler)
 
 	// static files (e.g., JS libs like htmx)
