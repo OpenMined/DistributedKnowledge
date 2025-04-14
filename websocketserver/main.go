@@ -102,11 +102,16 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	log.Println("Parsing Files")
 	tmpl := template.Must(template.ParseFiles("templates/index.html"))
 
-	log.Println("Parsed")
 	tmpl.Execute(w, nil)
-
-	log.Println("Executed")
 }
+
+func serveDownload(w http.ResponseWriter, r *http.Request) {
+	log.Println("Parsing Files")
+	tmpl := template.Must(template.ParseFiles("templates/download.html"))
+
+	tmpl.Execute(w, nil)
+}
+
 
 func main() {
 	// Load configuration. It is assumed that your configuration provides at least one secure address.
@@ -141,6 +146,7 @@ func main() {
 	mux.HandleFunc("/auth/register", authService.HandleRegistration)
 	mux.HandleFunc("/auth/login", authService.HandleLogin)
 	mux.HandleFunc("/", serveHome)
+	mux.HandleFunc("/download", serveDownload)
 	mux.HandleFunc("/auth/users/", authService.HandleGetUserInfo)
 	mux.HandleFunc("/download/linux", downloadLinuxHandler)
 	mux.HandleFunc("/download/mac", downloadMacHandler)

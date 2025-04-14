@@ -24,12 +24,30 @@
     type="module"
   ></script>
   <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .scroll-cta {
+      transition: all 0.3s ease-in-out;
+    }
+    .scroll-cta:hover {
+      transform: translateY(5px);
+    }
+    .animate-float {
+      animation: float 2.5s ease-in-out infinite;
+    }
+    @keyframes float {
+      0% {
+        transform: translateY(0px);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+      100% {
+        transform: translateY(0px);
+      }
+    }
+  </style>
 </head>
 <body class="bg-gray-800 text-gray-100 font-sans">
-  <!-- 
-    NAVBAR 
-    --------------------------------------------------------------------------------
-  -->
   <!-- 
     NAVBAR 
     --------------------------------------------------------------------------------
@@ -39,21 +57,19 @@
       <div class="flex items-center justify-between h-16">
         <!-- Logo Section -->
         <div class="flex-shrink-0">
-          <a href="#" class="flex items-center">
-            <!-- Placeholder custom logo icon SVG -->
-            <!--<svg class="h-8 w-8 text-blue-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">-->
-            <!--  <path d="M10 0L2 6.928V13.072L10 20l8-6.928V6.928L10 0z" />-->
-            <!--</svg>-->
-
+          <a href="https://openmined.org" class="flex items-center">
             <img src="/static/images/om_logo.svg" width="160" height="160" data-uk-svg />
-            <!--<span class="ml-2 text-white font-bold text-xl">Distributed Knowledge</span>-->
           </a>
         </div>
         <!-- Desktop Navigation Links -->
         <div class="hidden md:flex space-x-4 items-center">
-          <img src="/static/images/x_logo.svg" width="24" height="24" data-uk-svg />
-          <img src="/static/images/github_logo.svg" width="24" height="24" data-uk-svg />
-          <a class="uk-btn uk-btn-default bg-gray-50 text-gray-700" href="">Get Involved</a>
+            <a href="https://x.com/openminedorg">
+              <img src="/static/images/x_logo.svg" width="24" height="24" data-uk-svg />
+            </a>
+            <a href="https://github.com/OpenMined">
+              <img src="/static/images/github_logo.svg" width="24" height="24" data-uk-svg />
+            </a>
+          <a class="uk-btn uk-btn-default bg-gray-50 text-gray-700 hover:text-gray-700" href="https://communityinviter.com/apps/openmined/openmined/">Get Involved</a>
         </div>
         <!-- Mobile Menu Button -->
         <div class="md:hidden">
@@ -91,155 +107,165 @@
     class="relative w-full"
     style="height: calc(100vh - 3rem);" 
   >
-    <!-- Animated Graph Canvas -->
-    <!--<canvas-->
-    <!--  id="graph-canvas"-->
-    <!--  class="absolute inset-0 w-full h-full pointer-events-none"-->
-    <!--></canvas>-->
 
     <!-- Hero Content -->
     <div
-      class="relative z-10 flex flex-col justify-center items-center h-full text-center px-4"
+      class="relative z-1 flex flex-col justify-center items-center h-full text-center px-4"
     >
 
       <img src="/static/images/dk_logo.png" width="160" height="160" data-uk-svg />
       <!-- Title -->
       <h1 class="text-5xl font-bold mb-4 text-gray-50">
         Distributed Knowledge
+        <!--LLMs that think like the network : decentralized, dynamic, and truly yours.-->
       </h1>
       <!-- Subtitle -->
       <p class="text-xl text-gray-200 mb-8">
-        Collective intelligence emerges where data connects.
+          A network-aware LLM : private, evolving, owned by all.
+        <!--Collective intelligence emerges where data connects.-->
           <!--A new path to collective intelligence: <span class='text-red-400'>private</span>, <span class='text-yellow-400'>dynamic</span>, and <span class='text-teal-400'>owned by all</span>.-->
       </p>
 
       <!-- Command + Copy Button -->
       <div class="flex items-center space-x-6">
+          <button id="join-network" href='https://distributedknowledge.org/download' class='uk-btn uk-btn-default bg-gray-50 text-gray-700 hover:text-gray-700'>Join the Network</button>
+      </div>
+    </div>
+    
+    <!-- Floating and Animated "Learn More" CTA -->
+    <div class="absolute bottom-8 inset-x-0 flex justify-center z-2">
+      <a href="#learn-more" 
+         class="scroll-cta animate-float uk-btn uk-btn-default text-gray-50 py-3 px-6 rounded-full shadow-lg hover:bg-gray-50 hover:text-gray-700 transition duration-500 flex items-center space-x-2"
+         aria-label="Scroll to Learn More section">
+        <span>Learn More</span>
+        <i data-lucide="chevron-down" class="w-5 h-5"></i>
+      </a>
+    </div>
+  </section>
 
-          <div >
-              <ul class="uk-subnav uk-subnav-primary space-x-4" uk-switcher>
-              <li>
-                    <button id='windows-button' href="https://www.google.com" class='flex space-x-2 uk-btn uk-btn-default !rounded-md'>
-                      <p>Windows</p> 
-                      <img src="/static/images/windows_logo.svg" width="24" height="24" data-uk-svg /> 
-                    </button>
-                </li>
-
-                <li>
-                  <button class='flex space-x-2 uk-btn uk-btn-default !rounded-md'>
-                   <p>macOS</p> 
-                   <img src="/static/images/apple_logo.svg" width="24" height="24" data-uk-svg /> 
-                  </button>
-
-                </li>
-                <li>
-                  <button class='flex space-x-2 uk-btn uk-btn-default !rounded-md'>
-                   <p>Linux</p> 
-                   <img src="/static/images/linux_logo.svg" width="24" height="24" data-uk-svg /> 
-                  </button >
-                </li>
-              </ul>
-
-              <ul class="uk-switcher mt-4">
-                <li>
-                  <button type=""></button>
-                </li>
-
-                <li class='space-y-2'>
-                  <h3>Install with one command:</h3> 
-                  <div class='flex space-x-2'>
-                        <!-- Text Field with command -->
-                        <input
-                          id="install-command"
-                          class="w-full max-w-md px-4 py-2 rounded border border-gray-600 bg-gray-800 text-gray-200"
-                          readonly
-                          value="curl -sSL https://distributedknowledge.org/install.sh | bash"
-                        />
-                        <!-- Copy Button -->
-                        <button
-                          id="copy-button"
-                          class="flex items-center justify-center p-2 bg-gray-50 hover:bg-blue-600 text-gray-700 rounded transition uk-btn"
-                          title="Copy to Clipboard"
-                        >
-                          <!-- Simple icon (could be from Franken UI icon set) -->
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            stroke-width="2"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M8 16H6a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v6a2 2 0 01-2 2h-2m-2 0v5m-4 0h4"
-                            />
-                          </svg>
-                        </button>
-                  </div>
-                </li>
-                <li class='space-y-2'>
-                  <h3>Install with one command:</h3> 
-                  <div class='flex space-x-2'>
-                        <!-- Text Field with command -->
-                        <input
-                          id="install-command"
-                          class="w-full max-w-md px-4 py-2 rounded border border-gray-600 bg-gray-800 text-gray-200"
-                          readonly
-                          value="curl -sSL https://distributedknowledge.org/install.sh | bash"
-                        />
-                        <!-- Copy Button -->
-                        <button
-                          id="copy-button"
-                          class="flex items-center justify-center p-2 bg-gray-50 hover:bg-blue-600 text-gray-700 rounded transition uk-btn"
-                          title="Copy to Clipboard"
-                        >
-                          <!-- Simple icon (could be from Franken UI icon set) -->
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            stroke-width="2"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M8 16H6a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v6a2 2 0 01-2 2h-2m-2 0v5m-4 0h4"
-                            />
-                          </svg>
-                        </button>
-                  </div>
-                </li>
-              </ul>
+<section id="learn-more" class="py-16 relative w-full bg-gray-950 text-white"
+    style="height: calc(100vh);"
+  >
+  <div class="container mx-auto px-4">
+    <h1 class="text-center text-4xl font-bold mb-16">The whole internet as an LLM Model</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <!-- Feature 1: Federated -->
+      <div class="bg-gray-750 rounded-lg overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
+        <div class="p-8 h-full flex flex-col">
+          <div class="text-blue-300 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold mb-3">Federated</h2>
+          <p class="text-gray-200">Decentralized by design. A network where every node contributes to collective intelligence without central control.</p>
+          <div class="mt-auto pt-4">
+            <span class="inline-block px-3 py-1 bg-gray-600 rounded-full text-sm text-gray-200 font-medium">Learn More →</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Feature 2: Hybrid -->
+      <div class="bg-gray-750 rounded-lg overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
+        <div class="p-8 h-full flex flex-col">
+          <div class="text-purple-300 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold mb-3">Hybrid</h2>
+          <p class="text-gray-200">Public when it matters, private when it counts. Intelligence that adapts to your privacy needs in real-time.</p>
+          <div class="mt-auto pt-4">
+            <span class="inline-block px-3 py-1 bg-gray-600 rounded-full text-sm text-gray-200 font-medium">Learn More →</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Feature 3: Dynamic -->
+      <div class="bg-gray-750 rounded-lg overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
+        <div class="p-8 h-full flex flex-col">
+          <div class="text-green-300 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold mb-3">Dynamic</h2>
+          <p class="text-gray-200">No more retraining. Just real-time understanding. A model that evolves with every interaction and stays current.</p>
+          <div class="mt-auto pt-4">
+            <span class="inline-block px-3 py-1 bg-gray-600 rounded-full text-sm text-gray-200 font-medium">Learn More →</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Feature 4: Autonomous -->
+      <div class="bg-gray-750 rounded-lg overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
+        <div class="p-8 h-full flex flex-col">
+          <div class="text-amber-300 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold mb-3">Autonomous</h2>
+          <p class="text-gray-200">A network that can take decisions. Self-organizing systems that adapt, respond, and evolve without human intervention.</p>
+          <div class="mt-auto pt-4">
+            <span class="inline-block px-3 py-1 bg-gray-600 rounded-full text-sm text-gray-200 font-medium">Learn More →</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Feature 5: Open -->
+      <div class="bg-gray-750 rounded-lg overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
+        <div class="p-8 h-full flex flex-col">
+          <div class="text-red-300 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold mb-3">Open</h2>
+          <p class="text-gray-200">Not owned. Not controlled. Just shared. A public good with transparent governance and collective ownership.</p>
+          <div class="mt-auto pt-4">
+            <span class="inline-block px-3 py-1 bg-gray-600 rounded-full text-sm text-gray-200 font-medium">Learn More →</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Feature 6: Lightweight -->
+      <div class="bg-gray-750 rounded-lg overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
+        <div class="p-8 h-full flex flex-col">
+          <div class="text-teal-300 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold mb-3">Lightweight</h2>
+          <p class="text-gray-200">Focus on what matters, not on heavy hardware. Access the web's collective knowledge without massive computing resources—just pinpoint what you need.</p>
+          <div class="mt-auto pt-4">
+            <span class="inline-block px-3 py-1 bg-gray-600 rounded-full text-sm text-gray-200 font-medium">Learn More →</span>
+          </div>
         </div>
       </div>
     </div>
-  <!-- Floating and Animated "Learn More" CTA Wrapper -->
-
-  <div class="absolute bottom-8 inset-x-0 flex justify-center">
-    <a id="learn-more-cta" href="#learn-more" uk-scroll class="uk-btn uk-btn-default bg-gray-50 text-gray-700 py-3 px-6 rounded-full shadow-lg hover:bg-blue-600 animate-bounce transition duration-500">
-      Learn More
-    </a>
   </div>
-  </section>
+    <!-- Floating and Animated "Learn More" CTA -->
+    <div class="absolute bottom-8 inset-x-0 flex justify-center z-2">
+      <a href="#features-section" 
+         class="scroll-cta animate-float uk-btn uk-btn-default text-gray-50 py-3 px-6 rounded-full shadow-lg hover:bg-gray-50 hover:text-gray-700 transition duration-500 flex items-center space-x-2"
+         aria-label="Scroll to Learn More section">
+        <span>See features</span>
+        <i data-lucide="chevron-down" class="w-5 h-5"></i>
+      </a>
+    </div>
+</section>
 
-  <!-- 
-    ITEMS SECTION 
-    --------------------------------------------------------------------------------
-    3 columns x 2 rows grid. Each cell: icon, bolded small title, description.
-  -->
-  <!--<section class="py-16 px-4 bg-gray-950">-->
-  <section id="learn-more" class="min-h-screen flex flex-col justify-center items-center px-4 bg-gray-950">
-      <div class='flex justify-center item-center text-center'>
-        <h2 class='h2 text-3xl text-gray-50 font-bold py-12'>
-          Collaborative Context,</br>Confidential Data
-        </h2>
-      </div>
+  <!-- Features Section -->
+  <section id="features-section" class="min-h-screen flex flex-col justify-center items-center px-4 relative py-16">
+    <div class='flex justify-center item-center text-center'>
+      <h2 class='h2 text-3xl text-gray-50 font-bold py-12'>
+        Collaborative Context,</br>Confidential Data
+      </h2>
+    </div>
     <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-      <!-- Repeated cell block, total 6 items (2 rows) so you can do 6 <div> cells -->
       <!-- 1 -->
       <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
         <!-- Icon (placeholder) -->
@@ -281,7 +307,6 @@
       <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
         <div class="mb-2">
           <!-- Icon -->
-          <!--<i data-lucide="lock"></i>-->
           <img src="/static/images/ollama.svg" width="24" height="24" data-uk-svg />
         </div>
         <h3 class="font-bold">Ollama Compatible</h3>
@@ -306,7 +331,6 @@
       <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
         <div class="mb-2">
           <!-- Icon -->
-          <!--<i data-lucide="lock"></i>-->
           <img src="/static/images/mcp.svg" width="24" height="24" data-uk-svg />
         </div>
         <h3 class="font-bold">MCP Compatible</h3>
@@ -315,8 +339,24 @@
         </p>
       </div>
     </div>
+    
+    <!-- Scroll CTA -->
+    <div class="absolute bottom-8 inset-x-0 flex justify-center z-2">
+      <a href="#conclusion-section" 
+         class="scroll-cta animate-float uk-btn uk-btn-default text-gray-50 py-3 px-6 rounded-full shadow-lg hover:bg-gray-50 hover:text-gray-700 transition duration-500 flex items-center space-x-2"
+         aria-label="Scroll to Conclusion section">
+        <span>Final Thoughts</span>
+        <i data-lucide="chevron-down" class="w-5 h-5"></i>
+      </a>
+    </div>
   </section>
-
+  
+  <!-- Conclusion Section (No CTA since this is the last section) -->
+  <section id="conclusion-section" class="min-h-screen flex flex-col justify-center items-center px-4 bg-gray-950 space-y-8">
+    <h1 class='text-3xl text-center'>The next advance of AI isn't bigger — it's connected, private, and ours.</h1>
+    <button id="join-network-again" class='uk-btn uk-btn-default bg-gray-50 text-gray-700'>Join Now</button>
+  </section>
+  
   <!-- 
     FOOTER (Optional) 
     --------------------------------------------------------------------------------
@@ -324,36 +364,96 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      var cta = document.getElementById('learn-more-cta');
-      var hero = document.getElementById('hero-section');
-
-      if (!hero) {
-        console.error('No element found with id "hero-section"');
-        return; // Stop further execution if hero is missing.
+      // Mobile menu toggle
+      const mobileMenuButton = document.getElementById('mobile-menu-button');
+      const mobileMenu = document.getElementById('mobile-menu');
+      
+      if (mobileMenuButton && mobileMenu) {
+        mobileMenuButton.addEventListener('click', function() {
+          mobileMenu.classList.toggle('hidden');
+        });
       }
       
-      // Use Intersection Observer to detect if hero section is in view
-      var observer = new IntersectionObserver(function(entries) {
-        if (!entries[0].isIntersecting) {
-          cta.classList.add('opacity-0');
-        } else {
-          cta.classList.remove('opacity-0');
-        }
-      }, {
-        root: null,
-        threshold: 0
+      // Smooth scrolling for all anchor links
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          const targetId = this.getAttribute('href');
+          const targetElement = document.querySelector(targetId);
+          
+          if (targetElement) {
+            window.scrollTo({
+              top: targetElement.offsetTop,
+              behavior: 'smooth'
+            });
+          }
+        });
       });
       
-      observer.observe(hero);
+      // Improved hide/show scroll CTAs based on scroll position
+      const scrollCTAs = document.querySelectorAll('.scroll-cta');
+      window.addEventListener('scroll', function() {
+        const scrollPosition = window.scrollY;
+        const windowHeight = window.innerHeight;
+        
+        scrollCTAs.forEach(cta => {
+          // Get the section this CTA is in
+          const section = cta.closest('section');
+          const nextSectionId = cta.getAttribute('href');
+          const nextSection = document.querySelector(nextSectionId);
+          
+          if (section && nextSection) {
+            // Only hide the CTA when we're about 30% into the next section
+            const nextSectionTop = nextSection.offsetTop;
+            const hideThreshold = nextSectionTop + (nextSection.offsetHeight * 0.3);
+            
+            // Keep the CTA visible until we're well into the next section
+            if (scrollPosition > hideThreshold - windowHeight/2) {
+              cta.classList.add('opacity-0');
+            } else {
+              cta.classList.remove('opacity-0');
+            }
+          }
+        });
+      });
     });
- 
-    document.getElementById('windows-button').addEventListener('click', function(event) { 
-     event.preventDefault(); // Prevent default action
-     window.location.href += "/download/windows"; // Manually navigate
-   });
+
+    document.getElementById('join-network').addEventListener('click', function(event) {
+        event.preventDefault(); // Prevent default action
+        window.location.href += "/download"; // Manually navigate
+    });
+
+    document.getElementById('join-network-again').addEventListener('click', function(event) {
+        event.preventDefault(); // Prevent default action
+        window.location.href += "/download"; // Manually navigate
+    });
+
+
+    // Image preview functionality
+    const divItems = document.querySelectorAll('[data-img]');
+    const previewImg = document.getElementById('preview-image');
+    // Store the default image to restore on mouse out
+    const defaultImg = previewImg ? previewImg.src : '';
+    
+    // Iterate over each div element and add event listeners
+    if (previewImg) {
+      divItems.forEach(item => {
+        // When the user hovers over a div, update the image source
+        item.addEventListener('mouseover', function() {
+          const newSrc = this.getAttribute('data-img');
+          previewImg.src = newSrc;
+        });
+        
+        // When the user stops hovering, restore the default image
+        item.addEventListener('mouseout', function() {
+          previewImg.src = defaultImg;
+        });
+      });
+    }
+
+    // Initialize Lucide icons
     lucide.createIcons();
   </script>
-  <!-- External JS -->
-  <script src="/static/index.js"></script>
 </body>
 </html>
