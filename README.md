@@ -1,6 +1,5 @@
 # Distributed Knowledge
-
-<img src="websocketserver/static/images/dk_logo.png" alt="Distributed Knowledge Logo" width="200"/>
+<img src="websocketserver/static/images/dk_logo.png" alt="Distributed Knowledge Logo" style="display: block; margin: 0 auto; width: 200px;"/></code>
 
 A decentralized, network-aware LLM system that unites multiple small and local LLM peers into a collaborative intelligence network.
 
