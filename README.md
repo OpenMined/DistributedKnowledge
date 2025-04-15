@@ -29,7 +29,7 @@ Distributed Knowledge is an innovative approach to AI that turns the entire netw
 
 - **Core**: Contains the central logic for the distributed LLM system.
 - **Client**: Provides a client implementation for connecting to the Distributed Knowledge network.
-- **MCP**: Model Control Plane implementation for hosting models.
+- **MCP**: Model Context Protocol implementation for hosting models.
 - **Utils**: Common utilities used throughout the project.
 
 ## Getting Started
@@ -46,7 +46,7 @@ Distributed Knowledge is an innovative approach to AI that turns the entire netw
 git clone https://github.com/OpenMined/DistributedKnowledge.git
 cd DistributedKnowledge
 
-# Build the project
+# Build the MCP Project
 go build -o dk
 ```
 
@@ -56,7 +56,7 @@ go build -o dk
 2. Set up your RAG sources by following the example in `dk/examples/rag_source_example.jsonl`.
 3. For MCP configuration, refer to `dk/examples/mcp_config_example.json`.
 
-### Running the Server
+### Running your own Network Server
 
 ```bash
 # Start the websocket server
@@ -65,11 +65,24 @@ go build
 ./websocketserver
 ```
 
-### Running the Client
+### Adding the DK mcp Server into your LLM Workflow
 
-```bash
-# Run the client
-./dk <commands>
+```json
+{
+  "mcpServers": {
+    "DistributedKnowledge": {
+      "command": "dk",
+      "args": [
+        "-userId", "Bob",
+        "-private", "/path/to/private_key",
+        "-public", "/path/to/public_key",
+        "-project_path", "/path/to/project",
+        "-rag_sources", "/path/to/rag_sources.jsonl",
+        "-server", "https://distributedknowledge.org"
+      ]
+    }
+  }
+}
 ```
 
 ## Contributing
@@ -89,5 +102,3 @@ Visit [Distributed Knowledge](https://distributedknowledge.org) to learn more ab
 - OpenMined Organization
 
 ---
-
-Distributed Knowledge: A network-aware LLM - private, evolving, owned by all.
