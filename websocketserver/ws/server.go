@@ -99,6 +99,72 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	go client.readPump()
 }
 
+// UserStatusResponse represents the JSON response for user connectivity.
+type UserStatusResponse struct {
+	Online  []string `json:"online"`
+	Offline []string `json:"offline"`
+}
+
+// ActiveUsersHandler returns a JSON struct with "online" and "offline" user lists.
+func (s *Server) ActiveUsersHandler(w http.ResponseWriter, r *http.Request) {
+	// Only support GET requests.
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Retrieve online users from the in-memory clients map.
+	s.mu.RLock()
+	onlineUsers := make([]string, 0, len(s.clients))
+	for userID := range s.clients {
+		onlineUsers = append(onlineUsers, userID)
+	}
+	s.mu.RUnlock()
+
+	// Prepare a set for fast lookup.
+	onlineSet := make(map[string]bool, len(onlineUsers))
+	for _, id := range onlineUsers {
+		onlineSet[id] = true
+	}
+
+	// Retrieve all registered users from the database.
+	rows, err := s.db.Query("SELECT user_id FROM users")
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	allUsers := make([]string, 0)
+	for rows.Next() {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
+			continue
+		}
+		allUsers = append(allUsers, userID)
+	}
+
+	// Determine offline users by subtracting online users from all registered users.
+	offlineUsers := make([]string, 0)
+	for _, id := range allUsers {
+		if !onlineSet[id] {
+			offlineUsers = append(offlineUsers, id)
+		}
+	}
+
+	// Compose the response struct.
+	resp := UserStatusResponse{
+		Online:  onlineUsers,
+		Offline: offlineUsers,
+	}
+
+	// Write the JSON response.
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+}
+
 // registerClient adds a new client to the server and retrieves any undelivered messages.
 func (s *Server) registerClient(client *Client) {
 	s.mu.Lock()
