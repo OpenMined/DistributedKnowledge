@@ -15,6 +15,7 @@ import (
 	"websocketserver/auth"
 	"websocketserver/config"
 	"websocketserver/db"
+	"websocketserver/metrics"
 	"websocketserver/ws"
 )
 
@@ -127,6 +128,8 @@ func main() {
 	if err := db.RunMigrations(database); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
+
+	metrics.InitPersistence(database)
 
 	// Initialize authentication service.
 	authService := auth.NewService(database)

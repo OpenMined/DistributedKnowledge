@@ -4,14 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"github.com/gorilla/websocket"
 	"log"
 	"math/rand"
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
 	"websocketserver/auth"
+	"websocketserver/metrics"
 	"websocketserver/models"
 )
 
@@ -104,6 +105,16 @@ func (s *Server) registerClient(client *Client) {
 	s.clients[client.userID] = client
 	s.mu.Unlock()
 	log.Printf("User %s connected", client.userID)
+
+	// Create a unique session ID using the client pointer.
+	sessionID := fmt.Sprintf("%p", client)
+	// Record session start in memory (if desired) and in the database.
+	metrics.RecordSessionStart(sessionID, client.userID)
+	metrics.RecordSessionStartPersist(sessionID, client.userID, time.Now())
+
+	// Instrumentation: record session start (using the client pointer as a sessionID)
+	// sessionID := fmt.Sprintf("%p", client)
+	// metrics.RecordSessionStart(sessionID, client.userID)
 	// Deliver undelivered messages for this user.
 	s.RetrieveUndeliveredMessages(client.userID)
 }
@@ -118,6 +129,13 @@ func (s *Server) unregisterClient(client *Client) {
 	s.mu.Unlock()
 	// Clean up rate limiter for this user
 	s.RateLimiter.RemoveUser(client.userID)
+	// Record session end both in memory and persist to the database.
+	sessionID := fmt.Sprintf("%p", client)
+	metrics.RecordSessionEnd(sessionID, client.userID)
+	metrics.RecordSessionEndPersist(sessionID, time.Now())
+	// // Instrumentation: record session end.
+	// sessionID := fmt.Sprintf("%p", client)
+	// metrics.RecordSessionEnd(sessionID, client.userID)
 	log.Printf("User %s disconnected", client.userID)
 }
 
@@ -193,6 +211,8 @@ func (c *Client) readPump() {
 				return
 			}
 			log.Printf("Received message from %s: %s", c.userID, message)
+			// Instrumentation: record message sent (using client pointer as sessionID).
+			sessionID := fmt.Sprintf("%p", c)
 
 			// Apply rate limiting
 			if !c.server.RateLimiter.Allow(c.userID) {
@@ -221,6 +241,10 @@ func (c *Client) readPump() {
 			if msg.To == "broadcast" {
 				msg.IsBroadcast = true
 			}
+
+			// Use the client pointer as the session ID for persistence.
+			metrics.RecordMessageSent(sessionID, msg.IsBroadcast)
+			metrics.RecordMessageEventPersist(sessionID, c.userID, msg.IsBroadcast, time.Now())
 
 			// Save the message with a "pending" status, including the signature if present.
 			insertQuery := `INSERT INTO messages (from_user, to_user, timestamp, content, status, is_broadcast, signature) VALUES (?, ?, ?,?, ?, ?, ?)`
