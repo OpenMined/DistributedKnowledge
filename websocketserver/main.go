@@ -112,7 +112,6 @@ func serveDownload(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, nil)
 }
 
-
 func main() {
 	// Load configuration. It is assumed that your configuration provides at least one secure address.
 	cfg := config.LoadConfig()
@@ -145,6 +144,7 @@ func main() {
 	mux.HandleFunc("/ws", wsServer.HandleWebSocket)
 	mux.HandleFunc("/auth/register", authService.HandleRegistration)
 	mux.HandleFunc("/auth/login", authService.HandleLogin)
+	mux.HandleFunc("/auth/check-userid/", authService.HandleCheckUserID)
 	mux.HandleFunc("/", serveHome)
 	mux.HandleFunc("/download", serveDownload)
 	mux.HandleFunc("/auth/users/", authService.HandleGetUserInfo)
