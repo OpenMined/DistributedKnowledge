@@ -61,7 +61,7 @@ func ensureModelConfigFile(modelConfigPath string) {
 		// Default model configuration content.
 		defaultConfig := `{
   "provider": "openai",
-  "api_key": "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",
+  "api_key": "",
   "model": "gpt-4o-mini",
   "parameters": {
     "temperature": 0.7,
