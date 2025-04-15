@@ -44,6 +44,45 @@ type RegistrationPayload struct {
 	PublicKey string `json:"public_key"` // base64-encoded public key
 }
 
+func (s *Service) HandleCheckUserID(w http.ResponseWriter, r *http.Request) {
+	// Only allow GET requests
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract user_id from the URL path
+	// The URL should be /auth/check-userid/{userid}
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+	userID := pathParts[3]
+
+	// Check if the user ID exists in the database
+	var exists bool
+	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = ?)", userID).Scan(&exists)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+
+	// Create and send JSON response
+	response := struct {
+		Exists bool `json:"exists"`
+	}{
+		Exists: exists,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+}
+
 // HandleRegistration registers a new user.
 func (a *Service) HandleRegistration(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

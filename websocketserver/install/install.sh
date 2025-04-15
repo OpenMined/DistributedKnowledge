@@ -101,13 +101,70 @@ MCP_CONFIG_DIR=${MCP_CONFIG_DIR:-$HOME/.mcp.json}
 # -----------------------------------------------------------------------------
 # 4. User Configuration: Credentials, Server, and Project Directories
 # -----------------------------------------------------------------------------
-read -p "${PASTEL_BLUE}Enter your User ID${RESET}: " USER_ID </dev/tty
+# read -p "${PASTEL_BLUE}Enter your User ID${RESET}: " USER_ID </dev/tty
+# if [ -z "$USER_ID" ]; then
+#     echo "Error: User ID is required. Exiting."
+#     exit 1
+# fi
+
+SERVER_ADDRESS="https://distributedknowledge.org"
+
+# Prompt for User ID and check if it's already registered
+while true; do
+    read -p "${PASTEL_BLUE}Enter your User ID${RESET}: " USER_ID </dev/tty
+    
+    if [ -z "$USER_ID" ]; then
+        echo "${PASTEL_RED}Error: User ID is required.${RESET}"
+        continue
+    fi
+    
+    echo "${PASTEL_BLUE}Checking if User ID is available...${RESET}"
+    
+    # Temporarily disable exit on error
+    set +e
+    
+    # Check if userid exists directly
+    check_endpoint="${SERVER_ADDRESS}/auth/check-userid/${USER_ID}"
+    if command -v curl &>/dev/null; then
+        response=$(curl -s "$check_endpoint")
+    elif command -v wget &>/dev/null; then
+        response=$(wget -q -O - "$check_endpoint")
+    else
+        echo "${PASTEL_RED}Error: Neither curl nor wget is available for checking User ID.${RESET}"
+        exists_status=2
+    fi
+    
+    # Re-enable exit on error
+    set -e
+    
+    echo "Response: $response"
+    
+    # Determine if user exists
+    if echo "$response" | grep -q '"exists": *true'; then
+        echo "User ID '${USER_ID}' is already registered. Please choose another ID."
+        continue
+    elif echo "$response" | grep -q '"exists": *false'; then
+        echo "User ID '${USER_ID}' is available. Continuing with installation..."
+        break
+    else
+        echo "${PASTEL_RED}Error: Unexpected response from server.${RESET}"
+        echo "Response: $response"
+        read -p "${PASTEL_RED}Could not verify User ID. Do you want to try again? (y/n)${RESET}: " retry </dev/tty
+        if [[ ! "$retry" =~ ^[Yy]$ ]]; then
+            echo "${PASTEL_ORANGE}Proceeding with installation using User ID '${USER_ID}'.${RESET}"
+            break
+        fi
+    fi
+done
+
+# Ensure USER_ID is set before continuing
 if [ -z "$USER_ID" ]; then
-    echo "Error: User ID is required. Exiting."
+    echo "${PASTEL_RED}Error: No User ID provided. Exiting.${RESET}"
     exit 1
 fi
 
-SERVER_ADDRESS="https://distributedknowledge.org"
+
+
 
 PROJECT_DIR="$HOME/.config/dk"
 VECTOR_DB_DIR="$PROJECT_DIR/vector_db"
