@@ -155,6 +155,10 @@
       <!-- Command + Copy Button -->
       <div class="flex items-center space-x-6">
           <button id="join-network" href='https://distributedknowledge.org/download' class='uk-btn uk-btn-default bg-gray-50 text-gray-700 hover:text-gray-700'>Join the Network</button>
+          <button id="documentation-button" href='https://openmined.github.io/DistributedKnowledge/' class='uk-btn uk-btn-default gap-x-1'>
+              <i data-lucide="book-text" class="w-5 h-5"></i> 
+              Documentation
+          </button>
       </div>
     </div>
     </div>
@@ -454,6 +458,12 @@
         event.preventDefault(); // Prevent default action
         window.location.href += "/download"; // Manually navigate
     });
+
+    document.getElementById('documentation-button').addEventListener('click', function(event) {
+        event.preventDefault(); // Prevent default action
+        window.location.href = "https://openmined.github.io/DistributedKnowledge/" 
+    });
+
 
     document.getElementById('join-network-again').addEventListener('click', function(event) {
         event.preventDefault(); // Prevent default action
