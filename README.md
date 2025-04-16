@@ -5,7 +5,7 @@
   <h1>A decentralized, network-aware LLM system for collaborative intelligence.<h1>
   <div>
     <img src="https://badge.mcpx.dev/?type=server" />
-     <img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat"/>
+     <img src="https://img.shields.io/badge/license-Apache%202.0-brightgreen?style=flat"/>
      <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"/>
   </div>
 </div>
