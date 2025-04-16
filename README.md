@@ -8,7 +8,8 @@
      <img src="https://img.shields.io/badge/license-Apache%202.0-brightgreen?style=flat"/>
      <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"/>
   </div>
-   <img src="assets/demo.gif">
+   <!-- <img src="https://gifyu.com/image/bp984"> -->
+  <a href="https://gifyu.com/image/bp984"><img src="https://s6.gifyu.com/images/bp984.gif" alt="demo" border="0" /></a>
 </div>
 
 
