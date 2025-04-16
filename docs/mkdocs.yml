@@ -1,0 +1,90 @@
+site_name: Distributed Knowledge 
+theme:
+  logo: assets/dk_logo.png
+  favicon: assets/favicon.ico
+  name: material
+  features:
+  - navigation.sections
+  - navigation.expand
+  - navigation.tabs
+  - content.tabs.link
+  - content.code.annotation
+  - content.code.copy
+  language: en
+  palette:
+  - scheme: default
+    toggle:
+      icon: material/weather-night
+      name: Switch to dark mode
+    primary: teal
+    accent: purple
+  - scheme: slate
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to light mode
+    primary: teal
+    accent: lime
+  icon:
+    repo: fontawesome/brands/github
+
+repo_name: OpenMined/DistributedKnowledge
+repo_url: https://github.com/OpenMined/DistributedKnowledge
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - footnotes
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+- mkdocstrings
+- offline
+
+nav:
+- Home:
+  - Overview: index.md
+  - Getting Started: home/getting_started.md
+- Architecture:
+  - Overview: architecture/overview.md
+  - Network Communication: architecture/network_communication.md
+  - MCP Server: architecture/mcp_server.md
+  - RAG System: architecture/rag_system.md
+  - Security Model: architecture/security_model.md
+- Features:
+  - Core Features: features/core_features.md
+  - MCP Tools: features/mcp_tools.md
+  - LLM Integration: features/llm_integration.md
+- Configuration:
+  - Basic Configuration: configuration/basic.md
+  - Advanced Configuration: configuration/advanced.md
+  - Approval System: configuration/approval_system.md
+- Tutorials:
+  - Basic Usage: tutorials/basic_usage.md
+  - Running Your Own Server: tutorials/running_server.md
+  - MCP Integration: tutorials/mcp_integration.md
+- How-To Guides: how-to-guides.md
+
+extra:
+  social:
+  - icon: fontawesome/brands/github-alt
+    link: https://github.com/OpenMined/DistributedKnowledge
+  - icon: fontawesome/brands/linkedin
+    link: https://www.linkedin.com/company/openmined 
+  version:
+    provider: mike
+
+copyright: |
+  &copy; 2025 <a href="https://github.com/OpenMined"  target="_blank" rel="noopener">OpenMined</a>
