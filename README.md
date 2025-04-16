@@ -8,9 +8,12 @@
      <img src="https://img.shields.io/badge/license-Apache%202.0-brightgreen?style=flat"/>
      <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"/>
   </div>
+   <img src="assets/demo.gif">
 </div>
 
+
 ## Overview
+
 
 Distributed Knowledge is an innovative approach to AI that turns the entire network into a unified LLM model. Rather than relying on a single monolithic model, this system creates a federated network where every node contributes to collective intelligence without central control.
 
