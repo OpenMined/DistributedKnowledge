@@ -1,10 +1,14 @@
-# Distributed Knowledge
-<p align="center">
-<img src="websocketserver/static/images/dk_logo.png" alt="Distributed Knowledge Logo" style="display: block; margin: 0 auto; width: 200px;"/>
-</p>
-<h3 align="center">
-A decentralized, network-aware LLM system for collaborative intelligence network.
-</h3>
+<div align="center">
+  <a href="https://distributedknowledge.org"> 
+    <img src="websocketserver/static/images/dk_logo.png" alt="Distributed Knowledge Logo" style="display: block; margin: 0 auto; width: 200px;"/>
+  </a>
+  <h1>A decentralized, network-aware LLM system for collaborative intelligence.<h1>
+  <div>
+    <img src="https://badge.mcpx.dev/?type=server" />
+     <img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat"/>
+     <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"/>
+  </div>
+</div>
 
 ## Overview
 
@@ -28,19 +32,13 @@ Distributed Knowledge is an innovative approach to AI that turns the entire netw
 - **End-to-End Encryption**: Network peers are authenticated. Direct messages are signed and encrypted.
 - **MCP Compatible**: Fully compatible with regular MCP Hosts.
 
-## Project Structure
-
-- **Core**: Contains the central logic for the distributed LLM system.
-- **Client**: Provides a client implementation for connecting to the Distributed Knowledge network.
-- **MCP**: Model Context Protocol implementation for hosting models.
-- **Utils**: Common utilities used throughout the project.
-
 ## Getting Started
 
 ### Prerequisites
 
 - Go 1.x
 - Access to LLM providers (Anthropic, OpenAI, or Ollama)
+- Ollama `nomic-embed-text` model (to generate local RAG)
 
 ### Installation
 
