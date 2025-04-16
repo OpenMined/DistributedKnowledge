@@ -1263,3 +1263,56 @@ func HandleUpdateAnswerTool(ctx context.Context, request mcp_lib.CallToolRequest
 		},
 	}, nil
 }
+
+// HandleGetActiveUsersTool retrieves the active/inactive users from the server
+// and returns the information in a mcp_lib.CallToolResult.
+func HandleGetActiveUsersTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	// Retrieve the DK (client) from the context.
+	dkClient, err := utils.DkFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Error retrieving client from context: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	// Get the active users using the client method.
+	userStatus, err := dkClient.GetActiveUsers()
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Failed to get active users: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	// Format the result as JSON for a nice display.
+	resultJSON, err := json.MarshalIndent(userStatus, "", "  ")
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Error formatting result: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	// Return the active/inactive users wrapped in a CallToolResult.
+	return &mcp_lib.CallToolResult{
+		Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				Text: string(resultJSON),
+			},
+		},
+	}, nil
+}

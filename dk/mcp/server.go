@@ -164,5 +164,20 @@ func NewMCPServer() *server.MCPServer {
 		HandleUpdateAnswerTool,
 	)
 
+	// Tool: Get Active Users
+	mcpServer.AddTool(
+		mcp_lib.NewTool("cqGetActiveUsers",
+			mcp_lib.WithDescription("Retrieve active and inactive user lists from the server."),
+			mcp_lib.WithBoolean(
+				"flag",
+	       mcp_lib.DefaultBool(false),
+				// mcp_lib.Description("Sentence containing the condition to add."),
+				// mcp_lib.Required(),
+			),
+
+		),
+		HandleGetActiveUsersTool,
+	)
+
 	return mcpServer
 }

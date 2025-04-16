@@ -48,6 +48,12 @@ type EncryptedMessage struct {
 	EncryptedContent string `json:"encrypted_content"`
 }
 
+// UserStatusResponse holds the list of online and offline usernames.
+type UserStatusResponse struct {
+	Online  []string `json:"online"`
+	Offline []string `json:"offline"`
+}
+
 // Client represents the WebSocket client as before.
 type Client struct {
 	UserID     string
@@ -100,6 +106,51 @@ func (c *Client) Token() string {
 
 func (c *Client) SetReconnectInterval(interval time.Duration) {
 	c.reconnectInterval = interval
+}
+
+// GetActiveUsers performs an HTTP GET request to the serverURL + "/active-users" endpoint,
+// retrieves the active and inactive user lists, and returns a UserStatusResponse.
+// It follows best practices for error handling and resource management.
+func (c *Client) GetActiveUsers() (*UserStatusResponse, error) {
+	// Build the endpoint URL.
+	endpoint := fmt.Sprintf("%s/active-users", c.serverURL)
+
+	// Create a new HTTP GET request.
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GET request for active users: %w", err)
+	}
+
+	// Include the Authorization header if JWT token is set.
+	if c.jwtToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.jwtToken)
+	}
+
+	// Optionally, you could add a context with timeout here:
+	// ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// defer cancel()
+	// req = req.WithContext(ctx)
+
+	// Execute the request using the client's HTTP client.
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP request to %s failed: %w", endpoint, err)
+	}
+	defer resp.Body.Close()
+
+	// Check for a successful response.
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Decode the JSON response into the UserStatusResponse struct.
+	var userStatus UserStatusResponse
+	if err := json.NewDecoder(resp.Body).Decode(&userStatus); err != nil {
+		return nil, fmt.Errorf("failed to decode active users response: %w", err)
+	}
+
+	return &userStatus, nil
 }
 
 // signMessage generates a cryptographic signature of the message content.
