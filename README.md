@@ -1,8 +1,10 @@
 <div align="center">
+
   <div>
     <img src="https://badge.mcpx.dev/?type=server" />
      <img src="https://img.shields.io/badge/license-Apache%202.0-brightgreen?style=flat"/>
      <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"/>
+    <a href="https://openmined.github.io/DistributedKnowledge/"><img src="https://img.shields.io/badge/docs-dk-blue?style=flat"/></a>
   </div>
   <a href="https://distributedknowledge.org"> 
     <img src="websocketserver/static/images/dk_logo.png" alt="Distributed Knowledge Logo" style="display: block; margin: 0 auto; width: 200px;"/>
