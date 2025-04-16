@@ -45,6 +45,34 @@
         transform: translateY(0px);
       }
     }
+    
+    /* Added styles for responsive sections */
+    .responsive-section {
+      min-height: 100vh; 
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Main content container that takes available space */
+    .section-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    /* Ensure the bottom CTA is always visible and positioned correctly */
+    .bottom-cta-container {
+      margin-top: auto;
+      width: 100%;
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+      display: flex;
+      justify-content: center;
+    }
   </style>
 </head>
 <body class="bg-gray-800 text-gray-100 font-sans">
@@ -104,15 +132,13 @@
   -->
   <section
     id="hero-section"
-    class="relative w-full"
-    style="height: calc(100vh - 3rem);" 
+    class="responsive-section"
   >
-
     <!-- Hero Content -->
-    <div
-      class="relative z-1 flex flex-col justify-center items-center h-full text-center px-4"
-    >
-
+    <div class="section-content">
+      <div
+        class="relative z-1 flex flex-col justify-center items-center h-full text-center px-4"
+      >
       <img src="/static/images/dk_logo.png" width="160" height="160" data-uk-svg />
       <!-- Title -->
       <h1 class="text-5xl font-bold mb-4 text-gray-50">
@@ -131,9 +157,10 @@
           <button id="join-network" href='https://distributedknowledge.org/download' class='uk-btn uk-btn-default bg-gray-50 text-gray-700 hover:text-gray-700'>Join the Network</button>
       </div>
     </div>
+    </div>
     
     <!-- Floating and Animated "Learn More" CTA -->
-    <div class="absolute bottom-8 inset-x-0 flex justify-center z-2">
+    <div class="bottom-cta-container">
       <a href="#learn-more" 
          class="scroll-cta animate-float uk-btn uk-btn-default text-gray-50 py-3 px-6 rounded-full shadow-lg hover:bg-gray-50 hover:text-gray-700 transition duration-500 flex items-center space-x-2"
          aria-label="Scroll to Learn More section">
@@ -143,11 +170,10 @@
     </div>
   </section>
 
-<section id="learn-more" class="py-16 relative w-full bg-gray-950 text-white"
-    style="height: calc(100vh);"
-  >
-  <div class="container mx-auto px-4">
-    <h1 class="text-center text-4xl font-bold mb-16">The whole internet as an LLM Model</h1>
+<section id="learn-more" class="responsive-section bg-gray-950 text-white">
+  <div class="section-content">
+    <div class="container mx-auto px-4 py-8">
+      <h1 class="text-center text-4xl font-bold mb-16">The whole internet as an LLM Model</h1>
     
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       <!-- Feature 1: Federated -->
@@ -247,11 +273,12 @@
       </div>
     </div>
   </div>
-    <!-- Floating and Animated "Learn More" CTA -->
-    <div class="absolute bottom-8 inset-x-0 flex justify-center z-2">
+  </div>
+    <!-- Floating and Animated "See features" CTA -->
+    <div class="bottom-cta-container">
       <a href="#features-section" 
          class="scroll-cta animate-float uk-btn uk-btn-default text-gray-50 py-3 px-6 rounded-full shadow-lg hover:bg-gray-50 hover:text-gray-700 transition duration-500 flex items-center space-x-2"
-         aria-label="Scroll to Learn More section">
+         aria-label="Scroll to Features section">
         <span>See features</span>
         <i data-lucide="chevron-down" class="w-5 h-5"></i>
       </a>
@@ -259,12 +286,13 @@
 </section>
 
   <!-- Features Section -->
-  <section id="features-section" class="min-h-screen flex flex-col justify-center items-center px-4 relative py-16">
-    <div class='flex justify-center item-center text-center'>
-      <h2 class='h2 text-3xl text-gray-50 font-bold py-12'>
-        Collaborative Context,</br>Confidential Data
-      </h2>
-    </div>
+  <section id="features-section" class="responsive-section px-4">
+    <div class="section-content">
+      <div class='flex justify-center item-center text-center'>
+        <h2 class='h2 text-3xl text-gray-50 font-bold py-12'>
+          Collaborative Context,</br>Confidential Data
+        </h2>
+      </div>
     <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
       <!-- 1 -->
       <div class="flex flex-col text-gray-50 items-center text-center space-y-2">
@@ -339,9 +367,10 @@
         </p>
       </div>
     </div>
+    </div>
     
     <!-- Scroll CTA -->
-    <div class="absolute bottom-8 inset-x-0 flex justify-center z-2">
+    <div class="bottom-cta-container">
       <a href="#conclusion-section" 
          class="scroll-cta animate-float uk-btn uk-btn-default text-gray-50 py-3 px-6 rounded-full shadow-lg hover:bg-gray-50 hover:text-gray-700 transition duration-500 flex items-center space-x-2"
          aria-label="Scroll to Conclusion section">
@@ -352,9 +381,11 @@
   </section>
   
   <!-- Conclusion Section (No CTA since this is the last section) -->
-  <section id="conclusion-section" class="min-h-screen flex flex-col justify-center items-center px-4 bg-gray-950 space-y-8">
-    <h1 class='text-3xl text-center'>The next advance of AI isn't bigger,  it's connected, private, and ours.</h1>
-    <button id="join-network-again" class='uk-btn uk-btn-default bg-gray-50 text-gray-700'>Join Now</button>
+  <section id="conclusion-section" class="responsive-section px-4 bg-gray-950">
+    <div class="section-content flex flex-col justify-center items-center space-y-8">
+      <h1 class='text-3xl text-center'>The next advance of AI isn't bigger,  it's connected, private, and ours.</h1>
+      <button id="join-network-again" class='uk-btn uk-btn-default bg-gray-50 text-gray-700'>Join Now</button>
+    </div>
   </section>
   
   <!-- 
