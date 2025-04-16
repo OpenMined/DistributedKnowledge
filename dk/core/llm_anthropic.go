@@ -263,3 +263,7 @@ func (p *AnthropicProvider) CheckAutomaticApproval(ctx context.Context, answer s
 
 	return result.Reason, result.Result, nil
 }
+
+func (p *AnthropicProvider) GenerateDescription(ctx context.Context, text string) (string, error) {
+	return "", nil
+}

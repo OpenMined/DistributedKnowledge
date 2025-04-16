@@ -23,6 +23,13 @@ func Initialize(dbPath string) (*sql.DB, error) {
 
 // RunMigrations creates the necessary tables if they do not exist.
 func RunMigrations(db *sql.DB) error {
+	descriptionsTable := `
+	CREATE TABLE IF NOT EXISTS user_descriptions (
+		user_id TEXT PRIMARY KEY,
+		descriptions TEXT NOT NULL,
+		FOREIGN KEY(user_id) REFERENCES users(user_id)
+	);`
+
 	sessionsTable := `
 	CREATE TABLE IF NOT EXISTS sessions (
 		session_id TEXT PRIMARY KEY,
@@ -90,5 +97,8 @@ func RunMigrations(db *sql.DB) error {
 		return fmt.Errorf("failed to create message_events table: %v", err)
 	}
 
+	if _, err := db.Exec(descriptionsTable); err != nil {
+		return fmt.Errorf("failed to create user_descriptions table: %v", err)
+	}
 	return nil
 }

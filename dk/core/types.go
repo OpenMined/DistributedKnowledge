@@ -18,6 +18,14 @@ type QueriesData struct {
 	Queries map[string]Query `json:"queries"`
 }
 
+const GenerateDescriptionPrompt = `
+You are an AI assistant tasked with summarizing a given text in a one line phrase. Your goal is to provide a high-level overview of the text's main themes and ideas without disclosing specific details or important content. Ensure that your summary conveys the general essence of the text, allowing readers to grasp its overall purpose without accessing its nuanced specifics.
+
+  The response MUST BE ONLY the one line summarized phrase.
+  The response must provide a high-level overview of the text's main themes without disclosing specific details / important content.
+  it MUST start with "Data about <topic>". Where topic must be 1 or 2 words that better describes the text.
+`
+
 const CheckAutomaticApprovalPrompt = `
   You are a security policy AI assistant. Your task is to evaluate an input provided as a JSON object and return a JSON response approving/denying access and the reason why it was approved/denied.
 
@@ -96,6 +104,7 @@ type Document struct {
 type LLMProvider interface {
 	GenerateAnswer(ctx context.Context, question string, docs []Document) (string, error)
 	CheckAutomaticApproval(ctx context.Context, answer string, query Query, conditions []string) (string, bool, error)
+	GenerateDescription(ctx context.Context, text string) (string, error)
 }
 
 // ModelConfig stores configuration for an LLM model

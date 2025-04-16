@@ -1316,3 +1316,70 @@ func HandleGetActiveUsersTool(ctx context.Context, request mcp_lib.CallToolReque
 		},
 	}, nil
 }
+
+// Tool: Get User Descriptions
+// This tool retrieves the list of descriptions for a given user by invoking dkclient.GetUserDescriptions.
+func HandleGetUserDescriptionsTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	// Retrieve the tool arguments.
+	args := request.Params.Arguments
+	userID, ok := args["user_id"].(string)
+	if !ok || strings.TrimSpace(userID) == "" {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "'user_id' parameter is required",
+				},
+			},
+		}, nil
+	}
+
+	// Retrieve the DK client from the context.
+	dkClient, err := utils.DkFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Failed to retrieve DK client from context: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	// Call the client's GetUserDescriptions method.
+	descriptions, err := dkClient.GetUserDescriptions(userID)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Failed to get user descriptions: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	// Format the descriptions list as a JSON string.
+	formatted, err := json.MarshalIndent(descriptions, "", "  ")
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Error formatting descriptions: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	// Wrap the result in a CallToolResult.
+	return &mcp_lib.CallToolResult{
+		Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				Text: string(formatted),
+			},
+		},
+	}, nil
+}

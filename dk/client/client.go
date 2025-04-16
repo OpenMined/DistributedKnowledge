@@ -11,17 +11,16 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"filippo.io/edwards25519"
 	"fmt"
-	"io/ioutil"
+	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/nacl/box"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
-	// "os"
-	"filippo.io/edwards25519"
-	"github.com/gorilla/websocket"
-	"golang.org/x/crypto/nacl/box"
 )
 
 // Message represents the structure of messages exchanged with the server.
@@ -108,6 +107,91 @@ func (c *Client) SetReconnectInterval(interval time.Duration) {
 	c.reconnectInterval = interval
 }
 
+// GetUserDescriptions retrieves the list of descriptions for the specified userID.
+// It makes an HTTP GET request to the /user/descriptions/<user_id> endpoint.
+// Since no authentication is required for this endpoint, the request is sent without an Authorization header.
+func (c *Client) GetUserDescriptions(userID string) ([]string, error) {
+	// Construct the endpoint URL using the base server URL and the user ID.
+	endpoint := fmt.Sprintf("%s/user/descriptions/%s", c.serverURL, userID)
+
+	// Create a new HTTP GET request.
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GET request: %w", err)
+	}
+
+	// Execute the GET request using the client's HTTP client.
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP GET request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check if the response status code is OK.
+	if resp.StatusCode != http.StatusOK {
+		// Read the response body to include any error message.
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get user descriptions: %s (status code %d)", string(bodyBytes), resp.StatusCode)
+	}
+
+	// Decode the JSON array response into a slice of strings.
+	var descriptions []string
+	if err := json.NewDecoder(resp.Body).Decode(&descriptions); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Return the descriptions slice.
+	return descriptions, nil
+}
+
+// SetUserDescriptions sends the provided list of descriptions to the server's
+// "/user/descriptions" endpoint using a POST request. If the descriptions slice
+// is empty, it returns an error. It expects that the client already has a valid
+// JWT token stored in c.jwtToken.
+func (c *Client) SetUserDescriptions(descriptions []string) error {
+	if len(descriptions) == 0 {
+		return fmt.Errorf("descriptions list cannot be empty")
+	}
+
+	// Marshal the slice of strings into JSON.
+	payload, err := json.Marshal(descriptions)
+	if err != nil {
+		return fmt.Errorf("failed to marshal descriptions: %w", err)
+	}
+
+	// Construct the endpoint URL.
+	endpoint := fmt.Sprintf("%s/user/descriptions", c.serverURL)
+
+	// Create a new HTTP POST request with the JSON payload.
+	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set the required headers.
+	req.Header.Set("Content-Type", "application/json")
+	if c.jwtToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.jwtToken)
+	} else {
+		return fmt.Errorf("JWT token is not set; please login first")
+	}
+
+	// Execute the request using the client's HTTP client.
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check if the response status is OK.
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to set descriptions: %s (status code %d)", string(bodyBytes), resp.StatusCode)
+	}
+
+	return nil
+}
+
 // GetActiveUsers performs an HTTP GET request to the serverURL + "/active-users" endpoint,
 // retrieves the active and inactive user lists, and returns a UserStatusResponse.
 // It follows best practices for error handling and resource management.
@@ -140,7 +224,7 @@ func (c *Client) GetActiveUsers() (*UserStatusResponse, error) {
 
 	// Check for a successful response.
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
@@ -240,7 +324,7 @@ func (c *Client) GetUserPublicKey(userID string) (ed25519.PublicKey, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("failed to get user public key: %s", string(body))
 	}
 
@@ -308,7 +392,7 @@ func (c *Client) Register(username string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		b, _ := ioutil.ReadAll(resp.Body)
+		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("registration failed: %s", string(b))
 	}
 	return nil
@@ -330,7 +414,7 @@ func (c *Client) Login() error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		b, _ := ioutil.ReadAll(resp.Body)
+		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("login challenge failed: %s", string(b))
 	}
 
@@ -363,7 +447,7 @@ func (c *Client) Login() error {
 	defer resp2.Body.Close()
 
 	if resp2.StatusCode != http.StatusOK {
-		b, _ := ioutil.ReadAll(resp2.Body)
+		b, _ := io.ReadAll(resp2.Body)
 		return fmt.Errorf("login verification failed: %s", string(b))
 	}
 

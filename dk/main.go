@@ -102,11 +102,6 @@ func main() {
 		log.Fatalf("WebSocket connection failed: %v", err)
 	}
 
-	client.SetReadLimit(1024 * 1024)
-	chromemCollection := core.SetupChromemCollection(*params.VectorDBPath)
-	rootCtx = utils.WithChromemCollection(rootCtx, chromemCollection)
-	core.FeedChromem(rootCtx, *params.RagSourcesFile, false)
-
 	// Load LLM model configuration and create provider.
 	modelConfig, err := core.LoadModelConfig(*params.ModelConfigFile)
 	if err != nil {
@@ -120,6 +115,12 @@ func main() {
 			log.Printf("LLM provider '%s' initialized successfully with model '%s'", modelConfig.Provider, modelConfig.Model)
 		}
 	}
+
+	rootCtx = utils.WithDK(rootCtx, client)
+	client.SetReadLimit(1024 * 1024)
+	chromemCollection := core.SetupChromemCollection(*params.VectorDBPath)
+	rootCtx = utils.WithChromemCollection(rootCtx, chromemCollection)
+	core.FeedChromem(rootCtx, *params.RagSourcesFile, false)
 
 	mcpServer := mcp_server.NewMCPServer()
 
@@ -143,7 +144,6 @@ func main() {
 		}),
 	)
 
-	rootCtx = utils.WithDK(rootCtx, client)
 	rootCtx = utils.WithParams(rootCtx, params)
 	go core.HandleRequests(rootCtx)
 

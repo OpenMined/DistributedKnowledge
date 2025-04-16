@@ -4,12 +4,13 @@ import (
 	"context"
 	"dk/utils"
 	"encoding/json"
-	"github.com/philippgille/chromem-go"
 	"io"
 	"log"
 	"os"
 	"runtime"
 	"strconv"
+
+	"github.com/philippgille/chromem-go"
 )
 
 func SetupChromemCollection(vectorPath string) *chromem.Collection {
@@ -42,6 +43,7 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 
 	// Feed chromem with documents
 	var docs []chromem.Document
+	var descriptions []string
 	if chromemCollection.Count() == 0 || update {
 		// Here we use a DBpedia sample, where each line contains the lead section/introduction
 		// to some Wikipedia article and its category.
@@ -63,6 +65,17 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 				panic(err)
 			}
 
+			llmProvider, err := LLMProviderFromContext(ctx)
+			if err != nil {
+				panic(err)
+			}
+
+			description, err := llmProvider.GenerateDescription(ctx, article.Text)
+			if err != nil {
+				panic(err)
+			}
+			descriptions = append(descriptions, description)
+
 			// The embeddings model we use in this example ("nomic-embed-text")
 			// fare better with a prefix to differentiate between document and query.
 			// We'll have to cut it off later when we retrieve the documents.
@@ -73,10 +86,18 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 
 			docs = append(docs, chromem.Document{
 				ID:       strconv.Itoa(i),
-				Metadata: map[string]string{"file": article.FileName},
+				Metadata: map[string]string{"file": article.FileName, "description": description},
 				Content:  content,
 			})
 		}
+
+		dkClient, err := utils.DkFromContext(ctx)
+		if err != nil {
+			panic(err)
+		}
+
+		dkClient.SetUserDescriptions(descriptions)
+
 		log.Println("Adding documents to chromem-go, including creating their embeddings via Ollama API...")
 		if len(docs) == 0 {
 			log.Println("There's no content to generate the RAG. Skipping it for now")

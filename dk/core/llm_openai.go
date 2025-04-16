@@ -136,3 +136,42 @@ func (p *OpenAIProvider) CheckAutomaticApproval(ctx context.Context, answer stri
 
 	return result.Reason, result.Result, nil
 }
+
+func (p *OpenAIProvider) GenerateDescription(ctx context.Context, text string) (string, error) {
+	userPrompt := fmt.Sprintf("<FILE CONTENT>\n %s <FILE CONTENT>\n", text)
+
+	// Default to GPT-3.5 if not specified
+	model := p.config.Model
+	if model == "" {
+		model = openai.GPT3Dot5Turbo
+	}
+
+	// Use ChatCompletion for answer generation.
+	chatReq := openai.ChatCompletionRequest{
+		Model: model,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: "system", Content: GenerateDescriptionPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+	}
+
+	// Apply custom parameters if provided
+	if p.config.Parameters != nil {
+		if temp, ok := p.config.Parameters["temperature"].(float64); ok {
+			chatReq.Temperature = float32(temp)
+		}
+		if maxTokens, ok := p.config.Parameters["max_tokens"].(float64); ok {
+			chatReq.MaxTokens = int(maxTokens)
+		}
+	}
+
+	chatResp, err := p.client.CreateChatCompletion(ctx, chatReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate answer: %w", err)
+	}
+	if len(chatResp.Choices) == 0 {
+		return "", fmt.Errorf("no answer returned")
+	}
+	answer := chatResp.Choices[0].Message.Content
+	return answer, nil
+}

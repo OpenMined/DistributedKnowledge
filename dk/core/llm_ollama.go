@@ -267,3 +267,99 @@ func (p *OllamaProvider) CheckAutomaticApproval(ctx context.Context, answer stri
 
 	return result.Reason, result.Result, nil
 }
+
+func (p *OllamaProvider) GenerateDescription(ctx context.Context, text string) (string, error) {
+	// System prompt for evaluation
+	systemPrompt := "You are an AI assistant tasked with summarizing a given text. Your goal is to provide a high-level overview of the text's main themes and ideas without disclosing specific details or important content. Ensure that your summary conveys the general essence of the text, allowing readers to grasp its overall purpose without accessing its nuanced specifics."
+
+	// User prompt with data to evaluate
+	// userPrompt := fmt.Sprintf("Query:'%s'\n\n'Queried From:'%s'\n\n My Answer: '%s'\n\nConditions: %s\n",
+	// 	query.Question, query.From, answer, string(formatted))
+	userPrompt := fmt.Sprintf("<FILE CONTENT>\n %s <FILE CONTENT>\n", text)
+	// Default to llama3 if not specified
+	model := p.config.Model
+	if model == "" {
+		model = "llama3"
+	}
+
+	// Create the request
+	baseURL := "http://localhost:11434/api/generate"
+	if p.config.BaseURL != "" {
+		baseURL = p.config.BaseURL
+	}
+
+	req := OllamaRequest{
+		Model:  model,
+		Prompt: userPrompt,
+		System: systemPrompt,
+		Format: "json", // Request JSON format if supported by the model
+	}
+
+	// Apply custom parameters if provided
+	if p.config.Parameters != nil {
+		if temp, ok := p.config.Parameters["temperature"].(float64); ok {
+			req.Temperature = temp
+		}
+	}
+
+	// Convert request to JSON
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return "", fmt.Errorf("Error marshaling request")
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", baseURL, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("Error creating request")
+	}
+
+	// Add headers
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Add custom headers if provided
+	if p.config.Headers != nil {
+		for key, value := range p.config.Headers {
+			httpReq.Header.Set(key, value)
+		}
+	}
+
+	// Send request
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("Error sending request")
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("Error reading response body")
+	}
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API error")
+	}
+
+	// Parse the response - Ollama streams the response, so we need to collect it all
+	var sb strings.Builder
+	for _, line := range strings.Split(string(body), "\n") {
+		if line == "" {
+			continue
+		}
+		var ollamaResp OllamaResponse
+		if err := json.Unmarshal([]byte(line), &ollamaResp); err != nil {
+			continue // Skip lines that can't be parsed
+		}
+		if ollamaResp.Error != "" {
+			return "", fmt.Errorf("API error")
+		}
+		sb.WriteString(ollamaResp.Response)
+	}
+
+	// Extract the response text
+	responseText := sb.String()
+
+	return responseText, nil
+}
