@@ -7,7 +7,7 @@
     <a href="https://openmined.github.io/DistributedKnowledge/"><img src="https://img.shields.io/badge/docs-dk-blue?style=flat"/></a>
   </div>
   <a href="https://distributedknowledge.org"> 
-    <img src="websocketserver/static/images/dk_logo.png" alt="Distributed Knowledge Logo" style="display: block; margin: 0 auto; width: 200px;"/>
+    <img src="docs/docs/assets/dk_logo.png" alt="Distributed Knowledge Logo" style="display: block; margin: 0 auto; width: 200px;"/>
   </a>
   <h1>A decentralized, network-aware LLM system for collaborative intelligence.<h1>
 
