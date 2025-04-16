@@ -67,7 +67,7 @@
             <a href="https://x.com/openminedorg">
               <img src="/static/images/x_logo.svg" width="24" height="24" data-uk-svg />
             </a>
-            <a href="https://github.com/OpenMined">
+            <a href="https://github.com/OpenMined/DistributedKnowledge">
               <img src="/static/images/github_logo.svg" width="24" height="24" data-uk-svg />
             </a>
           <a class="uk-btn uk-btn-default bg-gray-50 text-gray-700 hover:text-gray-700" href="https://communityinviter.com/apps/openmined/openmined/">Get Involved</a>
@@ -167,14 +167,14 @@
                     <div class='flex space-x-2'>
                           <!-- Text Field with command -->
                           <input
-                            id="install-command"
+                            id="install-command-1"
                             class="w-full max-w-md px-4 py-2 rounded border border-gray-600 bg-gray-800 text-gray-200"
                             readonly
                             value="curl -sSL https://distributedknowledge.org/install.sh | bash"
                           />
                           <!-- Copy Button -->
                           <button
-                            id="copy-button"
+                            id="copy-button-1"
                             class="flex items-center justify-center p-2 bg-gray-50 hover:bg-blue-600 text-gray-700 rounded transition uk-btn"
                             title="Copy to Clipboard"
                           >
@@ -201,14 +201,14 @@
                     <div class='flex space-x-2'>
                           <!-- Text Field with command -->
                           <input
-                            id="install-command"
+                            id="install-command-2"
                             class="w-full max-w-md px-4 py-2 rounded border border-gray-600 bg-gray-800 text-gray-200"
                             readonly
                             value="curl -sSL https://distributedknowledge.org/install.sh | bash"
                           />
                           <!-- Copy Button -->
                           <button
-                            id="copy-button"
+                            id="copy-button-2"
                             class="flex items-center justify-center p-2 bg-gray-50 hover:bg-blue-600 text-gray-700 rounded transition uk-btn"
                             title="Copy to Clipboard"
                           >
@@ -240,10 +240,39 @@
   
 
   <script>
+      const copyButton1 = document.getElementById("copy-button-1");
+      const copyButton2 = document.getElementById("copy-button-2");
+      const commandField1 = document.getElementById("install-command-1");
+      const commandField2 = document.getElementById("install-command-2");
+
+      copyButton1.addEventListener("click", () => {
+        navigator.clipboard.writeText(commandField1.value)
+          .then(() => {
+            //alert("Command copied to clipboard!");
+            UIkit.notification({message: 'Copied to clipboard!', pos: 'bottom-right', timeout: 1000})
+          })
+          .catch((err) => {
+            console.error("Failed to copy:", err);
+          });
+      });
+
+      copyButton2.addEventListener("click", () => {
+        navigator.clipboard.writeText(commandField2.value)
+          .then(() => {
+            //alert("Command copied to clipboard!");
+            UIkit.notification({message: 'Copied to clipboard!', pos: 'bottom-right', timeout: 1000})
+          })
+          .catch((err) => {
+            console.error("Failed to copy:", err);
+          });
+      });
+
+
     document.getElementById('windows-button').addEventListener('click', function(event) {
         event.preventDefault(); // Prevent default action
         window.location.href += "/windows"; // Manually navigate
     });
+
   </script>
 </body>
 </html>
