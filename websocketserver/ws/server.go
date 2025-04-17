@@ -205,25 +205,46 @@ func (s *Server) unregisterClient(client *Client) {
 	log.Printf("User %s disconnected", client.userID)
 }
 
+// Add this new parameter to deliverMessage
 // deliverMessage sends the message to its intended recipient(s).
 // For broadcast messages, it iterates over all connected clients (skipping the sender).
-func (s *Server) deliverMessage(msg models.Message) error {
+// If isReconnection is true, it only delivers to the specified targetUser.
+func (s *Server) deliverMessage(msg models.Message, isReconnection bool, targetUser string) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
+
 	if msg.IsBroadcast {
 		s.mu.RLock()
-		for id, client := range s.clients {
-			// Optionally skip sending back to the sender.
-			if id == msg.From {
-				continue
+
+		// If this is a reconnection delivery, only send to the target user
+		if isReconnection {
+			if client, ok := s.clients[targetUser]; ok {
+				select {
+				case client.send <- data:
+					// Record this broadcast delivery
+					insertDeliveryQuery := "INSERT INTO broadcast_deliveries (message_id, user_id) VALUES (?, ?)"
+					if _, err := s.db.Exec(insertDeliveryQuery, msg.ID, targetUser); err != nil {
+						log.Printf("Failed to record broadcast delivery for message %d to user %s: %v", msg.ID, targetUser, err)
+					}
+				default:
+					log.Printf("Warning: send channel for client %s is full", client.userID)
+				}
 			}
-			// Non-blocking channel send.
-			select {
-			case client.send <- data:
-			default:
-				log.Printf("Warning: send channel for client %s is full", client.userID)
+		} else {
+			// Regular broadcast to all connected clients (except sender)
+			for id, client := range s.clients {
+				// Skip sending back to the sender
+				if id == msg.From {
+					continue
+				}
+				// Non-blocking channel send
+				select {
+				case client.send <- data:
+				default:
+					log.Printf("Warning: send channel for client %s is full", client.userID)
+				}
 			}
 		}
 		s.mu.RUnlock()
@@ -236,7 +257,7 @@ func (s *Server) deliverMessage(msg models.Message) error {
 		if online {
 			select {
 			case recipient.send <- data:
-				// Update direct message status to "delivered".
+				// Update direct message status to "delivered"
 				updateQuery := "UPDATE messages SET status = ? WHERE id = ?"
 				if _, err := s.db.Exec(updateQuery, "delivered", msg.ID); err != nil {
 					log.Printf("Failed to update message status for msg %d: %v", msg.ID, err)
@@ -251,8 +272,7 @@ func (s *Server) deliverMessage(msg models.Message) error {
 	return nil
 }
 
-// readPump continuously reads messages from the WebSocket.
-// It uses the client's context for cancellation and ensures a clean shutdown.
+// Modify readPump to use the updated deliverMessage signature
 func (c *Client) readPump() {
 	defer func() {
 		c.server.unregisterClient(c)
@@ -324,10 +344,87 @@ func (c *Client) readPump() {
 				msg.ID = int(lastID)
 			}
 			// Attempt to deliver the message in real time.
-			if err := c.server.deliverMessage(msg); err != nil {
+			// Pass false for isReconnection and empty string for targetUser since this is a normal message delivery
+			if err := c.server.deliverMessage(msg, false, ""); err != nil {
 				log.Printf("Delivery error for message %d from %s: %v", msg.ID, c.userID, err)
 			}
 		}
+	}
+}
+
+// Update the RetrieveUndeliveredMessages function to use the updated deliverMessage
+func (s *Server) RetrieveUndeliveredMessages(userID string) {
+	// Get the user's registration time
+	var createdAt time.Time
+	err := s.db.QueryRow("SELECT created_at FROM users WHERE user_id = ?", userID).Scan(&createdAt)
+	if err != nil {
+		log.Printf("Failed to retrieve user registration time for %s: %v", userID, err)
+		// If we can't get the registration time, proceed with caution - just deliver direct messages
+		query := `
+            SELECT m.id, m.from_user, m.to_user, m.timestamp, m.content, m.status, m.is_broadcast, m.signature 
+            FROM messages m 
+            LEFT JOIN broadcast_deliveries bd ON m.id = bd.message_id AND bd.user_id = ? 
+            WHERE m.to_user = ? AND m.status = 'pending' AND bd.message_id IS NULL
+        `
+		rows, err := s.db.Query(query, userID, userID)
+		if err != nil {
+			log.Printf("Failed to retrieve direct messages for %s: %v", userID, err)
+			return
+		}
+		defer rows.Close()
+
+		// Update to use the new version of processMessages
+		processMessages(s, rows, userID)
+		return
+	}
+
+	// Query for undelivered messages, including both direct and broadcast messages
+	// For broadcast messages, we rely on the database's automatic timestamp
+	query := `
+        SELECT m.id, m.from_user, m.to_user, m.timestamp, m.content, m.status, m.is_broadcast, m.signature 
+        FROM messages m 
+        LEFT JOIN broadcast_deliveries bd ON m.id = bd.message_id AND bd.user_id = ? 
+        WHERE (
+            (m.to_user = ? AND m.status = 'pending') 
+            OR 
+            (m.is_broadcast = TRUE AND m.status = 'pending' AND datetime(m.timestamp) >= datetime(?))
+        ) 
+        AND bd.message_id IS NULL
+    `
+
+	rows, err := s.db.Query(query, userID, userID, createdAt)
+	if err != nil {
+		log.Printf("Failed to retrieve undelivered messages for %s: %v", userID, err)
+		return
+	}
+	defer rows.Close()
+
+	// Update to use the new version of processMessages
+	processMessages(s, rows, userID)
+}
+
+// Update the helper function to process the message rows
+func processMessages(s *Server, rows *sql.Rows, userID string) {
+	for rows.Next() {
+		var msg models.Message
+		if err := rows.Scan(&msg.ID, &msg.From, &msg.To, &msg.Timestamp, &msg.Content, &msg.Status, &msg.IsBroadcast, &msg.Signature); err != nil {
+			log.Printf("Error scanning message for %s: %v", userID, err)
+			continue
+		}
+
+		// Pass true for isReconnection and userID for targetUser since this is a reconnection delivery
+		if err := s.deliverMessage(msg, true, userID); err != nil {
+			log.Printf("Error delivering undelivered message %d to %s: %v", msg.ID, userID, err)
+		}
+
+		// For direct messages, update the status
+		if !msg.IsBroadcast {
+			updateQuery := "UPDATE messages SET status = ? WHERE id = ?"
+			if _, err := s.db.Exec(updateQuery, "delivered", msg.ID); err != nil {
+				log.Printf("Failed to update message status for msg %d: %v", msg.ID, err)
+			}
+		}
+		// Note: broadcast_deliveries are now handled in the deliverMessage function
 	}
 }
 
@@ -365,41 +462,6 @@ func (c *Client) writePump() {
 	}
 }
 
-// RetrieveUndeliveredMessages queries the database for messages that have not yet been delivered
-// and attempts to deliver them to the given user.
-// It retrieves both direct messages (to_user equals userID) and broadcast messages (is_broadcast = TRUE)
-// that have not yet been delivered (as tracked in broadcast_deliveries).
-func (s *Server) RetrieveUndeliveredMessages(userID string) {
-	query := "SELECT m.id, m.from_user, m.to_user, m.timestamp, m.content, m.status, m.is_broadcast, m.signature FROM messages m LEFT JOIN broadcast_deliveries bd ON m.id = bd.message_id AND bd.user_id = ? WHERE ((m.to_user = ? AND m.status = 'pending') OR (m.is_broadcast = TRUE AND m.status = 'pending')) AND bd.message_id IS NULL"
-	rows, err := s.db.Query(query, userID, userID)
-	if err != nil {
-		log.Printf("Failed to retrieve undelivered messages for %s: %v", userID, err)
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var msg models.Message
-		if err := rows.Scan(&msg.ID, &msg.From, &msg.To, &msg.Timestamp, &msg.Content, &msg.Status, &msg.IsBroadcast, &msg.Signature); err != nil {
-			log.Printf("Error scanning message for %s: %v", userID, err)
-			continue
-		}
-
-		if err := s.deliverMessage(msg); err != nil {
-			log.Printf("Error delivering undelivered message %d to %s: %v", msg.ID, userID, err)
-		}
-		if msg.IsBroadcast {
-			insertDeliveryQuery := "INSERT INTO broadcast_deliveries (message_id, user_id) VALUES (?, ?)"
-			if _, err := s.db.Exec(insertDeliveryQuery, msg.ID, userID); err != nil {
-				log.Printf("Failed to record broadcast delivery for message %d to user %s: %v", msg.ID, userID, err)
-			}
-		} else {
-			updateQuery := "UPDATE messages SET status = ? WHERE id = ?"
-			if _, err := s.db.Exec(updateQuery, "delivered", msg.ID); err != nil {
-				log.Printf("Failed to update message status for msg %d: %v", msg.ID, err)
-			}
-		}
-	}
-}
 
 // exponentialBackoff is an example function to simulate reconnection backoff with jitter.
 func exponentialBackoff(base, max time.Duration) time.Duration {
