@@ -98,6 +98,7 @@ The RAG (Retrieval Augmented Generation) system uses a JSONL file to define know
 ```
 
 Each entry should include:
+
 - `text`: The content of the document
 - `file`: A name or identifier for the document
 
@@ -120,6 +121,7 @@ openssl rsa -pubout -in private_key.pem -out public_key.pem
 ### Key Security
 
 Important security considerations:
+
 - Keep your private key secure and never share it
 - The public key can be shared with others for verification
 - Use appropriate file permissions (e.g., `chmod 600 private_key.pem`)

@@ -140,6 +140,7 @@ Guidelines for writing effective approval rules:
 ### Rule Structure
 
 Rules should follow a consistent structure:
+
 - **Action Verb**: Begin with "Accept", "Allow", "Permit", or "Reject"
 - **Condition**: Specify the condition for the action
 - **Specificity**: Be as specific as possible to avoid ambiguity

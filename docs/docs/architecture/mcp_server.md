@@ -21,6 +21,7 @@ mcpServer := server.NewMCPServer(
 ```
 
 The server is configured with:
+
 - Resource capabilities for file access
 - Prompt capabilities for text generation
 - Logging for diagnostic purposes
@@ -138,6 +139,7 @@ func HandleAskTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_l
 To use the Distributed Knowledge MCP server with compatible clients:
 
 1. Configure the MCP client to connect to the server:
+
    ```json
    {
      "mcpServers": {
@@ -156,6 +158,7 @@ To use the Distributed Knowledge MCP server with compatible clients:
    ```
 
 2. The client can then call tools using the MCP protocol:
+
    ```json
    {
      "name": "cqAskQuestion",

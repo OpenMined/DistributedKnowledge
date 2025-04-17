@@ -94,6 +94,7 @@ Can you help me check which users are active on the Distributed Knowledge networ
 ```
 
 The LLM should:
+
 1. Recognize this as a task for Distributed Knowledge
 2. Use the `cqGetActiveUsers` tool
 3. Return the results to you
@@ -105,11 +106,13 @@ Now try more advanced functions:
 ### Ask a Network Question
 
 Prompt:
+
 ```
 Please ask the Distributed Knowledge network about recent advances in quantum computing.
 ```
 
 The LLM should:
+
 1. Use the `cqAskQuestion` tool
 2. Broadcast the question to the network
 3. Inform you that the question has been sent
@@ -117,11 +120,13 @@ The LLM should:
 ### Retrieve and Summarize Answers
 
 After waiting for responses, ask:
+
 ```
 Can you check if there are any responses to my quantum computing question and summarize them?
 ```
 
 The LLM should:
+
 1. Use the `cqListRequestedQueries` tool to check for responses
 2. Use the `cqSummarizeAnswers` tool to create a summary
 3. Present the results to you
@@ -129,11 +134,13 @@ The LLM should:
 ### Update Knowledge Base
 
 You can also add new information to your knowledge base:
+
 ```
 Please add this information to the Distributed Knowledge base: "In 2025, researchers achieved a quantum advantage for the first time in protein folding simulations, using a 300-qubit quantum computer."
 ```
 
 The LLM should:
+
 1. Use the `updateKnowledgeSources` tool
 2. Add the information to your RAG sources
 3. Confirm the addition

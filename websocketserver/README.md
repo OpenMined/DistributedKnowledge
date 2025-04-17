@@ -37,7 +37,9 @@ The server implements a token bucket algorithm for rate limiting messages:
 ## API Endpoints
 
 ### Authentication
+
 - `POST /auth/register` - Register a new user
+
   ```json
   {
     "user_id": "user123",
@@ -47,12 +49,15 @@ The server implements a token bucket algorithm for rate limiting messages:
   ```
 
 - `POST /auth/login` - Request an authentication challenge
+
   ```json
   {
     "user_id": "user123"
   }
   ```
+
   Response:
+
   ```json
   {
     "challenge": "random_challenge_string"
@@ -60,13 +65,16 @@ The server implements a token bucket algorithm for rate limiting messages:
   ```
 
 - `POST /auth/login?verify=true` - Verify the challenge and get a JWT token
+
   ```json
   {
     "user_id": "user123",
     "signature": "base64_encoded_signature_of_challenge"
   }
   ```
+
   Response:
+
   ```json
   {
     "token": "jwt_token"
@@ -75,6 +83,7 @@ The server implements a token bucket algorithm for rate limiting messages:
 
 - `GET /auth/users/{user_id}` - Get user public key
   Response:
+
   ```json
   {
     "user_id": "user123",
@@ -83,6 +92,7 @@ The server implements a token bucket algorithm for rate limiting messages:
   ```
 
 ### WebSocket
+
 - `GET /ws?token=<jwt_token>` - Connect to the WebSocket server
 
 ## Building and Running
@@ -112,6 +122,7 @@ Messages are JSON objects with the following structure:
 ```
 
 ### Message Status Values
+
 - `pending` - Message received by server but not yet delivered
 - `delivered` - Message delivered to recipient
 - `verified` - Message signature verified

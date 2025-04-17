@@ -14,9 +14,7 @@
    <img src="assets/demo.gif">
 </div>
 
-
 ## Overview
-
 
 Distributed Knowledge is an innovative approach to AI that turns the entire network into a unified LLM model. Rather than relying on a single monolithic model, this system creates a federated network where every node contributes to collective intelligence without central control.
 

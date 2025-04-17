@@ -72,6 +72,7 @@ Each provider may require additional configuration:
 ```
 
 **Available Models:**
+
 - `claude-3-opus-20240229`: Highest capability model
 - `claude-3-sonnet-20240229`: Balanced capability and performance
 - `claude-3-haiku-20240307`: Fastest, most efficient model
@@ -91,6 +92,7 @@ Each provider may require additional configuration:
 ```
 
 **Available Models:**
+
 - `gpt-4`: High-capability model
 - `gpt-4-turbo`: Faster version with slight quality tradeoffs
 - `gpt-3.5-turbo`: Balanced performance and cost
@@ -110,6 +112,7 @@ Each provider may require additional configuration:
 ```
 
 **Available Models:**
+
 - Depends on models installed in your Ollama instance
 - Common options include: `llama3`, `mistral`, `vicuna`
 

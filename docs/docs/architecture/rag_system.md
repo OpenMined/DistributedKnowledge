@@ -10,6 +10,7 @@ Retrieval Augmented Generation (RAG) is a technique that combines:
 2. **Content Generation**: Using an LLM to generate responses based on the retrieved information
 
 This approach addresses limitations of traditional LLMs by providing:
+
 - Access to knowledge beyond the model's training data
 - More up-to-date information
 - Source-based responses that can be verified
@@ -33,9 +34,11 @@ The system uses a vector database to store and retrieve embeddings:
 The system processes documents from various sources:
 
 - **Source Format**: Documents are stored in JSONL format:
+
   ```json
   {"text": "Document content goes here", "file": "document_name.txt"}
   ```
+
 - **Chunking**: Long documents are divided into manageable segments
 - **Metadata Preservation**: Each chunk maintains its source information
 - **Embedding Generation**: Text chunks are converted to vector embeddings
@@ -139,6 +142,7 @@ To get the most from the RAG system:
 ## Technical Implementation
 
 The RAG system uses:
+
 - **Vector Embeddings**: Generated using the Ollama `nomic-embed-text` model
 - **Vector Search**: Employs cosine similarity for matching
 - **Document Chunking**: Uses overlapping segments to preserve context

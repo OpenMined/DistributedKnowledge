@@ -46,6 +46,7 @@ These messages contain responses to queries, including the original question, th
 Messages can be delivered in two ways:
 
 1. **Direct Messages**: Sent to a specific node identified by user ID
+
    ```go
    err = dkClient.SendMessage(dk_client.Message{
      From:      dkClient.UserID,
@@ -56,6 +57,7 @@ Messages can be delivered in two ways:
    ```
 
 2. **Broadcast Messages**: Sent to all active nodes in the network
+
    ```go
    err = dkClient.BroadcastMessage(messageContent)
    ```
@@ -69,6 +71,7 @@ All network communications are authenticated using:
 3. **Signature Verification**: Recipients verify authenticity using the sender's public key
 
 This ensures that:
+
 - Messages can't be forged
 - Identities can't be impersonated
 - Message content can't be altered in transit

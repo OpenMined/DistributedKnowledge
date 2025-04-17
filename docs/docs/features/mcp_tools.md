@@ -11,10 +11,12 @@ These tools handle the creation, tracking, and management of queries in the netw
 Sends a question to specified peers or broadcasts it to the entire network.
 
 **Parameters:**
+
 - `question` (string, required): The text of the question to send
 - `peers` (array of strings, required): List of peer identifiers to receive the question; leave empty to broadcast to all peers
 
 **Example:**
+
 ```json
 {
   "name": "cqAskQuestion",
@@ -26,6 +28,7 @@ Sends a question to specified peers or broadcasts it to the entire network.
 ```
 
 **Response:**
+
 ```json
 {
   "content": "Query request sent ... Instruct the user to ask the model for summarize on the query What are the latest developments in quantum computing?"
@@ -37,10 +40,12 @@ Sends a question to specified peers or broadcasts it to the entire network.
 Retrieves all requested queries, optionally filtered by status or sender.
 
 **Parameters:**
+
 - `status` (string, optional): Status filter (e.g., 'pending', 'accepted', 'rejected')
 - `from` (string, optional): Sender filter (peer identifier)
 
 **Example:**
+
 ```json
 {
   "name": "cqListRequestedQueries",
@@ -51,6 +56,7 @@ Retrieves all requested queries, optionally filtered by status or sender.
 ```
 
 **Response:**
+
 ```json
 {
   "qry-123": {
@@ -75,10 +81,12 @@ Retrieves all requested queries, optionally filtered by status or sender.
 Retrieves all peer responses for a given question and returns a cohesive summary.
 
 **Parameters:**
+
 - `related_question` (string, required): The question for which to fetch and analyze responses
 - `detailed_answer` (number, optional): Set to 1 for detailed response, 0 for concise summary
 
 **Example:**
+
 ```json
 {
   "name": "cqSummarizeAnswers",
@@ -97,10 +105,12 @@ A comprehensive summary of all answers received from network peers.
 Edits the content of a specific answer.
 
 **Parameters:**
+
 - `query_id` (string, required): ID of the query to update
 - `new_answer` (string, required): New answer content
 
 **Example:**
+
 ```json
 {
   "name": "cqUpdateEditAnswer",
@@ -112,6 +122,7 @@ Edits the content of a specific answer.
 ```
 
 **Response:**
+
 ```json
 {
   "content": "Successfully updated answer for query_id 'qry-123'."
@@ -127,9 +138,11 @@ These tools manage the automatic and manual approval of queries and responses.
 Adds a condition to the automatic approval system.
 
 **Parameters:**
+
 - `sentence` (string, required): The condition to add
 
 **Example:**
+
 ```json
 {
   "name": "cqAddAutoApprovalCondition",
@@ -140,6 +153,7 @@ Adds a condition to the automatic approval system.
 ```
 
 **Response:**
+
 ```json
 {
   "content": "Condition added successfully: Allow questions about scientific topics from academic users"
@@ -151,9 +165,11 @@ Adds a condition to the automatic approval system.
 Removes a condition from the automatic approval system.
 
 **Parameters:**
+
 - `condition` (string, required): The exact text of the condition to remove
 
 **Example:**
+
 ```json
 {
   "name": "cqRemoveAutoApprovalCondition",
@@ -164,6 +180,7 @@ Removes a condition from the automatic approval system.
 ```
 
 **Response:**
+
 ```json
 {
   "content": "Condition 'Allow questions about scientific topics from academic users' removed successfully."
@@ -177,6 +194,7 @@ Lists all conditions in the automatic approval system.
 **Parameters:** None
 
 **Example:**
+
 ```json
 {
   "name": "cqListAutoApprovalConditions"
@@ -184,6 +202,7 @@ Lists all conditions in the automatic approval system.
 ```
 
 **Response:**
+
 ```json
 [
   "Allow questions about scientific topics from academic users",
@@ -197,9 +216,11 @@ Lists all conditions in the automatic approval system.
 Marks a pending query as 'accepted' and sends the answer to the requester.
 
 **Parameters:**
+
 - `id` (string, required): Unique identifier of the query to accept
 
 **Example:**
+
 ```json
 {
   "name": "cqAcceptQuery",
@@ -210,6 +231,7 @@ Marks a pending query as 'accepted' and sends the answer to the requester.
 ```
 
 **Response:**
+
 ```json
 {
   "content": "Question 'What are the latest developments in quantum computing?' has been accepted."
@@ -221,9 +243,11 @@ Marks a pending query as 'accepted' and sends the answer to the requester.
 Marks a pending query as 'rejected' and notifies the requester.
 
 **Parameters:**
+
 - `id` (string, required): Unique identifier of the query to reject
 
 **Example:**
+
 ```json
 {
   "name": "cqRejectQuery",
@@ -234,6 +258,7 @@ Marks a pending query as 'rejected' and notifies the requester.
 ```
 
 **Response:**
+
 ```json
 {
   "content": "Question 'What are the latest developments in quantum computing?' has been rejected."
@@ -249,11 +274,13 @@ These tools manage the knowledge base used by the RAG system.
 Updates knowledge sources by adding new content to the RAG database.
 
 **Parameters:**
+
 - `file_name` (string, optional): Name of the file to add
 - `file_content` (string, optional): Content of the file
 - `file_path` (string, optional): Path to an existing file
 
 **Example using file content:**
+
 ```json
 {
   "name": "updateKnowledgeSources",
@@ -265,6 +292,7 @@ Updates knowledge sources by adding new content to the RAG database.
 ```
 
 **Example using file path:**
+
 ```json
 {
   "name": "updateKnowledgeSources",
@@ -275,6 +303,7 @@ Updates knowledge sources by adding new content to the RAG database.
 ```
 
 **Response:**
+
 ```json
 {
   "content": "RAG resource 'quantum_computing.txt' added successfully and vector database refreshed."
@@ -290,9 +319,11 @@ These tools manage and interact with users in the network.
 Retrieves lists of active and inactive users from the server.
 
 **Parameters:**
+
 - `flag` (boolean, optional): Additional options flag
 
 **Example:**
+
 ```json
 {
   "name": "cqGetActiveUsers",
@@ -303,6 +334,7 @@ Retrieves lists of active and inactive users from the server.
 ```
 
 **Response:**
+
 ```json
 {
   "active": ["alice", "bob", "research_team"],
@@ -315,9 +347,11 @@ Retrieves lists of active and inactive users from the server.
 Retrieves descriptions associated with a specific user.
 
 **Parameters:**
+
 - `user_id` (string, required): ID of the user whose descriptions are requested
 
 **Example:**
+
 ```json
 {
   "name": "cqGetUserDescriptions",
@@ -328,6 +362,7 @@ Retrieves descriptions associated with a specific user.
 ```
 
 **Response:**
+
 ```json
 [
   "Quantum physics research group",

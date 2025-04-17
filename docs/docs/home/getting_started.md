@@ -30,13 +30,14 @@ cd DistributedKnowledge
 go build -o dk
 ```
 
-## Configuration 
+## Configuration
 
 ### 1. Model Configuration
 
 Create a model configuration file based on your preferred LLM provider. Examples are available in `dk/examples/model_config/`.
 
 **Anthropic (Claude) Example:**
+
 ```json
 {
   "provider": "anthropic",
@@ -50,6 +51,7 @@ Create a model configuration file based on your preferred LLM provider. Examples
 ```
 
 **OpenAI Example:**
+
 ```json
 {
   "provider": "openai",
@@ -63,6 +65,7 @@ Create a model configuration file based on your preferred LLM provider. Examples
 ```
 
 **Ollama Example:**
+
 ```json
 {
   "provider": "ollama",
