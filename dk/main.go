@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -48,32 +47,6 @@ func loadParameters() utils.Parameters {
 	params.ModelConfigFile = &modelConfigFile
 
 	return params
-}
-
-func ensureModelConfigFile(modelConfigPath string) {
-	if _, err := os.Stat(modelConfigPath); os.IsNotExist(err) {
-		// Ensure that the parent directory exists.
-		configDir := filepath.Dir(modelConfigPath)
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			log.Fatalf("Failed to create config directory %s: %v", configDir, err)
-		}
-
-		// Default model configuration content.
-		defaultConfig := `{
-  "provider": "openai",
-  "api_key": "",
-  "model": "gpt-4o-mini",
-  "parameters": {
-    "temperature": 0.7,
-    "max_tokens": 1000
-  }
-}`
-		// Write the default configuration to modelConfigPath.
-		if err := os.WriteFile(modelConfigPath, []byte(defaultConfig), 0644); err != nil {
-			log.Fatalf("Failed to write model config file at %s: %v", modelConfigPath, err)
-		}
-		log.Printf("Created default model config file at %s", modelConfigPath)
-	}
 }
 
 func main() {

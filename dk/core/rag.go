@@ -4,12 +4,12 @@ import (
 	"context"
 	"dk/utils"
 	"encoding/json"
+	"github.com/google/uuid"
+	"github.com/philippgille/chromem-go"
 	"io"
 	"log"
 	"os"
 	"runtime"
-  "github.com/google/uuid"
-	"github.com/philippgille/chromem-go"
 )
 
 func SetupChromemCollection(vectorPath string) *chromem.Collection {
@@ -28,8 +28,7 @@ func SetupChromemCollection(vectorPath string) *chromem.Collection {
 	// For this example we choose to use a locally running embedding model though.
 	// It requires Ollama to serve its API at "http://localhost:11434/api".
 	collection, err := db.GetOrCreateCollection("PersonalKnowledge", nil, chromem.NewEmbeddingFuncOllama(embeddingModel, ""))
-	if err != nil { 
-    os.WriteFile("error6.txt", []byte(err.Error()), 0644)
+	if err != nil {
 		panic(err)
 	}
 	return collection
@@ -63,7 +62,6 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 		// to some Wikipedia article and its category.
 		f, err := os.Open(sourcePath)
 		if err != nil {
-      os.WriteFile("error5.txt", []byte(err.Error()), 0644)
 			panic(err)
 		}
 		defer f.Close()
@@ -78,20 +76,17 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 				break
 			} else if err != nil {
 
-        os.WriteFile("error4.txt", []byte(err.Error()), 0644)
 				panic(err)
 			}
 
 			llmProvider, err := LLMProviderFromContext(ctx)
 			if err != nil {
 
-        os.WriteFile("error3.txt", []byte(err.Error()), 0644)
 				panic(err)
 			}
 
 			description, err := llmProvider.GenerateDescription(ctx, article.Text)
 			if err != nil {
-        os.WriteFile("error2.txt", []byte(err.Error()), 0644)
 				panic(err)
 			}
 			descriptions = append(descriptions, description)
@@ -104,19 +99,18 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 			// with `collection.AddDocument()`.
 			content := "search_document: " + article.Text
 
-      docs = append(docs, chromem.Document{
-          ID:       uuid.NewString(), 
-          Metadata: map[string]string{
-              "file": article.FileName,
-              "description": description,
-          },
-          Content: content, //"search_document: " + article.Text,
-      })
+			docs = append(docs, chromem.Document{
+				ID: uuid.NewString(),
+				Metadata: map[string]string{
+					"file":        article.FileName,
+					"description": description,
+				},
+				Content: content, //"search_document: " + article.Text,
+			})
 		}
 
 		dkClient, err := utils.DkFromContext(ctx)
 		if err != nil {
-      os.WriteFile("error1.txt", []byte(err.Error()), 0644)
 			panic(err)
 		}
 
@@ -129,7 +123,6 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 		}
 		err = chromemCollection.AddDocuments(ctx, docs, runtime.NumCPU())
 		if err != nil {
-      os.WriteFile("error.txt", []byte(err.Error()), 0644)
 			// panic(err)
 		}
 	} else {

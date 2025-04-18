@@ -6,8 +6,8 @@ import (
 	"dk/utils"
 	"encoding/json"
 	"fmt"
+	"github.com/philippgille/chromem-go"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,14 +46,12 @@ func retrieveDocuments(ctx context.Context, question string, numResults int) ([]
 	query := "search_query: " + question
 
 	// Query the collection for the top 'numResults' similar documents.
-	docRes, err := chromemCollection.Query(ctx, query, numResults, nil, nil)
-	if err != nil {
-		log.Printf("Just ignoring the errors for now!")
-		// if len(docRes) == 0 {
-		// 	log.Printf("[RAG] No vectors yet. Proceeding without context ...")
-		// } else {
-		// 	return nil, err
-		// }
+	tmpNumResults := numResults
+	var docRes []chromem.Result
+	for tmpNumResults > 0 {
+		// Query the collection for the top 'numResults' similar documents.
+		docRes, _ = chromemCollection.Query(ctx, query, tmpNumResults, nil, nil)
+		tmpNumResults = tmpNumResults - 1
 	}
 
 	var results []Document = []Document{}
