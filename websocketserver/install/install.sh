@@ -175,28 +175,6 @@ KEYS_PATH="$PROJECT_DIR/keys"
 # -----------------------------------------------------------------------------
 RAG_FILE="$PROJECT_DIR/rag_sources.jsonl"
 mkdir -p "$PROJECT_DIR"
-cat << 'EOF' > "$RAG_FILE"
-{
-  "file": "relationships_questionnaire.md",
-  "text": "# Relationships Questionnaire\n\n1. **What qualities do you value in a friend?**\n   I value honesty, loyalty, empathy, and a good sense of humor in a friend.\n\n2. **How do you build and maintain strong relationships?**\n   Through open communication, mutual respect, and spending quality time together.\n\n3. **Who has been your greatest mentor or role model?**\n   My greatest mentor has been Sarah, who taught me the importance of resilience and persistence.\n\n4. **What do you look for in a partner?**\n   I look for someone who shares my values, is kind, and intellectually stimulating.\n\n5. **How do you resolve conflicts with loved ones?**\n   By communicating openly, listening, and finding a compromise.\n\n6. **How do you show appreciation to others?**\n   Through small gestures, kind words, and spending quality time together.\n\n7. **What role does trust play in your relationships?**\n   Trust is the foundation of any strong relationship.\n\n8. **How have your relationships shaped you?**\n   They’ve taught me empathy and the value of supportive people.\n\n9. **What is a lesson you've learned from a past relationship?**\n   Communication is key to resolving issues.\n\n10. **How do you support others emotionally?**\n   By listening and offering reassurance."
-}
-{
-  "file": "career_aspirations_questionnaire.md",
-  "text": "# Career Aspirations Questionnaire\n\n1. **What career path are you pursuing?**\n   Digital marketing focusing on content strategy and brand development.\n\n2. **What inspired your career choice?**\n   A college marketing campaign that showcased storytelling's power.\n\n3. **Which skills do you want to develop?**\n   Leadership and project management for large campaigns.\n\n4. **What does career success mean to you?**\n   Personal growth, meaningful relationships, and measurable impact.\n\n5. **What challenges have you faced?**\n   Adapting to fast-changing industry trends.\n\n6. **How do you stay motivated?**\n   Setting goals and celebrating small wins.\n\n7. **Role of passion in your decisions?**\n   It drives commitment, even during tough times.\n\n8. **Where do you see yourself in five years?**\n   In a senior marketing role leading impactful projects.\n\n9. **Who do you admire in your field?**\n   Emma Thompson for her innovative campaigns.\n\n10. **Your proudest career accomplishment?**\n   Leading a project that boosted social media engagement by 40%."
-}
-{
-  "file": "creativity_and_expression_questionnaire.md",
-  "text": "# Creativity and Expression Questionnaire\n\n1. **What does creativity mean to you?**\n   Thinking outside the box and expressing new ideas.\n\n2. **How do you express creativity?**\n   Through writing and photography that tell deeper stories.\n\n3. **Do you prefer structured or spontaneous processes?**\n   A blend of both, favoring spontaneity for inspiration.\n\n4. **Who inspires your creative work?**\n   Artists like Frida Kahlo and filmmakers like Wes Anderson.\n\n5. **Favorite creative project?**\n   Creating a photo series capturing city life contrasts.\n\n6. **How do you overcome creative blocks?**\n   By taking a break or trying different art forms.\n\n7. **Role of creativity in daily life?**\n   It enhances problem solving and innovation.\n\n8. **Do you share your work or keep it private?**\n   I value both sharing for feedback and private reflection.\n\n9. **Preferred creative medium?**\n   Photography for visual storytelling.\n\n10. **How do you nurture creativity?**\n   Experimenting with new hobbies and seeking diverse inspirations."
-}
-{
-  "file": "health_and_wellness_questionnaire.md",
-  "text": "# Health and Wellness Questionnaire\n\n1. **How do you define wellness?**\n   A balance of physical fitness, mental clarity, and emotional stability.\n\n2. **Describe a healthy day.**\n   Exercise, balanced meals, downtime, and adequate sleep.\n\n3. **How do you stay active?**\n   Running, yoga, and weightlifting.\n\n4. **Role of mental health?**\n   Critical for overall well-being.\n\n5. **Tips for good sleep?**\n   A relaxed routine and screen-free time before bed.\n\n6. **Handling setbacks?**\n   Self-care, patience, and seeking support.\n\n7. **Diet preferences?**\n   A balanced diet with vegetables, lean proteins, and whole grains.\n\n8. **Managing screen time?**\n   Setting limits and taking regular breaks.\n\n9. **Favorite unwinding activity?**\n   Reading, meditation, or nature walks.\n\n10. **How do you set health goals?**\n   With clear targets and regular progress checks."
-}
-{
-  "file": "dreams_and_imagination_questionnaire.md",
-  "text": "# Dreams and Imagination Questionnaire\n\n1. **A dream from childhood?**\n   Traveling and exploring diverse cultures through photography.\n\n2. **Role of imagination?**\n   Fueling creativity and innovative thinking.\n\n3. **Alternate life scenario?**\n   Living as a traveling photographer experiencing new cultures.\n\n4. **Most fantastical idea?**\n   A self-sustaining city in a forest using renewable energy.\n\n5. **Dream influencing reality?**\n   Pursuing photography as a serious career.\n\n6. **Inspiration for daydreams?**\n   Nature, adventure, and the unknown.\n\n7. **Something impossible you wish for?**\n   Humans living sustainably on Mars.\n\n8. **Do dreams have meaning?**\n   They offer insights into our subconscious.\n\n9. **How do you tap into imagination?**\n   Through reading, music, and new experiences.\n\n10. **Vision for the future?**\n   Personal travel, new skills, and contributing to sustainability."
-}
-EOF
 
 # -----------------------------------------------------------------------------
 # 5. LLM Provider and Model Selection
@@ -389,6 +367,7 @@ EOF
     fi
 fi
 
+
 # -----------------------------------------------------------------------------
 # 8. OS-Specific Post-Installation: Download DK Executable
 # -----------------------------------------------------------------------------
@@ -412,7 +391,9 @@ elif [ "$OS_TYPE" == "Linux" ]; then
     fi
 fi
 
+
 sudo chmod +x "$INSTALL_PATH/dk"
+
 
 echo ""
 echo ""
