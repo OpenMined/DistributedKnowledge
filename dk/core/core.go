@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,21 +48,27 @@ func retrieveDocuments(ctx context.Context, question string, numResults int) ([]
 	// Query the collection for the top 'numResults' similar documents.
 	docRes, err := chromemCollection.Query(ctx, query, numResults, nil, nil)
 	if err != nil {
-		return nil, err
+		log.Printf("Just ignoring the errors for now!")
+		// if len(docRes) == 0 {
+		// 	log.Printf("[RAG] No vectors yet. Proceeding without context ...")
+		// } else {
+		// 	return nil, err
+		// }
 	}
 
 	var results []Document = []Document{}
 	for _, res := range docRes {
 		// Cut off the prefix we added before adding the document (see comment above).
 		// This is specific to the "nomic-embed-text" model.
-		// content := strings.TrimPrefix(res.Content, "search_document: ")
-		content := Document{FileName: res.Metadata["file"], Content: res.Content}
+		contentString := strings.TrimPrefix(res.Content, "search_document: ")
+		content := Document{FileName: res.Metadata["file"], Content: contentString}
 		results = append(results, content)
 	}
 
 	if len(results) > numResults {
 		results = results[:numResults]
 	}
+
 	return results, nil
 }
 
