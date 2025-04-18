@@ -8,9 +8,9 @@
   </div>
   <a href="https://distributedknowledge.org"> 
     <img src="docs/docs/assets/dk_logo.png" alt="Distributed Knowledge Logo" style="display: block; margin: 0 auto; width: 200px;"/>
+    
   </a>
   <h1>A decentralized, network-aware LLM system for collaborative intelligence.<h1>
-
    <img src="assets/demo.gif">
 </div>
 

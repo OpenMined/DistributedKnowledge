@@ -1,6 +1,6 @@
 # MCP Server
 
-The Distributed Knowledge MCP (Model Context Protocol) server provides a structured interface for interacting with the network. This document explains how the MCP server works and the tools it provides.
+The Distributed Knowledge MCP server provides a structured interface for interacting with the network using LLM's. This document explains how the MCP server works and the tools it provides.
 
 ## What is MCP?
 
@@ -149,6 +149,7 @@ To use the Distributed Knowledge MCP server with compatible clients:
            "-userId", "YourUsername",
            "-private", "/path/to/private_key",
            "-public", "/path/to/public_key",
+           "-project_path", "/path/to/project",
            "-rag_sources", "/path/to/rag_sources.jsonl",
            "-server", "https://distributedknowledge.org"
          ]

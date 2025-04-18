@@ -1,6 +1,6 @@
 site_name: Distributed Knowledge 
 theme:
-  logo: assets/dk_logo.png
+  logo: assets/dk_logo_white.png
   favicon: assets/favicon.ico
   name: material
   features:
@@ -57,6 +57,11 @@ nav:
 - Home:
   - Overview: index.md
   - Getting Started: home/getting_started.md
+- Tutorials:
+  - Basic Usage: tutorials/basic_usage.md
+  - Running Your Own Server: tutorials/running_server.md
+  - MCP Integration: tutorials/mcp_integration.md
+- How-To Guides: how-to-guides.md
 - Architecture:
   - Overview: architecture/overview.md
   - Network Communication: architecture/network_communication.md
@@ -71,12 +76,6 @@ nav:
   - Basic Configuration: configuration/basic.md
   - Advanced Configuration: configuration/advanced.md
   - Approval System: configuration/approval_system.md
-- Tutorials:
-  - Basic Usage: tutorials/basic_usage.md
-  - Running Your Own Server: tutorials/running_server.md
-  - MCP Integration: tutorials/mcp_integration.md
-- How-To Guides: how-to-guides.md
-
 extra:
   social:
   - icon: fontawesome/brands/github-alt

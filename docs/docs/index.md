@@ -1,24 +1,24 @@
-<!--# Distributed Knowledge-->
 
 <div align="center">
   <img src="./assets/dk_logo.png" alt="Distributed Knowledge Logo" style="width: 200px;"/>
     <h1> Distributed Knowledge</h1>
 </div>
 
-## A decentralized, network-aware LLM system for collaborative intelligence
+Distributed Knowledge aims to fundamentally transform our approach to Large Language Models (LLMs) by unifying the entire internet into a single, federated model. Instead of relying on monolithic or proprietary systems, this approach leverages a decentralized network where each node independently contributes to a shared "collective context." This eliminates central control, fostering collective intelligence through distributed collaboration.
 
-Distributed Knowledge is an innovative approach to AI that turns the entire network into a unified LLM model. Rather than relying on a single monolithic model, this system creates a federated network where every node contributes to collective intelligence without central control.
+<div style="overflow:hidden;margin-left:auto;margin-right:auto;border-radius:10px;width:100%;max-width:960px;position:relative"><div style="width:100%;padding-bottom:56.25%"></div><iframe width="960" height="540" title="" src="https://snappify.com/embed/e904b0ef-1953-4d90-8549-03bb872a70f6?responsive=1&p=1&autoplay=1&b=0" allow="clipboard-write" allowfullscreen="" loading="lazy" style="background:#eee;position:absolute;left:0;top:0;width:100%" frameborder="0"></iframe></div>
 
-<img src="../../assets/demo.gif" alt="Demo of Distributed Knowledge" />
+
 
 ## Why Distributed Knowledge?
 
-Traditional LLM systems face limitations in terms of knowledge freshness, resource requirements, and privacy concerns. Distributed Knowledge addresses these challenges through:
+Traditional LLM systems face significant limitations, including outdated knowledge, high resource demands, privacy issues, and centralized ownership. Distributed Knowledge addresses these challenges by providing:
 
-- **Collective Intelligence**: Leverage the knowledge of an entire network of users
-- **Real-time Knowledge**: Access up-to-date information without model retraining
-- **Privacy-Preserving Architecture**: Keep sensitive data private while sharing common knowledge
-- **Resource Efficiency**: Accomplish more with less computing power
+- **Collective Intelligence**: Aggregating insights across a distributed user network.
+- **Real-time Knowledge**: Ensuring information stays current without constant retraining.
+- **Privacy-Preserving**: Architecture: Protecting sensitive data while sharing common insights.
+- **Resource Efficiency**: Reducing computational overhead by distributing workloads.
+- **Public Ownership**: Maintaining open, decentralized control rather than proprietary ownership.
 
 ## Key Features
 
@@ -31,10 +31,10 @@ Traditional LLM systems face limitations in terms of knowledge freshness, resour
 ## Technical Capabilities
 
 - **Privacy by Design**: Your data is not shared with the network without your consent
+- **End-to-End Encryption**: Network peers are authenticated with encrypted messages
 - **Real-time Synchronization**: Unlock access to your network's data in real-time
 - **Unified Context**: Access to a network-wide contextual knowledge base
 - **Ollama Compatible**: Connect and run your favorite Ollama models
-- **End-to-End Encryption**: Network peers are authenticated with encrypted messages
 - **MCP Compatible**: Fully compatible with regular MCP Hosts
 
 Get started with Distributed Knowledge by visiting the [Getting Started](home/getting_started.md) guide.

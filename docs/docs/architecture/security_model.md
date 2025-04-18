@@ -16,9 +16,9 @@ The security model of Distributed Knowledge is built on several key principles:
 
 ### Public/Private Key Infrastructure
 
-The system uses asymmetric cryptography (RSA) for identity verification:
+The system uses asymmetric cryptography (Ed25519) for identity verification:
 
-- **Key Generation**: Each node generates a unique RSA key pair
+- **Key Generation**: Each node generates a unique Ed25519 key pair
 - **Public Key Distribution**: Public keys are shared with the network for verification
 - **Private Key Security**: Private keys never leave the local system
 - **Key Rotation**: Support for regular key updates to enhance security
@@ -111,12 +111,11 @@ Responses are validated for:
 Keys are managed securely:
 
 ```go
-// Generate new key pair
-privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-publicKey := &privateKey.PublicKey
+// Generate new Ed25519 key pair
+publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 
 // Save private key (typically done once during setup)
-privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+privateKeyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 err = os.WriteFile("private.pem", privateKeyBytes, 0600)
 
 // Extract public key
@@ -132,8 +131,7 @@ Messages are signed before transmission:
 hash := sha256.Sum256([]byte(message))
 
 // Sign with private key
-signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hash[:])
-
+signature := ed25519.Sign(privateKey, hash[:])
 // The signature is sent alongside the message
 ```
 
@@ -142,12 +140,9 @@ signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hash[
 Recipients verify signatures upon receipt:
 
 ```go
-// Recreate message hash
-hash := sha256.Sum256([]byte(receivedMessage))
-
 // Verify signature using sender's public key
-err := rsa.VerifyPKCS1v15(senderPublicKey, crypto.SHA256, hash[:], receivedSignature)
-if err != nil {
+valid := ed25519.Verify(senderPublicKey, []byte(receivedMessage), receivedSignature)
+if !valid {
     // Signature verification failed
 }
 ```

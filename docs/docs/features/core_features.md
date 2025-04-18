@@ -29,7 +29,7 @@ The system balances collaboration with privacy:
 - **Hybrid Privacy Model**: Share public knowledge while protecting private information
 - **Selective Sharing**: Control what information is accessible to other nodes
 - **Approval System**: Review and approve incoming queries
-- **Anonymized Responses**: Option to provide answers without revealing identity
+- **Anonymized Responses** __(Soon)__: Option to provide answers without revealing identity
 - **Private Knowledge Bases**: Maintain local information that isn't shared
 
 ## Real-time Synchronization

@@ -1,10 +1,13 @@
 # Architecture Overview
 
-Distributed Knowledge is built on a federated architecture that enables collective intelligence through secure, real-time communication between nodes. This document provides an overview of the system's architecture and how its components work together.
+Distributed Knowledge employs a federated architecture designed to foster collective intelligence through secure, real-time communication among decentralized nodes. This document outlines the system's architecture and details the interactions between its core components.
 
 ## Core Architecture
 
-![Distributed Knowledge Architecture](/assets/architecture_diagram.png)
+<!--![Distributed Knowledge Architecture](/assets/architecture_diagram.png)-->
+
+<div style="overflow:hidden;margin-left:auto;margin-right:auto;border-radius:10px;width:100%;max-width:960px;position:relative"><div style="width:100%;padding-bottom:56.25%"></div><iframe width="960" height="540" title="" src="https://snappify.com/embed/4f954159-7337-45f8-a949-99c1a9304745?responsive=1&p=1&autoplay=1&b=0" allow="clipboard-write" allowfullscreen="" loading="lazy" style="background:#eee;position:absolute;left:0;top:0;width:100%" frameborder="0"></iframe></div>
+
 
 The Distributed Knowledge architecture consists of the following key components:
 
@@ -15,7 +18,6 @@ The foundation of Distributed Knowledge is its real-time communication system:
 - **Secure WebSocket Protocol**: Provides encrypted, bidirectional communication
 - **Authentication System**: Verifies identities through public/private key pairs
 - **Message Routing**: Handles direct and broadcast message delivery
-- **Active User Tracking**: Maintains a registry of online participants
 
 ### 2. Knowledge Management Layer
 

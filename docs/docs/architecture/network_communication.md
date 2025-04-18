@@ -1,6 +1,6 @@
 # Network Communication
 
-Distributed Knowledge utilizes a sophisticated network communication system based on WebSockets to enable real-time interaction between nodes in the network. This document explains how the communication layer works.
+Distributed Knowledge employs a WebSocket-based communication system to facilitate real-time interactions among network nodes. This document details the architecture and functionality of this communication layer.
 
 ## WebSocket Protocol
 
@@ -15,31 +15,10 @@ The system uses WebSockets to establish persistent, bidirectional connections be
 
 Distributed Knowledge uses a structured message system with two primary types:
 
-### Query Messages
 
-```json
-{
-  "type": "query",
-  "message": "What is the capital of France?"
-}
-```
+- **Direct Messages**: Encrypted and signed to a specific peer.
+- **Broadcast Messages**: Plain-text, signed and delivered to everyone in the network.
 
-These messages represent questions or requests for information that are sent to one or more nodes in the network.
-
-### Answer Messages
-
-```json
-{
-  "type": "answer",
-  "message": {
-    "query": "What is the capital of France?",
-    "answer": "The capital of France is Paris.",
-    "from": "assistant"
-  }
-}
-```
-
-These messages contain responses to queries, including the original question, the answer content, and the source of the answer.
 
 ## Message Routing
 
@@ -56,7 +35,7 @@ Messages can be delivered in two ways:
    })
    ```
 
-2. **Broadcast Messages**: Sent to all active nodes in the network
+2. **Broadcast Messages**: Sent to all nodes in the network
 
    ```go
    err = dkClient.BroadcastMessage(messageContent)
@@ -66,7 +45,7 @@ Messages can be delivered in two ways:
 
 All network communications are authenticated using:
 
-1. **Public/Private Key Pairs**: Nodes identify themselves using RSA key pairs
+1. **Public/Private Key Pairs**: Nodes identify themselves using Ed25519 key pairs
 2. **Message Signing**: Outgoing messages are signed with the sender's private key
 3. **Signature Verification**: Recipients verify authenticity using the sender's public key
 
@@ -75,14 +54,6 @@ This ensures that:
 - Messages can't be forged
 - Identities can't be impersonated
 - Message content can't be altered in transit
-
-## User Status Tracking
-
-The network maintains awareness of which users are active:
-
-- **Active User Registry**: The server tracks which nodes are currently connected
-- **User Status API**: Nodes can query for active and inactive users
-- **Connection Events**: The system broadcasts connection/disconnection events
 
 ## Rate Limiting
 
@@ -106,7 +77,7 @@ The network communication is implemented in the `dk/client/client.go` file and u
 
 - **WebSocket Protocol**: For real-time bidirectional communication
 - **JSON Encoding**: For message serialization
-- **RSA Cryptography**: For message signing and verification
+- **Hybrid Cryptography**: Peers use their assymetric keys to encrypt/decrypt messages with an exchanged symmetric key. 
 - **Connection Pools**: For managing multiple concurrent connections
 
 ## Message Flow Example

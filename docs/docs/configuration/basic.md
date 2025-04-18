@@ -24,22 +24,14 @@ The Distributed Knowledge client (`dk`) accepts several command-line parameters:
 
 A basic command to start the Distributed Knowledge client:
 
-```bash
-./dk -userId="alice" \
-     -server="wss://distributedknowledge.org" \
-     -modelConfig="./config/anthropic_config.json" \
-     -rag_sources="./data/knowledge_base.jsonl"
-```
-
-With additional authentication options:
 
 ```bash
 ./dk -userId="research_team" \
      -private="./keys/private.pem" \
      -public="./keys/public.pem" \
+     -project_path="/path/to/project" \
      -server="wss://distributedknowledge.org" \
-     -modelConfig="./config/openai_config.json" \
-     -vector_db="./data/vector_database"
+     -rag_sources="./data/rag_sources.jsonl"
 ```
 
 ## LLM Configuration
@@ -111,11 +103,11 @@ For secure communication, Distributed Knowledge uses RSA key pairs. If not provi
 Generate a key pair using OpenSSL:
 
 ```bash
-# Generate private key
-openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+# Generate ED25519 private key
+ssh-keygen -t ed25519 -f private_key.pem -N ""
 
 # Extract public key
-openssl rsa -pubout -in private_key.pem -out public_key.pem
+ssh-keygen -y -f private_key.pem > public_key.pem
 ```
 
 ### Key Security
@@ -161,27 +153,27 @@ dk/
 └── dk  # executable
 ```
 
-## Environment Variables
-
-Distributed Knowledge also supports configuration through environment variables:
-
-| Variable | Equivalent Parameter | Description |
-|----------|---------------------|-------------|
-| `DK_USER_ID` | `-userId` | User identifier |
-| `DK_SERVER` | `-server` | WebSocket server URL |
-| `DK_MODEL_CONFIG` | `-modelConfig` | Path to model config |
-| `DK_RAG_SOURCES` | `-rag_sources` | Path to RAG sources |
-| `DK_PRIVATE_KEY` | `-private` | Path to private key |
-| `DK_PUBLIC_KEY` | `-public` | Path to public key |
-
-Example using environment variables:
-
-```bash
-export DK_USER_ID="alice"
-export DK_SERVER="wss://distributedknowledge.org"
-export DK_MODEL_CONFIG="./config/anthropic_config.json"
-./dk
-```
+<!--## Environment Variables-->
+<!---->
+<!--Distributed Knowledge also supports configuration through environment variables:-->
+<!---->
+<!--| Variable | Equivalent Parameter | Description |-->
+<!--|----------|---------------------|-------------|-->
+<!--| `DK_USER_ID` | `-userId` | User identifier |-->
+<!--| `DK_SERVER` | `-server` | WebSocket server URL |-->
+<!--| `DK_MODEL_CONFIG` | `-modelConfig` | Path to model config |-->
+<!--| `DK_RAG_SOURCES` | `-rag_sources` | Path to RAG sources |-->
+<!--| `DK_PRIVATE_KEY` | `-private` | Path to private key |-->
+<!--| `DK_PUBLIC_KEY` | `-public` | Path to public key |-->
+<!---->
+<!--Example using environment variables:-->
+<!---->
+<!--```bash-->
+<!--export DK_USER_ID="alice"-->
+<!--export DK_SERVER="wss://distributedknowledge.org"-->
+<!--export DK_MODEL_CONFIG="./config/anthropic_config.json"-->
+<!--./dk-->
+<!--```-->
 
 ## Next Steps
 
