@@ -49,12 +49,19 @@ func (p *OllamaProvider) GenerateAnswer(ctx context.Context, question string, do
 	// Construct the system prompt and user prompt
 	systemPrompt := GenerateAnswerPrompt
 
-	// Construct a prompt that includes the question and context from the documents
-	userPrompt := fmt.Sprintf("Question: %s\n\nDocuments:\n", question)
-	for i, doc := range docs {
-		userPrompt += fmt.Sprintf("Document %d - %s:\n%s\n\n", i+1, doc.FileName, doc.Content)
+	// Construct a prompt that includes the question and context from the nDocuments
+	prompt := fmt.Sprintf("<QUESTION>%s<QUESTION>\n", question)
+	prompt += "<CONTEXT>\n"
+	for _, doc := range docs {
+		prompt += fmt.Sprintf("%s", doc.Content)
 	}
-	userPrompt += "Please provide a comprehensive answer based on the documents above."
+	prompt += "<CONTEXT>\n"
+
+	// userPrompt := fmt.Sprintf("Question: %s\n\nDocuments:\n", question)
+	// for i, doc := range docs {
+	// 	userPrompt += fmt.Sprintf("Document %d - %s:\n%s\n\n", i+1, doc.FileName, doc.Content)
+	// }
+	// userPrompt += "Please provide a comprehensive answer based on the documents above."
 
 	// Default to llama3 if not specified
 	model := p.config.Model
@@ -70,7 +77,7 @@ func (p *OllamaProvider) GenerateAnswer(ctx context.Context, question string, do
 
 	req := OllamaRequest{
 		Model:  model,
-		Prompt: userPrompt,
+		Prompt: prompt,
 		System: systemPrompt,
 	}
 
@@ -156,8 +163,9 @@ func (p *OllamaProvider) CheckAutomaticApproval(ctx context.Context, answer stri
 	systemPrompt := CheckAutomaticApprovalPrompt
 
 	// User prompt with data to evaluate
-	userPrompt := fmt.Sprintf("Query:'%s'\n\n'Queried From:'%s'\n\n My Answer: '%s'\n\nConditions: %s\n",
-		query.Question, query.From, answer, string(formatted))
+
+	userPrompt := fmt.Sprintf("\n{'from': '%s', 'query': '%s', 'answer': '%s', 'conditions': %s}\n",
+		query.From, query.Question, answer, string(formatted))
 
 	// Default to llama3 if not specified
 	model := p.config.Model
@@ -270,12 +278,13 @@ func (p *OllamaProvider) CheckAutomaticApproval(ctx context.Context, answer stri
 
 func (p *OllamaProvider) GenerateDescription(ctx context.Context, text string) (string, error) {
 	// System prompt for evaluation
-	systemPrompt := "You are an AI assistant tasked with summarizing a given text. Your goal is to provide a high-level overview of the text's main themes and ideas without disclosing specific details or important content. Ensure that your summary conveys the general essence of the text, allowing readers to grasp its overall purpose without accessing its nuanced specifics."
+	systemPrompt := GenerateDescriptionPrompt
 
 	// User prompt with data to evaluate
 	// userPrompt := fmt.Sprintf("Query:'%s'\n\n'Queried From:'%s'\n\n My Answer: '%s'\n\nConditions: %s\n",
 	// 	query.Question, query.From, answer, string(formatted))
-	userPrompt := fmt.Sprintf("<FILE CONTENT>\n %s <FILE CONTENT>\n", text)
+	userPrompt := fmt.Sprintf("---TEXT START---\n%s\n---TEXT END---", text)
+
 	// Default to llama3 if not specified
 	model := p.config.Model
 	if model == "" {

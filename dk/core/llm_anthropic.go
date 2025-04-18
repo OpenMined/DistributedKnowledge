@@ -1,9 +1,11 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -67,11 +69,18 @@ func (p *AnthropicProvider) GenerateAnswer(ctx context.Context, question string,
 	systemPrompt := GenerateAnswerPrompt
 
 	// Construct a prompt that includes the question and context from the documents
-	userPrompt := fmt.Sprintf("Question: %s\n\nDocuments:\n", question)
-	for i, doc := range docs {
-		userPrompt += fmt.Sprintf("Document %d - %s:\n%s\n\n", i+1, doc.FileName, doc.Content)
+	prompt := fmt.Sprintf("<QUESTION>%s<QUESTION>\n", question)
+	prompt += "<CONTEXT>\n"
+	for _, doc := range docs {
+		prompt += fmt.Sprintf("%s", doc.Content)
 	}
-	userPrompt += "Please provide a comprehensive answer based on the documents above."
+	prompt += "<CONTEXT>\n"
+
+	// userPrompt := fmt.Sprintf("Question: %s\n\nDocuments:\n", question)
+	// for i, doc := range docs {
+	// 	userPrompt += fmt.Sprintf("Document %d - %s:\n%s\n\n", i+1, doc.FileName, doc.Content)
+	// }
+	// userPrompt += "Please provide a comprehensive answer based on the documents above."
 
 	// Default to claude-3-sonnet-20240229 if not specified
 	model := p.config.Model
@@ -87,7 +96,7 @@ func (p *AnthropicProvider) GenerateAnswer(ctx context.Context, question string,
 
 	req := AnthropicRequest{
 		Model:    model,
-		Messages: []AnthropicMessage{{Role: "user", Content: userPrompt}},
+		Messages: []AnthropicMessage{{Role: "user", Content: prompt}},
 		System:   systemPrompt,
 	}
 
@@ -169,8 +178,8 @@ func (p *AnthropicProvider) CheckAutomaticApproval(ctx context.Context, answer s
 	systemPrompt := CheckAutomaticApprovalPrompt
 
 	// User prompt with data to evaluate
-	userPrompt := fmt.Sprintf("Query:'%s'\n\n'Queried From:'%s'\n\n My Answer: '%s'\n\nConditions: %s\n",
-		query.Question, query.From, answer, string(formatted))
+	userPrompt := fmt.Sprintf("\n{'from': '%s', 'query': '%s', 'answer': '%s', 'conditions': %s}\n",
+		query.From, query.Question, answer, string(formatted))
 
 	// Create the request
 	apiURL := "https://api.anthropic.com/v1/messages"
@@ -265,5 +274,98 @@ func (p *AnthropicProvider) CheckAutomaticApproval(ctx context.Context, answer s
 }
 
 func (p *AnthropicProvider) GenerateDescription(ctx context.Context, text string) (string, error) {
-	return "", nil
+	// System prompt for evaluation
+	systemPrompt := GenerateDescriptionPrompt
+
+	// User prompt with data to evaluate
+	// userPrompt := fmt.Sprintf("Query:'%s'\n\n'Queried From:'%s'\n\n My Answer: '%s'\n\nConditions: %s\n",
+	// 	query.Question, query.From, answer, string(formatted))
+	userPrompt := fmt.Sprintf("---TEXT START---\n%s\n---TEXT END---", text)
+
+	// Default to llama3 if not specified
+	model := p.config.Model
+	if model == "" {
+		model = "llama3"
+	}
+
+	// Create the request
+	baseURL := "http://localhost:11434/api/generate"
+	if p.config.BaseURL != "" {
+		baseURL = p.config.BaseURL
+	}
+
+	req := OllamaRequest{
+		Model:  model,
+		Prompt: userPrompt,
+		System: systemPrompt,
+		Format: "json", // Request JSON format if supported by the model
+	}
+
+	// Apply custom parameters if provided
+	if p.config.Parameters != nil {
+		if temp, ok := p.config.Parameters["temperature"].(float64); ok {
+			req.Temperature = temp
+		}
+	}
+
+	// Convert request to JSON
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return "", fmt.Errorf("Error marshaling request")
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", baseURL, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("Error creating request")
+	}
+
+	// Add headers
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Add custom headers if provided
+	if p.config.Headers != nil {
+		for key, value := range p.config.Headers {
+			httpReq.Header.Set(key, value)
+		}
+	}
+
+	// Send request
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("Error sending request")
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("Error reading response body")
+	}
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API error")
+	}
+
+	// Parse the response - Ollama streams the response, so we need to collect it all
+	var sb strings.Builder
+	for _, line := range strings.Split(string(body), "\n") {
+		if line == "" {
+			continue
+		}
+		var ollamaResp OllamaResponse
+		if err := json.Unmarshal([]byte(line), &ollamaResp); err != nil {
+			continue // Skip lines that can't be parsed
+		}
+		if ollamaResp.Error != "" {
+			return "", fmt.Errorf("API error")
+		}
+		sb.WriteString(ollamaResp.Response)
+	}
+
+	// Extract the response text
+	responseText := sb.String()
+
+	return responseText, nil
 }

@@ -39,10 +39,13 @@ func NewOpenAIProvider(config ModelConfig) (*OpenAIProvider, error) {
 // GenerateAnswer implements LLMProvider interface
 func (p *OpenAIProvider) GenerateAnswer(ctx context.Context, question string, docs []Document) (string, error) {
 	// Construct a prompt that includes the question and context from the documents.
-	prompt := "Question:" + question // fmt.Sprintf("You are an AI assistant that answers questions based on the context provided in the documents.\n\nQuestion: %s\n\nDocuments:\n", question)
-	for i, doc := range docs {
-		prompt += fmt.Sprintf("Document %d - %s:\n%s\n\n", i+1, doc.FileName, doc.Content)
+	// prompt := "Question:" + question // fmt.Sprintf("You are an AI assistant that answers questions based on the context provided in the documents.\n\nQuestion: %s\n\nDocuments:\n", question)
+	prompt := fmt.Sprintf("<QUESTION>%s<QUESTION>\n", question)
+	prompt += "<CONTEXT>\n"
+	for _, doc := range docs {
+		prompt += fmt.Sprintf("%s", doc.Content)
 	}
+	prompt += "<CONTEXT>\n"
 
 	// Default to GPT-3.5 if not specified
 	model := p.config.Model
@@ -94,8 +97,10 @@ func (p *OpenAIProvider) CheckAutomaticApproval(ctx context.Context, answer stri
 		model = openai.GPT4oMini
 	}
 
-	prompt := fmt.Sprintf("Query:'%s'\n\n'Queried From:'%s'\n\n My Answer: '%s'\n\nConditions: %s\n",
-		query.Question, query.From, answer, string(formatted))
+	prompt := fmt.Sprintf("\n{'from': '%s', 'query': '%s', 'answer': '%s', 'conditions': %s}\n",
+		query.From, query.Question, answer, string(formatted))
+
+	os.WriteFile("prompt_text.txt", []byte(prompt), 0644)
 
 	systemPrompt := CheckAutomaticApprovalPrompt
 
@@ -138,7 +143,7 @@ func (p *OpenAIProvider) CheckAutomaticApproval(ctx context.Context, answer stri
 }
 
 func (p *OpenAIProvider) GenerateDescription(ctx context.Context, text string) (string, error) {
-	userPrompt := fmt.Sprintf("<FILE CONTENT>\n %s <FILE CONTENT>\n", text)
+	userPrompt := fmt.Sprintf("---TEXT START---\n%s\n---TEXT END---", text)
 
 	// Default to GPT-3.5 if not specified
 	model := p.config.Model
