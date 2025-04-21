@@ -6,7 +6,6 @@ import (
 	"dk/utils"
 	"encoding/json"
 	"fmt"
-	"github.com/philippgille/chromem-go"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -33,41 +32,6 @@ func HandleRequests(ctx context.Context) {
 			HandleAnswer(ctx, msg)
 		}
 	}
-}
-
-func retrieveDocuments(ctx context.Context, question string, numResults int) ([]Document, error) {
-	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// For the Ollama embedding model, a prefix is required to differentiate between a query and a document.
-	// The documents were stored with "search_document: " as a prefix, so we use "search_query: " here.
-	query := "search_query: " + question
-
-	// Query the collection for the top 'numResults' similar documents.
-	tmpNumResults := numResults
-	var docRes []chromem.Result
-	for tmpNumResults > 0 {
-		// Query the collection for the top 'numResults' similar documents.
-		docRes, _ = chromemCollection.Query(ctx, query, tmpNumResults, nil, nil)
-		tmpNumResults = tmpNumResults - 1
-	}
-
-	var results []Document = []Document{}
-	for _, res := range docRes {
-		// Cut off the prefix we added before adding the document (see comment above).
-		// This is specific to the "nomic-embed-text" model.
-		contentString := strings.TrimPrefix(res.Content, "search_document: ")
-		content := Document{FileName: res.Metadata["file"], Content: contentString}
-		results = append(results, content)
-	}
-
-	if len(results) > numResults {
-		results = results[:numResults]
-	}
-
-	return results, nil
 }
 
 func HandleQuery(ctx context.Context, msg dk_client.Message) (string, error) {
@@ -109,7 +73,7 @@ func HandleQuery(ctx context.Context, msg dk_client.Message) (string, error) {
 	}
 
 	// Retrieve relevant documents
-	docs, err := retrieveDocuments(ctx, query.Message, 3)
+	docs, err := RetrieveDocuments(ctx, query.Message, 3)
 
 	if err != nil {
 		return "", fmt.Errorf("failed to retrieve documents: %v", err)

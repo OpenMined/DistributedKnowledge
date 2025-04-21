@@ -26,6 +26,7 @@ type Parameters struct {
 	ModelConfigFile       *string
 	ServerURL             *string
 	DescriptionSourceFile *string
+	HTTPPort              *string
 }
 
 type RemoteMessage struct {

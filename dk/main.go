@@ -4,6 +4,7 @@ import (
 	"context"
 	dk_client "dk/client"
 	"dk/core"
+	"dk/http"
 	mcp_server "dk/mcp"
 	"dk/utils"
 	"flag"
@@ -25,6 +26,7 @@ func loadParameters() utils.Parameters {
 	// Keep the rag_sources flag so that it isn’t nil.
 	params.RagSourcesFile = flag.String("rag_sources", "/path/to/rag_sources.jsonl", "Path to the JSONL file containing source data")
 	params.ServerURL = flag.String("server", "https://localhost:8080", "Address to the websocket server")
+	params.HTTPPort = flag.String("http_port", "8081", "Port for the HTTP server")
 
 	// New flag for projectPath (base directory).
 	projectPath := flag.String("project_path", "~/.config", "Base directory for project configuration")
@@ -121,6 +123,8 @@ func main() {
 
 	rootCtx = utils.WithParams(rootCtx, params)
 	go core.HandleRequests(rootCtx)
+
+	http.SetupHTTPServer(rootCtx, *params.HTTPPort)
 
 	// Wait for an interrupt signal to gracefully shut down.
 	sigChan := make(chan os.Signal, 1)

@@ -4,12 +4,15 @@ import (
 	"context"
 	"dk/utils"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/philippgille/chromem-go"
 	"io"
 	"log"
 	"os"
 	"runtime"
+	"strings"
 )
 
 func SetupChromemCollection(vectorPath string) *chromem.Collection {
@@ -32,6 +35,60 @@ func SetupChromemCollection(vectorPath string) *chromem.Collection {
 		panic(err)
 	}
 	return collection
+}
+
+func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]Document, error) {
+	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// For the Ollama embedding model, a prefix is required to differentiate between a query and a document.
+	// The documents were stored with "search_document: " as a prefix, so we use "search_query: " here.
+	query := "search_query: " + question
+
+	// Query the collection for the top 'numResults' similar documents.
+	tmpNumResults := numResults
+	var docRes []chromem.Result
+	for tmpNumResults > 0 {
+		// Query the collection for the top 'numResults' similar documents.
+		docRes, _ = chromemCollection.Query(ctx, query, tmpNumResults, nil, nil)
+		tmpNumResults = tmpNumResults - 1
+	}
+
+	var results []Document = []Document{}
+	for _, res := range docRes {
+		// Cut off the prefix we added before adding the document (see comment above).
+		// This is specific to the "nomic-embed-text" model.
+		contentString := strings.TrimPrefix(res.Content, "search_document: ")
+		content := Document{FileName: res.Metadata["file"], Content: contentString}
+		results = append(results, content)
+	}
+
+	if len(results) > numResults {
+		results = results[:numResults]
+	}
+
+	return results, nil
+}
+
+func RemoveDocument(ctx context.Context, filename string) error {
+	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		log.Printf("[RAG] %v", err)
+		return nil
+	}
+
+	if strings.TrimSpace(filename) == "" {
+		return errors.New("filename must be non‑empty")
+	}
+
+	where := map[string]string{"file": filename}
+
+	if err := chromemCollection.Delete(ctx, where, nil); err != nil {
+		return fmt.Errorf("delete failed: %w", err)
+	}
+	return nil
 }
 
 func AddDocument(ctx context.Context, fileName string, fileContent string) error {

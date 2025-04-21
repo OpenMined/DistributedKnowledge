@@ -462,7 +462,6 @@ func (c *Client) writePump() {
 	}
 }
 
-
 // exponentialBackoff is an example function to simulate reconnection backoff with jitter.
 func exponentialBackoff(base, max time.Duration) time.Duration {
 	jitter := time.Duration(float64(base) * (0.5 + 0.5*rand.Float64()))
