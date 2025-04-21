@@ -37,6 +37,7 @@ func loadParameters() utils.Parameters {
 	answersFile := basePath + "/answers.json"
 	automaticApprovalFile := basePath + "/automatic_approval.json"
 	vectorDBPath := basePath + "/vector_db"
+	descriptionSourceFile := basePath + "/description.json"
 	modelConfigFile := basePath + "/model_config.json"
 
 	// Set the values in the Parameters struct using the generated strings.
@@ -45,6 +46,7 @@ func loadParameters() utils.Parameters {
 	params.AutomaticApprovalFile = &automaticApprovalFile
 	params.VectorDBPath = &vectorDBPath
 	params.ModelConfigFile = &modelConfigFile
+	params.DescriptionSourceFile = &descriptionSourceFile
 
 	return params
 }

@@ -34,6 +34,57 @@ func SetupChromemCollection(vectorPath string) *chromem.Collection {
 	return collection
 }
 
+func AddDocument(ctx context.Context, fileName string, fileContent string) error {
+	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		log.Printf("[RAG] %v", err)
+		return nil
+	}
+
+	descriptions, err := utils.GetDescriptions(ctx)
+	if err != nil {
+		return err
+	}
+
+	llmProvider, err := LLMProviderFromContext(ctx)
+	if err != nil {
+
+		panic(err)
+	}
+
+	description, err := llmProvider.GenerateDescription(ctx, fileContent)
+	if err != nil {
+		panic(err)
+	}
+	descriptions = append(descriptions, description)
+
+	content := "search_document: " + fileContent
+	newDoc := chromem.Document{
+		ID: uuid.NewString(),
+		Metadata: map[string]string{
+			"file":        fileName,
+			"description": description,
+		},
+		Content: content,
+	}
+
+	err = chromemCollection.AddDocument(ctx, newDoc)
+	if err != nil {
+		return err
+	}
+
+	utils.UpdateDescriptions(ctx, descriptions)
+
+	dkClient, err := utils.DkFromContext(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	dkClient.SetUserDescriptions(descriptions)
+
+	return nil
+}
+
 func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
 	if err != nil {

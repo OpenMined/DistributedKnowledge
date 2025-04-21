@@ -724,22 +724,6 @@ func HandleListApprovalConditionsTool(ctx context.Context, request mcp_lib.CallT
 }
 
 func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	// Retrieve parameters from the context.
-	params, err := utils.ParamsFromContext(ctx)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-	// Get the RAG sources file path.
-	sourcePath := *params.RagSourcesFile
-
-	// Retrieve arguments from the incoming request.
 	args := request.Params.Arguments
 
 	// Workflow 2: Check if file_name and file_content parameters are provided.
@@ -769,53 +753,7 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 			}, nil
 		}
 
-		// Create the resource object using provided values.
-		resource := map[string]string{
-			"file": fileName,
-			"text": fileContent,
-		}
-
-		// Marshal the resource to JSON.
-		resourceJSON, err := json.Marshal(resource)
-		if err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error marshalling resource: %v", err),
-					},
-				},
-			}, nil
-		}
-
-		// Open the RAG sources file in append mode.
-		f, err := os.OpenFile(sourcePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error opening RAG sources file: %v", err),
-					},
-				},
-			}, nil
-		}
-		defer f.Close()
-
-		// Write the JSON resource as a new line in the sources file.
-		if _, err := f.Write(append(resourceJSON, '\n')); err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error writing to RAG sources file: %v", err),
-					},
-				},
-			}, nil
-		}
-
-		// Feed the new resource to the vector database.
-		core.FeedChromem(ctx, sourcePath, true)
+		core.AddDocument(ctx, fileName, fileContent)
 
 		// Return a success response.
 		return &mcp_lib.CallToolResult{
@@ -857,53 +795,7 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 	// Determine the base file name.
 	baseFile := filepath.Base(filePath)
 
-	// Build the resource object.
-	resource := map[string]string{
-		"file": baseFile,
-		"text": string(data),
-	}
-
-	// Marshal the resource to JSON.
-	resourceJSON, err := json.Marshal(resource)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error marshalling resource: %v", err),
-				},
-			},
-		}, nil
-	}
-
-	// Open the RAG sources file in append mode.
-	f, err := os.OpenFile(sourcePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error opening RAG sources file: %v", err),
-				},
-			},
-		}, nil
-	}
-	defer f.Close()
-
-	// Write the JSON object as a new line in the sources file.
-	if _, err := f.Write(append(resourceJSON, '\n')); err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error writing to RAG sources file: %v", err),
-				},
-			},
-		}, nil
-	}
-
-	// Refresh the vector database using the updated sources file.
-	core.FeedChromem(ctx, sourcePath, true)
+	core.AddDocument(ctx, baseFile, string(data))
 
 	// Return a success response.
 	return &mcp_lib.CallToolResult{
