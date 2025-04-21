@@ -91,36 +91,17 @@ func RemoveDocument(ctx context.Context, filename string) error {
 	return nil
 }
 
-func AddDocument(ctx context.Context, fileName string, fileContent string) error {
+func AddDocument(ctx context.Context, fileName string, fileContent string, UpdateDescriptions bool) error {
 	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
 	if err != nil {
 		log.Printf("[RAG] %v", err)
 		return nil
 	}
-
-	descriptions, err := utils.GetDescriptions(ctx)
-	if err != nil {
-		return err
-	}
-
-	llmProvider, err := LLMProviderFromContext(ctx)
-	if err != nil {
-
-		panic(err)
-	}
-
-	description, err := llmProvider.GenerateDescription(ctx, fileContent)
-	if err != nil {
-		panic(err)
-	}
-	descriptions = append(descriptions, description)
-
 	content := "search_document: " + fileContent
 	newDoc := chromem.Document{
 		ID: uuid.NewString(),
 		Metadata: map[string]string{
-			"file":        fileName,
-			"description": description,
+			"file": fileName,
 		},
 		Content: content,
 	}
@@ -130,15 +111,32 @@ func AddDocument(ctx context.Context, fileName string, fileContent string) error
 		return err
 	}
 
-	utils.UpdateDescriptions(ctx, descriptions)
-
 	dkClient, err := utils.DkFromContext(ctx)
 	if err != nil {
 		panic(err)
 	}
 
-	dkClient.SetUserDescriptions(descriptions)
+	if UpdateDescriptions {
+		descriptions, err := utils.GetDescriptions(ctx)
+		if err != nil {
+			return err
+		}
 
+		llmProvider, err := LLMProviderFromContext(ctx)
+		if err != nil {
+
+			panic(err)
+		}
+
+		description, err := llmProvider.GenerateDescription(ctx, fileContent)
+		if err != nil {
+			panic(err)
+		}
+		descriptions = append(descriptions, description)
+
+		dkClient.SetUserDescriptions(descriptions)
+		utils.UpdateDescriptions(ctx, descriptions)
+	}
 	return nil
 }
 
@@ -236,4 +234,41 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 	} else {
 		log.Println("Not reading JSON lines because collection was loaded from persistent storage.")
 	}
+}
+
+func GetDocument(ctx context.Context, fileName string) (*Document, error) {
+	if strings.TrimSpace(fileName) == "" {
+		return nil, errors.New("filename must be non‑empty")
+	}
+
+	col, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	where := map[string]string{"file": fileName}
+
+	// chromem-go requires a non‑empty queryText; a throw‑away literal is fine.
+	const dummyQuery = "search_query: _"
+	results, err := col.Query(ctx, dummyQuery, 1, where, nil)
+	if len(results) == 0 {
+		return nil, nil // caller turns this into 404
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	content := strings.TrimPrefix(results[0].Content, "search_document: ")
+	return &Document{FileName: results[0].Metadata["file"], Content: content}, nil
+}
+
+// UpdateDocument overwrites (or creates) the document identified by fileName.
+// It re‑uses the existing helpers to keep the behaviour (embeddings, description
+// list, etc.) consistent in one place.
+func UpdateDocument(ctx context.Context, fileName, newContent string) error {
+	// Remove first – we don’t care if the old doc did not exist.
+	if err := RemoveDocument(ctx, fileName); err != nil {
+		return err
+	}
+	return AddDocument(ctx, fileName, newContent, false)
 }

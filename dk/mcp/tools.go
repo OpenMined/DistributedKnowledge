@@ -753,7 +753,7 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 			}, nil
 		}
 
-		core.AddDocument(ctx, fileName, fileContent)
+		core.AddDocument(ctx, fileName, fileContent, true)
 
 		// Return a success response.
 		return &mcp_lib.CallToolResult{
@@ -795,7 +795,7 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 	// Determine the base file name.
 	baseFile := filepath.Base(filePath)
 
-	core.AddDocument(ctx, baseFile, string(data))
+	core.AddDocument(ctx, baseFile, string(data), true)
 
 	// Return a success response.
 	return &mcp_lib.CallToolResult{
@@ -1211,7 +1211,7 @@ func HandleGetActiveUsersTool(ctx context.Context, request mcp_lib.CallToolReque
 
 // Tool: Get User Descriptions
 // This tool retrieves the list of descriptions for a given user by invoking dkclient.GetUserDescriptions.
-func HandleGetUserDescriptionsTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+func HandleGetUserDatasetsTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
 	// Retrieve the tool arguments.
 	args := request.Params.Arguments
 	userID, ok := args["user_id"].(string)
@@ -1270,7 +1270,7 @@ func HandleGetUserDescriptionsTool(ctx context.Context, request mcp_lib.CallTool
 		Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				Text: string(formatted),
+				Text: fmt.Sprintf("Given the following list of items, represent it in a bullet list format %s", string(formatted)),
 			},
 		},
 	}, nil

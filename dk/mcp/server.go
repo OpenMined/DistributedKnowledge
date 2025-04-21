@@ -166,13 +166,11 @@ func NewMCPServer() *server.MCPServer {
 
 	// Tool: Get Active Users
 	mcpServer.AddTool(
-		mcp_lib.NewTool("cqGetActiveUsers",
-			mcp_lib.WithDescription("Retrieve active and inactive user lists from the server."),
+		mcp_lib.NewTool("cqGetUsers",
+			mcp_lib.WithDescription("Retrieve active and inactive user lists from the network."),
 			mcp_lib.WithBoolean(
 				"flag",
 				mcp_lib.DefaultBool(false),
-				// mcp_lib.Description("Sentence containing the condition to add."),
-				// mcp_lib.Required(),
 			),
 		),
 		HandleGetActiveUsersTool,
@@ -180,14 +178,14 @@ func NewMCPServer() *server.MCPServer {
 
 	// Tool: Get User Descriptions
 	mcpServer.AddTool(
-		mcp_lib.NewTool("cqGetUserDescriptions",
-			mcp_lib.WithDescription("Retrieve list of descriptions for a user using dkclient.GetUserDescriptions."),
+		mcp_lib.NewTool("cqGetUserDatasets",
+			mcp_lib.WithDescription("Retrieve list of descriptions for a user."),
 			mcp_lib.WithString("user_id",
 				mcp_lib.Description("The ID of the user whose descriptions are requested."),
 				mcp_lib.Required(),
 			),
 		),
-		HandleGetUserDescriptionsTool,
+		HandleGetUserDatasetsTool,
 	)
 	return mcpServer
 }
