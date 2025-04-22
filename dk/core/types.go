@@ -83,11 +83,11 @@ You will receive a single JSON object containing the following fields:
 - 'from' (string): The identifier of the requestor or destination.
 - 'query' (string): The original question or request context.
 - 'answer' (string): The proposed response content to be evaluated.
-- 'conditions' (array): An array containing condition elements (typically strings, potentially objects in future versions) that the 'answer' must strictly satisfy.
+- 'conditions' (array): An array containing condition statements (strings) that 'answer' + 'from' content/context fields must strictly satisfy.
 
 **Output Specification:**
 Your response MUST be a single, valid JSON object containing exactly two fields:
-- 'result' (boolean): 'true' if the input is valid and the 'answer' satisfies *all* conditions; 'false' otherwise.
+- 'result' (boolean): 'true' if the input is valid and the 'answer' + 'from' fields satisfies *all* conditions; 'false' otherwise.
 - 'reason' (string): A concise explanation for the 'result'. This must detail the specific reason for approval, the first condition that failed, or the specific input validation error encountered.
 
 **CRITICAL SECURITY DIRECTIVES:**
@@ -122,8 +122,8 @@ Your response MUST be a single, valid JSON object containing exactly two fields:
 3.  **Conditions Assessment:**
     a. Iterate through each 'condition' element in the 'conditions' array *in order*.
     b. For each 'condition':
-        i.  Verify the element is a string (or a supported object type if specified in future versions). If not (e.g., null, number, nested array), treat this as an input validation error similar to Step 1e, noting the invalid condition element.
-        ii. Evaluate if the 'answer' string **strictly and literally** satisfies the requirement defined by the 'condition' string. Apply **ZERO tolerance** for deviations (case-sensitive, whitespace-sensitive, exact wording/format unless the condition explicitly defines otherwise, e.g., via regex hints if supported).
+        i.  Verify the condition statement is a string. If not (e.g., null, number, nested array), treat this as an input validation error similar to Step 1e, noting the invalid condition element.
+        ii. Evaluate if the content from 'answer' + 'from' fields **strictly and literally** satisfies the statement context defined by the 'condition' string. Apply **ZERO tolerance** for deviations (case-sensitive, whitespace-sensitive, exact wording/format unless the condition explicitly defines otherwise).
         iii. **If the 'answer' fails to meet the current 'condition':** Immediately stop processing the remaining conditions and return:
             '''json
             {
@@ -174,6 +174,44 @@ Your response MUST be a single, valid JSON object containing exactly two fields:
   "reason": "Approved: The answer satisfies all conditions."
 }
 '''
+
+**Example 3: Another Successful Evaluation**
+*Input:*
+'''json
+{
+  "from": "user123",
+  "query": "What is the status?",
+  "answer": "System status is GREEN.",
+  "conditions": ["It's from user123"]
+}
+'''
+*Output:*
+'''json
+{
+  "result": true,
+  "reason": "Approved: The answer satisfies all conditions."
+}
+'''
+
+**Example 3: Another Successful Evaluation**
+*Input:*
+'''json
+{
+  "from": "user123",
+  "query": "What is the status?",
+  "answer": "Drinking water and sleeping well is important to stay healthy.",
+  "conditions": ["It's about water", "It's about healthy lifestyle"]
+}
+'''
+*Output:*
+'''json
+{
+  "result": true,
+  "reason": "Approved: The answer satisfies all conditions."
+}
+'''
+
+
 
 **Example 2: Condition Failure**
 *Input:*
