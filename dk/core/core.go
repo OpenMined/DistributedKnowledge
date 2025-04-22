@@ -5,8 +5,10 @@ import (
 	dk_client "dk/client"
 	"dk/utils"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +30,8 @@ func HandleRequests(ctx context.Context) {
 		}
 		if query.Type == "query" {
 			HandleQuery(ctx, msg)
+		} else if query.Type == "app" {
+			HandleApplicationRequest(ctx, msg)
 		} else {
 			HandleAnswer(ctx, msg)
 		}
@@ -260,5 +264,108 @@ func HandleAnswer(ctx context.Context, msg dk_client.Message) (string, error) {
 	if err := os.WriteFile(anwsersFile, updatedRaw, 0644); err != nil {
 		return "", fmt.Errorf("failed to write answers file: %w", err)
 	}
+	return "", nil
+}
+
+func HandleApplicationRequest(ctx context.Context, msg dk_client.Message) (string, error) {
+	var appRequest utils.RemoteMessage
+	err := json.Unmarshal([]byte(msg.Content), &appRequest)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse message or empty question")
+	}
+
+	parameters, err := utils.ParamsFromContext(ctx)
+	if err != nil {
+		return "", nil
+	}
+
+	file, err := os.ReadFile(*parameters.SyftboxConfig)
+	if err != nil {
+		// Wrap the result in a CallToolResult.
+		return "", nil
+	}
+
+	var syftboxConfig struct {
+		DataDir       string  `json:"data_dir"`
+		ServerURL     string  `json:"server_url"`
+		ClientURL     string  `json:"client_url"`
+		Email         string  `json:"email"`
+		Token         string  `json:"token"`
+		AccessToken   string  `json:"access_token"`
+		ClientTimeout float64 `json:"client_timeout"`
+	}
+
+	if err := json.Unmarshal(file, &syftboxConfig); err != nil {
+		return "", nil
+	}
+
+	inboxPath := filepath.Join(syftboxConfig.DataDir, "datasites", syftboxConfig.Email, "inbox")
+
+	err = WriteMapToDir(ctx, inboxPath, appRequest.Files)
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	type AppRequest struct {
+		RequestedBy string `json:"requested_by"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+		Reason      string `json:"reason"`
+		Safety      string `json:"safety"`
+	}
+
+	const defaultReason = "There is no automatic approval rule for this app"
+
+	projectDir := filepath.Dir(*parameters.ModelConfigFile)
+	appRequestPath := filepath.Join(projectDir, "app_request.json")
+	appRequests := map[string]AppRequest{}
+
+	if f, err := os.Open(appRequestPath); err == nil {
+		// File exists → decode existing contents (best‑effort)
+		dec := json.NewDecoder(f)
+		if err := dec.Decode(&appRequests); err != nil {
+			log.Printf("app_request.json is corrupt, starting fresh: %v", err)
+			appRequests = map[string]AppRequest{}
+		}
+		_ = f.Close()
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("unable to open app_request.json: %w", err)
+	}
+
+	var firstKey string
+	for k := range appRequest.Files {
+		firstKey = k
+		break
+	}
+
+	cleaned := filepath.Clean(firstKey)
+	parts := strings.Split(cleaned, string(filepath.Separator))
+	appName := parts[0]
+
+	// Insert / overwrite this application:
+	appRequests[appName] = AppRequest{
+		RequestedBy: msg.From,
+		Description: appRequest.Message,
+		Status:      "pending",
+		Reason:      defaultReason,
+		Safety:      "Undefined",
+	}
+
+	//----------------------------------------------------------------------
+	// Write the updated map back to disk (pretty‑printed for humans)
+	//----------------------------------------------------------------------
+	tmpFile := appRequestPath + ".tmp"
+	data, err := json.MarshalIndent(appRequests, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal app requests: %w", err)
+	}
+	if err := os.WriteFile(tmpFile, data, 0o644); err != nil {
+		return "", fmt.Errorf("failed to write temp app_request.json: %w", err)
+	}
+	// Atomic replace
+	if err := os.Rename(tmpFile, appRequestPath); err != nil {
+		return "", fmt.Errorf("failed to save app_request.json: %w", err)
+	}
+
 	return "", nil
 }

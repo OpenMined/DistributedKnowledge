@@ -27,11 +27,13 @@ type Parameters struct {
 	ServerURL             *string
 	DescriptionSourceFile *string
 	HTTPPort              *string
+	SyftboxConfig         *string
 }
 
 type RemoteMessage struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
+	Type    string            `json:"type"`
+	Message string            `json:"message,omitempty"`
+	Files   map[string]string `json:"files,omitempty"`
 }
 
 type AnswerMessage struct {

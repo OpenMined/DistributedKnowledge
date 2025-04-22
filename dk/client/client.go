@@ -11,16 +11,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"filippo.io/edwards25519"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"golang.org/x/crypto/nacl/box"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
+
+	"filippo.io/edwards25519"
+	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/nacl/box"
 )
 
 // Message represents the structure of messages exchanged with the server.
@@ -611,7 +612,6 @@ func (c *Client) writePump() {
 					log.Printf("Failed to get recipient public key: %v", err)
 					continue
 				}
-				log.Println("I can't see it")
 				encryptedContent, err := encryptDirectMessage(msg.Content, recipientPub, c.privateKey)
 				if err != nil {
 					log.Printf("Failed to encrypt message: %v", err)

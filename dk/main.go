@@ -27,6 +27,7 @@ func loadParameters() utils.Parameters {
 	params.RagSourcesFile = flag.String("rag_sources", "/path/to/rag_sources.jsonl", "Path to the JSONL file containing source data")
 	params.ServerURL = flag.String("server", "https://localhost:8080", "Address to the websocket server")
 	params.HTTPPort = flag.String("http_port", "8081", "Port for the HTTP server")
+	params.SyftboxConfig = flag.String("syftbox_config", "~/.syftbox", "Path to syftbox config file")
 
 	// New flag for projectPath (base directory).
 	projectPath := flag.String("project_path", "~/.config", "Base directory for project configuration")

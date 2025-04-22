@@ -187,5 +187,59 @@ func NewMCPServer() *server.MCPServer {
 		),
 		HandleGetUserDatasetsTool,
 	)
+
+	// Tool: Get Pending Application Requests
+	mcpServer.AddTool(
+		mcp_lib.NewTool("cqGetPendingApplications",
+			mcp_lib.WithDescription("Retrieve a list of pending application requests in the network."),
+			mcp_lib.WithBoolean(
+				"flag",
+				mcp_lib.DefaultBool(false),
+			),
+		),
+		HandleGetPendingApplicationsTool,
+	)
+
+	// Tool: Accept or Deny Pending Application
+	mcpServer.AddTool(
+		mcp_lib.NewTool("cqProcessApplicationRequest",
+			mcp_lib.WithDescription("Accept or deny a pending application request by its application name."),
+			mcp_lib.WithString(
+				"app_name",
+				mcp_lib.Description("The name of the application to process."),
+				mcp_lib.Required(),
+			),
+			mcp_lib.WithBoolean(
+				"approve",
+				mcp_lib.Description("Set to true to approve the application, false to deny."),
+				mcp_lib.Required(),
+			),
+		),
+		HandleProcessApplicationRequestTool,
+	)
+
+	// Tool: Submit App Folder
+	mcpServer.AddTool(
+		mcp_lib.NewTool("cqSubmitAppFolder",
+			mcp_lib.WithDescription("Submit an application folder to specified peers or broadcast to the entire network."),
+			mcp_lib.WithString(
+				"app_path",
+				mcp_lib.Description("The full path to the application folder to submit."),
+				mcp_lib.Required(),
+			),
+			mcp_lib.WithString(
+				"description",
+				mcp_lib.Description("App description"),
+				mcp_lib.Required(),
+			),
+			mcp_lib.WithArray(
+				"peers",
+				mcp_lib.Description("List of peer identifiers (without '@') to receive the app folder. Leave empty to broadcast to all peers."),
+				mcp_lib.Items(map[string]any{"type": "string"}),
+				mcp_lib.Required(),
+			),
+		),
+		HandleSubmitAppFolderTool,
+	)
 	return mcpServer
 }

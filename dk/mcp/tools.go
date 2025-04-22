@@ -1275,3 +1275,383 @@ func HandleGetUserDatasetsTool(ctx context.Context, request mcp_lib.CallToolRequ
 		},
 	}, nil
 }
+
+func HandleGetPendingApplicationsTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	//----------------------------------------------------------------------
+	// 0. Pull Syftbox parameters out of context (unchanged)
+	//----------------------------------------------------------------------
+	parameters, err := utils.ParamsFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{Type: "text", Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err)},
+			},
+		}, nil
+	}
+
+	cfgBytes, err := os.ReadFile(*parameters.SyftboxConfig)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{Type: "text", Text: fmt.Sprintf("Couldn't read Syftbox config at %s", *parameters.SyftboxConfig)},
+			},
+		}, nil
+	}
+
+	var syftboxConfig struct {
+		DataDir       string  `json:"data_dir"`
+		ServerURL     string  `json:"server_url"`
+		ClientURL     string  `json:"client_url"`
+		Email         string  `json:"email"`
+		Token         string  `json:"token"`
+		AccessToken   string  `json:"access_token"`
+		ClientTimeout float64 `json:"client_timeout"`
+	}
+	if err := json.Unmarshal(cfgBytes, &syftboxConfig); err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{Type: "text", Text: "Failed to parse syftbox config; please verify the file format."},
+			},
+		}, nil
+	}
+
+	//----------------------------------------------------------------------
+	// 1. List entries in the inbox
+	//----------------------------------------------------------------------
+	inboxPath := filepath.Join(syftboxConfig.DataDir, "datasites", syftboxConfig.Email, "inbox")
+	dirEntries, err := os.ReadDir(inboxPath)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{Type: "text", Text: fmt.Sprintf("Failed to read inbox directory: %s", err)},
+			},
+		}, nil
+	}
+
+	var inboxNames []string
+	for _, de := range dirEntries {
+		switch de.Name() {
+		case "approved", "rejected", "syftperm.yaml":
+			// Skip bookkeeping directories / files
+		default:
+			inboxNames = append(inboxNames, de.Name())
+		}
+	}
+
+	//----------------------------------------------------------------------
+	// 2. Load app_request.json (best‑effort)
+	//----------------------------------------------------------------------
+	type appRequest struct {
+		RequestedBy string `json:"requested_by"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+		Reason      string `json:"reason"`
+		Safety      string `json:"safety"`
+	}
+
+	appRequestPath := filepath.Dir(*parameters.ModelConfigFile)
+	appReqPath := filepath.Join(appRequestPath, "app_request.json")
+	appReqMap := map[string]appRequest{}
+
+	if data, err := os.ReadFile(appReqPath); err == nil {
+		_ = json.Unmarshal(data, &appReqMap) // ignore errors → leave map empty on malformed JSON
+	}
+
+	//----------------------------------------------------------------------
+	// 3. Merge inbox + app_request.json
+	//----------------------------------------------------------------------
+	const undef = "undefined"
+
+	type summary struct {
+		AppName     string `json:"app_name"`
+		RequestedBy string `json:"requested_by"`
+		Description string `json:"description"`
+		Safety      string `json:"safety"`
+		Reason      string `json:"reason"`
+		Status      string `json:"status"`
+	}
+
+	var pending []summary
+	for _, name := range inboxNames {
+		if ar, ok := appReqMap[name]; ok {
+			pending = append(pending, summary{
+				AppName:     name,
+				RequestedBy: ar.RequestedBy,
+				Description: ar.Description,
+				Safety:      ar.Safety,
+				Reason:      ar.Reason,
+				Status:      ar.Status,
+			})
+		} else {
+			pending = append(pending, summary{
+				AppName:     name,
+				RequestedBy: undef,
+				Description: undef,
+				Safety:      undef,
+				Reason:      undef,
+				Status:      "pending",
+			})
+		}
+	}
+
+	//----------------------------------------------------------------------
+	// 4. Pretty‑print & wrap in CallToolResult
+	//----------------------------------------------------------------------
+	out, err := json.MarshalIndent(pending, "", "  ")
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{Type: "text", Text: fmt.Sprintf("Error formatting pending list: %s", err)},
+			},
+		}, nil
+	}
+
+	return &mcp_lib.CallToolResult{
+		Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				// The agent that calls this tool can turn the JSON into a markdown table
+				Text: fmt.Sprintf("Return the list of pending applications details in markdown tabular format. %s", string(out)),
+				// Text: fmt.Sprintf("Pending application details (JSON):\n\n```json\n%s\n```", string(out)),
+			},
+		},
+	}, nil
+}
+
+func HandleProcessApplicationRequestTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	// Retrieve the tool arguments.
+	args := request.Params.Arguments
+	appName, ok := args["app_name"].(string)
+	if !ok || strings.TrimSpace(appName) == "" {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "'app_name' parameter is required",
+				},
+			},
+		}, nil
+	}
+
+	approval, ok := args["approve"].(bool)
+	if !ok || strings.TrimSpace(appName) == "" {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "'approval' parameter is required",
+				},
+			},
+		}, nil
+	}
+
+	parameters, err := utils.ParamsFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	file, err := os.ReadFile(*parameters.SyftboxConfig)
+	if err != nil {
+		// Wrap the result in a CallToolResult.
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't find Syftbox config file in path %s, please verify if this path exist", *parameters.SyftboxConfig),
+				},
+			},
+		}, nil
+	}
+
+	var syftboxConfig struct {
+		DataDir       string  `json:"data_dir"`
+		ServerURL     string  `json:"server_url"`
+		ClientURL     string  `json:"client_url"`
+		Email         string  `json:"email"`
+		Token         string  `json:"token"`
+		AccessToken   string  `json:"access_token"`
+		ClientTimeout float64 `json:"client_timeout"`
+	}
+
+	if err := json.Unmarshal(file, &syftboxConfig); err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Failed to parse the syftbox config file. Please check if your config file is set properly."),
+				},
+			},
+		}, nil
+	}
+
+	appPath := filepath.Join(syftboxConfig.DataDir, "datasites", syftboxConfig.Email, "inbox", appName)
+
+	prohibitedNames := appName == "approved" || appName == "rejected" || appName == "syftperm.yaml"
+	if prohibitedNames {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("You can't approve the %s folder/file", appName),
+				},
+			},
+		}, nil
+	}
+
+	_, err = os.Stat(appPath)
+	if os.IsNotExist(err) {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("The app '%s' doesn't exist or isn't in pending state anymore. Please verify if you typed it properly.", appName),
+				},
+			},
+		}, nil
+	}
+
+	approvalStatus := "approved"
+	if approval {
+		approvedPath := filepath.Join(syftboxConfig.DataDir, "apps", appName)
+		os.Rename(appPath, approvedPath)
+	} else {
+		approvalStatus = "rejected"
+		rejectedPath := filepath.Join(syftboxConfig.DataDir, "datasites", syftboxConfig.Email, "inbox", "rejected", appName)
+		os.Rename(appPath, rejectedPath)
+	}
+
+	return &mcp_lib.CallToolResult{
+		Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				Text: fmt.Sprintf("The app '%s' has been %s successfully.", appName, approvalStatus),
+			},
+		},
+	}, nil
+}
+
+func HandleSubmitAppFolderTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	args := request.Params.Arguments
+	appPath, ok := args["app_path"].(string)
+	if !ok || strings.TrimSpace(appPath) == "" {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "'app_path' parameter is required",
+				},
+			},
+		}, nil
+	}
+
+	appDescription, ok := args["description"].(string)
+	if !ok || strings.TrimSpace(appDescription) == "" {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "'description' parameter is required",
+				},
+			},
+		}, nil
+	}
+
+	var peers []string
+	if r, exists := args["peers"]; exists {
+		for _, item := range r.([]any) {
+			if str, ok := item.(string); ok {
+				peers = append(peers, str)
+			}
+		}
+	}
+
+	result, err := core.ScanDirToMap(ctx, appPath)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "'app_path' parameter is required",
+				},
+			},
+		}, nil
+	}
+
+	dkClient, err := utils.DkFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't retrieve DK from context: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+	query := utils.RemoteMessage{
+		Type:    "app",
+		Message: appDescription,
+		Files:   result,
+	}
+	jsonData, err := json.Marshal(query)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't marshal query: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+	if len(peers) == 0 {
+		err = dkClient.BroadcastMessage(string(jsonData))
+		if err != nil {
+			return &mcp_lib.CallToolResult{
+				Content: []mcp_lib.Content{
+					mcp_lib.TextContent{
+						Type: "text",
+						Text: fmt.Sprintf("Couldn't send message: %s", err.Error()),
+					},
+				},
+			}, nil
+		}
+	} else {
+		for _, peer := range peers {
+			err = dkClient.SendMessage(dk_client.Message{
+				From:      dkClient.UserID,
+				To:        peer,
+				Content:   string(jsonData),
+				Timestamp: time.Now(),
+			})
+			if err != nil {
+
+				return &mcp_lib.CallToolResult{
+					Content: []mcp_lib.Content{
+						mcp_lib.TextContent{
+							Type: "text",
+							Text: fmt.Sprintf("Couldn't send message: %s", err.Error()),
+						},
+					},
+				}, nil
+			}
+		}
+	}
+
+	return &mcp_lib.CallToolResult{
+		Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				Text: "Application sent successfully!",
+			},
+		},
+	}, nil
+
+}

@@ -100,8 +100,6 @@ func (p *OpenAIProvider) CheckAutomaticApproval(ctx context.Context, answer stri
 	prompt := fmt.Sprintf("\n{'from': '%s', 'query': '%s', 'answer': '%s', 'conditions': %s}\n",
 		query.From, query.Question, answer, string(formatted))
 
-	os.WriteFile("prompt_text.txt", []byte(prompt), 0644)
-
 	systemPrompt := CheckAutomaticApprovalPrompt
 
 	// Use ChatCompletion for automatic approval check
