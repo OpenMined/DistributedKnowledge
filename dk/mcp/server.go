@@ -85,28 +85,20 @@ func NewMCPServer() *server.MCPServer {
 
 	// Tool: Accept Query
 	mcpServer.AddTool(
-		mcp_lib.NewTool("cqAcceptQuery",
-			mcp_lib.WithDescription("Mark a pending query as 'accepted'."),
+		mcp_lib.NewTool("cqProcessQuery",
+			mcp_lib.WithDescription("Mark a pending query as 'accepted' or 'rejected'."),
 			mcp_lib.WithString(
 				"id",
 				mcp_lib.Description("Unique identifier of the query to accept."),
 				mcp_lib.Required(),
 			),
-		),
-		HandleAcceptQuestionTool,
-	)
-
-	// Tool: Reject Query
-	mcpServer.AddTool(
-		mcp_lib.NewTool("cqRejectQuery",
-			mcp_lib.WithDescription("Mark a pending query as 'rejected'."),
-			mcp_lib.WithString(
-				"id",
-				mcp_lib.Description("Unique identifier of the query to reject."),
+			mcp_lib.WithBoolean(
+				"approve",
+				mcp_lib.Description("A boolean flag to identify if the pending query is accepted or rejected."),
 				mcp_lib.Required(),
 			),
 		),
-		HandleRejectQuestionTool,
+		HandleProcessQuestionTool,
 	)
 
 	mcpServer.AddTool(

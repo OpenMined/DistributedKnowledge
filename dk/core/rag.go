@@ -221,6 +221,7 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 		}
 
 		dkClient.SetUserDescriptions(descriptions)
+		utils.UpdateDescriptions(ctx, descriptions)
 
 		log.Println("Adding documents to chromem-go, including creating their embeddings via Ollama API...")
 		if len(docs) == 0 {

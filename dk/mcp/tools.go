@@ -2,13 +2,15 @@ package mcp
 
 import (
 	"context"
+	"database/sql"
 	dk_client "dk/client"
 	"dk/core"
+	"dk/db"
 	"dk/utils"
 	"encoding/json"
+	"errors"
 	"fmt"
 	mcp_lib "github.com/mark3labs/mcp-go/mcp"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,88 +25,42 @@ import (
 // Given an answer_id, this tool will load the file, check if the entry exists,
 // and return the associated answers. In case of any error, the error message
 // will be returned in the Text field of the CallToolResult.
-func HandleAnswerListTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	parameters, err := utils.ParamsFromContext(ctx)
+func HandleAnswerListTool(ctx context.Context, req mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	dbHandler, err := utils.DatabaseFromContext(ctx)
 	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-	anwsersFile := *parameters.AnswersFile
-
-	// Load existing answers from the file.
-	var answersData map[string]map[string]string
-	if _, err := os.Stat(anwsersFile); os.IsNotExist(err) {
-		// File doesn't exist; therefore, no answers can be found.
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("No answers found "),
-				},
-			},
-		}, nil
-	} else {
-		raw, err := os.ReadFile(anwsersFile)
-		if err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error reading answers file: %v", err),
-					},
-				},
-			}, nil
-		}
-		if err := json.Unmarshal(raw, &answersData); err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error unmarshalling answers file: %v", err),
-					},
-				},
-			}, nil
-		}
-	}
-
-	formatted, err := json.MarshalIndent(answersData, "", "  ")
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error formatting answer data: %v", err),
-				},
-			},
-		}, nil
-	}
-	detailedStr := "general"
-	args := request.Params.Arguments
-	detailed, ok := args["detailed_answer"].(bool)
-
-	if ok && detailed {
-		detailedStr = "detailed"
-	}
-
-	related, ok := args["related_topic"].(string)
-	if !ok {
-		related = ""
-	}
-	return &mcp_lib.CallToolResult{
-		Content: []mcp_lib.Content{
+		return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				Text: fmt.Sprintf("Given the Answers: %s, and related topic: %s, provide a %s answer.", string(formatted), related, detailedStr),
+				Text: fmt.Sprintf("Couldn't retrieve database instace. %v", err.Error()),
 			},
-		},
-	}, nil
+		}}, nil
+	}
 
+	all, err := db.AllAnswers(ctx, dbHandler)
+	if err != nil {
+		return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				Text: fmt.Sprintf("Couldn't retrieve all answers: %v", err.Error()),
+			},
+		}}, nil
+	}
+	raw, _ := json.MarshalIndent(all, "", "  ")
+
+	args := req.Params.Arguments
+	detail := "general"
+	if d, ok := args["detailed_answer"].(bool); ok && d {
+		detail = "detailed"
+	}
+	related, _ := args["related_topic"].(string)
+
+	return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+		mcp_lib.TextContent{
+			Type: "text",
+			Text: fmt.Sprintf("Given the Answers: %s, and related topic: %s, provide a %s answer.",
+				string(raw), related, detail),
+		},
+	}}, nil
 }
 
 // Tool: Get Answers for Query
@@ -115,107 +71,65 @@ func HandleAnswerListTool(ctx context.Context, request mcp_lib.CallToolRequest) 
 // Given an answer_id, this tool will load the file, check if the entry exists,
 // and return the associated answers. In case of any error, the error message
 // will be returned in the Text field of the CallToolResult.
-func HandleGetAnswerTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	parameters, err := utils.ParamsFromContext(ctx)
+func HandleGetAnswerTool(ctx context.Context, req mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	dbInstance, err := utils.DatabaseFromContext(ctx)
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
+					Text: fmt.Sprintf("Couldn't retrieve database instance %v", err.Error()),
 				},
 			},
 		}, nil
 	}
-	anwsersFile := *parameters.AnswersFile
 
-	// Retrieve and validate input parameter.
-	args := request.Params.Arguments
-	queryId, ok := args["query"].(string)
-
-	delay, ok := args["delay"].(int)
-	if !ok {
-		delay = 3
-	}
-	time.Sleep(time.Duration(delay) * time.Second)
-
-	if !ok || strings.TrimSpace(queryId) == "" {
+	args := req.Params.Arguments
+	qID, _ := args["query"].(string)
+	if strings.TrimSpace(qID) == "" {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: "'query_id' parameter is required",
+					Text: fmt.Sprintf("'query' parameter is required"),
 				},
 			},
 		}, nil
 	}
 
-	// Load existing answers from the file.
-	var answersData map[string]map[string]string
-	if _, err := os.Stat(anwsersFile); os.IsNotExist(err) {
-		// File doesn't exist; therefore, no answers can be found.
+	// optional delay
+	if d, ok := args["delay"].(float64); ok && d > 0 {
+		time.Sleep(time.Duration(int(d)) * time.Second)
+	}
+
+	ans, err := db.AnswersForQuestion(ctx, dbInstance, qID)
+	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("No answers found for id: %s", queryId),
+					Text: fmt.Sprintf("Error while trying to get the answers for question %s : %v", qID, err.Error()),
 				},
 			},
 		}, nil
-	} else {
-		raw, err := os.ReadFile(anwsersFile)
-		if err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error reading answers file: %v", err),
-					},
-				},
-			}, nil
-		}
-		if err := json.Unmarshal(raw, &answersData); err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error unmarshalling answers file: %v", err),
-					},
-				},
-			}, nil
-		}
 	}
 
-	// Check if the answer_id exists in the loaded data.
-	if answers, exists := answersData[queryId]; exists {
-		// Format the answers as a pretty JSON string.
-		formatted, err := json.MarshalIndent(answers, "", "  ")
-		if err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error formatting answer data: %v", err),
-					},
-				},
-			}, nil
-		}
+	if len(ans) == 0 {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: string(formatted),
+					Text: fmt.Sprintf("No answers found for id: %s", qID),
 				},
 			},
 		}, nil
 	}
-
-	// If answer_id is not found, return a message indicating so.
+	raw, _ := json.MarshalIndent(ans, "", "  ")
 	return &mcp_lib.CallToolResult{
 		Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				Text: fmt.Sprintf("No answers found for id: %s", queryId),
+				Text: fmt.Sprintf("%s", string(raw)),
 			},
 		},
 	}, nil
@@ -318,86 +232,38 @@ func HandleAskTool(
 
 // Tool: List Queries
 func HandleListQueriesTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	params, err := utils.ParamsFromContext(ctx)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-
-	// Load all queries from the file.
-	queriesData, err := core.LoadQueries(*params.QueriesFile)
-	if err != nil {
-		return nil, err
-	}
-
-	// Retrieve optional filter parameters.
 	args := request.Params.Arguments
-	var statusFilter string
-	var fromFilter string
+	statusFilter, _ := args["status"].(string)
+	fromFilter, _ := args["from"].(string)
 
-	// Use "status" filter if provided.
-	if statusVal, ok := args["status"].(string); ok && strings.TrimSpace(statusVal) != "" {
-		statusFilter = strings.ToLower(strings.TrimSpace(statusVal))
-	}
-	// Use "from" filter if provided.
-	if fromVal, ok := args["from"].(string); ok && strings.TrimSpace(fromVal) != "" {
-		fromFilter = strings.TrimSpace(fromVal)
-	}
-
-	// If no filters are provided, return the complete list.
-	if statusFilter == "" && fromFilter == "" {
-		output, err := json.MarshalIndent(queriesData.Queries, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal queries: %w", err)
-		}
+	dbInstance, err := utils.DatabaseFromContext(ctx)
+	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: string(output),
+					Text: fmt.Sprintf("Couldn't access the databse instance: %s", err.Error()),
 				},
 			},
 		}, nil
 	}
 
-	// Filter queries based on provided optional parameters.
-	filtered := make(map[string]core.Query)
-	for id, qry := range queriesData.Queries {
-		// Apply status filter if set.
-		if statusFilter != "" {
-			if strings.ToLower(qry.Status) != statusFilter {
-				continue
-			}
-		}
-		// Apply from filter if set.
-		if fromFilter != "" {
-			if qry.From != fromFilter {
-				continue
-			}
-		}
-		filtered[id] = qry
-	}
-
-	// Marshal the filtered queries into a pretty JSON string.
-	output, err := json.MarshalIndent(filtered, "", "  ")
+	list, err := db.ListQueries(ctx, dbInstance, statusFilter, fromFilter)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal filtered queries: %w", err)
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't retrieve the list of queries.: %s", err.Error()),
+				},
+			},
+		}, nil
 	}
 
-	return &mcp_lib.CallToolResult{
-		Content: []mcp_lib.Content{
-			mcp_lib.TextContent{
-				Type: "text",
-				Text: string(output),
-			},
-		},
-	}, nil
+	out, _ := json.MarshalIndent(list, "", "  ")
+	return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+		mcp_lib.TextContent{Type: "text", Text: string(out)},
+	}}, nil
 }
 
 // Tool: Add Automatic Approval Condition
@@ -405,111 +271,47 @@ func HandleListQueriesTool(ctx context.Context, request mcp_lib.CallToolRequest)
 // This tool extracts a condition from a sentence and appends it to the automatic_approval.json file.
 // The file is expected to store an array of condition strings.
 // Input parameter: "sentence" (the sentence containing the condition).
-func HandleAddApprovalConditionTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	params, err := utils.ParamsFromContext(ctx)
+func HandleAddApprovalConditionTool(ctx context.Context, req mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	dbHandle, err := utils.DatabaseFromContext(ctx)
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
+					Text: fmt.Sprintf("Couldn't retrieve databse instance : %v'", err.Error()),
 				},
 			},
 		}, nil
 	}
 
-	automaticApprovalFile := *params.AutomaticApprovalFile
-
-	args := request.Params.Arguments
-	sentence, ok := args["sentence"].(string)
-	if !ok || strings.TrimSpace(sentence) == "" {
+	ruleRaw, ok := req.Params.Arguments["sentence"].(string)
+	rule := strings.TrimSpace(ruleRaw)
+	if !ok || rule == "" {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: "'sentence' parameter is required",
+					Text: fmt.Sprintf("'sentence' parameter is required", err.Error()),
 				},
 			},
 		}, nil
 	}
 
-	// Extract the condition (for now, simply trim the sentence).
-	condition := strings.TrimSpace(sentence)
-
-	// Load existing conditions (if file exists).
-	var conditions []string
-	if _, err := os.Stat(automaticApprovalFile); os.IsNotExist(err) {
-		conditions = []string{}
-	} else {
-		raw, err := os.ReadFile(automaticApprovalFile)
-		if err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error reading automatic approval file: %v", err),
-					},
-				},
-			}, nil
-		}
-		if err := json.Unmarshal(raw, &conditions); err != nil {
-			return &mcp_lib.CallToolResult{
-				Content: []mcp_lib.Content{
-					mcp_lib.TextContent{
-						Type: "text",
-						Text: fmt.Sprintf("Error unmarshalling automatic approval file: %v", err),
-					},
-				},
-			}, nil
-		}
-	}
-
-	// Append the new condition.
-	conditions = append(conditions, condition)
-
-	// Marshal the updated conditions.
-	updatedRaw, err := json.MarshalIndent(conditions, "", "  ")
-	if err != nil {
+	if err := db.InsertRule(ctx, dbHandle, rule); err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Error marshalling updated conditions: %v", err),
+					Text: fmt.Sprintf("Couldn't add the new rule into the automatic approval register : %v", err.Error()),
 				},
 			},
 		}, nil
 	}
-
-	// Ensure the directory exists.
-	approvalDir := filepath.Dir(automaticApprovalFile)
-	if err := os.MkdirAll(approvalDir, fs.ModePerm); err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error creating directory for automatic approval file: %v", err),
-				},
-			},
-		}, nil
-	}
-
-	// Write the updated file.
-	if err := os.WriteFile(automaticApprovalFile, updatedRaw, 0644); err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error writing automatic approval file: %v", err),
-				},
-			},
-		}, nil
-	}
-
 	return &mcp_lib.CallToolResult{
 		Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				Text: fmt.Sprintf("Condition added successfully: %s", condition),
+				Text: fmt.Sprintf("New automatic approval rule '%s' added successfully.", rule),
 			},
 		},
 	}, nil
@@ -519,130 +321,59 @@ func HandleAddApprovalConditionTool(ctx context.Context, request mcp_lib.CallToo
 //
 // This tool removes a specific condition from the automatic_approval.json file.
 // Input parameter: "condition" (the exact text of the condition to remove).
-func HandleRemoveApprovalConditionTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	params, err := utils.ParamsFromContext(ctx)
+func HandleRemoveApprovalConditionTool(ctx context.Context, req mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	dbHandle, err := utils.DatabaseFromContext(ctx)
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
+					Text: fmt.Sprintf("DB unavailable: %v", err),
 				},
 			},
 		}, nil
 	}
 
-	automaticApprovalFile := *params.AutomaticApprovalFile
-
-	args := request.Params.Arguments
-	conditionToRemove, ok := args["condition"].(string)
-	if !ok || strings.TrimSpace(conditionToRemove) == "" {
+	ruleRaw, ok := req.Params.Arguments["condition"].(string)
+	rule := strings.TrimSpace(ruleRaw)
+	if !ok || rule == "" {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: "'condition' parameter is required",
-				},
-			},
-		}, nil
-	}
-	conditionToRemove = strings.TrimSpace(conditionToRemove)
-	var conditions []string
-
-	if _, err := os.Stat(automaticApprovalFile); os.IsNotExist(err) {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: "No automatic approval conditions found.",
+					Text: fmt.Sprintf("'condition' parameter is required"),
 				},
 			},
 		}, nil
 	}
 
-	raw, err := os.ReadFile(automaticApprovalFile)
+	deleted, err := db.DeleteRule(ctx, dbHandle, rule)
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Error reading automatic approval file: %v", err),
+					Text: fmt.Sprintf("Could not remove rule: %v", err.Error()),
 				},
 			},
 		}, nil
+		// return errorResult(fmt.Sprintf("Could not remove rule: %v", err)), nil
 	}
-	if err := json.Unmarshal(raw, &conditions); err != nil {
+	if !deleted {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Error unmarshalling automatic approval file: %v", err),
+					Text: fmt.Sprintf("Condition '%s' not found.", rule),
 				},
 			},
 		}, nil
 	}
-
-	// Remove the specified condition.
-	found := false
-	newConditions := []string{}
-	for _, cond := range conditions {
-		if cond == conditionToRemove {
-			found = true
-			continue
-		}
-		newConditions = append(newConditions, cond)
-	}
-
-	if !found {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Condition '%s' not found.", conditionToRemove),
-				},
-			},
-		}, nil
-	}
-
-	// Marshal and write the updated list back to the file.
-	updatedRaw, err := json.MarshalIndent(newConditions, "", "  ")
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error marshalling updated conditions: %v", err),
-				},
-			},
-		}, nil
-	}
-	approvalDir := filepath.Dir(automaticApprovalFile)
-	if err := os.MkdirAll(approvalDir, fs.ModePerm); err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error creating directory for automatic approval file: %v", err),
-				},
-			},
-		}, nil
-	}
-	if err := os.WriteFile(automaticApprovalFile, updatedRaw, 0644); err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error writing automatic approval file: %v", err),
-				},
-			},
-		}, nil
-	}
-
 	return &mcp_lib.CallToolResult{
 		Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				Text: fmt.Sprintf("Condition '%s' removed successfully.", conditionToRemove),
+				Text: fmt.Sprintf("Condition '%s' removed successfully.", rule),
 			},
 		},
 	}, nil
@@ -651,73 +382,36 @@ func HandleRemoveApprovalConditionTool(ctx context.Context, request mcp_lib.Call
 // Tool: List Automatic Approval Conditions
 //
 // This tool lists all the conditions in the automatic_approval.json file.
-func HandleListApprovalConditionsTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-
-	params, err := utils.ParamsFromContext(ctx)
+func HandleListApprovalConditionsTool(ctx context.Context, _ mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	dbHandle, err := utils.DatabaseFromContext(ctx)
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
+					Text: fmt.Sprintf("DB unavailable: %v", err),
 				},
 			},
 		}, nil
 	}
-
-	automaticApprovalFile := *params.AutomaticApprovalFile
-	var conditions []string
-
-	if _, err := os.Stat(automaticApprovalFile); os.IsNotExist(err) {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: "No automatic approval conditions found.",
-				},
-			},
-		}, nil
-	}
-
-	raw, err := os.ReadFile(automaticApprovalFile)
+	rules, err := db.ListRules(ctx, dbHandle)
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Error reading automatic approval file: %v", err),
+					Text: fmt.Sprintf("Could not list rules: %v", err),
 				},
 			},
 		}, nil
 	}
-	if err := json.Unmarshal(raw, &conditions); err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error unmarshalling automatic approval file: %v", err),
-				},
-			},
-		}, nil
-	}
-
-	// Format the list as a pretty JSON string.
-	formatted, err := json.MarshalIndent(conditions, "", "  ")
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error formatting conditions: %v", err),
-				},
-			},
-		}, nil
-	}
+	// pretty print like before
+	blob, _ := json.MarshalIndent(rules, "", "  ")
 	return &mcp_lib.CallToolResult{
 		Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				Text: string(formatted),
+				Text: fmt.Sprintf(string(blob)),
 			},
 		},
 	}, nil
@@ -808,225 +502,128 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 	}, nil
 }
 
-func HandleRejectQuestionTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	params, err := utils.ParamsFromContext(ctx)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-
-	args := request.Params.Arguments
-
-	id, ok := args["id"].(string)
-	if !ok || strings.TrimSpace(id) == "" {
+func HandleProcessQuestionTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	id, _ := request.Params.Arguments["id"].(string)
+	if strings.TrimSpace(id) == "" {
 		return nil, fmt.Errorf("'id' parameter is required")
 	}
 
-	queriesData, err := core.LoadQueries(*params.QueriesFile)
-	if err != nil {
-		return nil, err
-	}
+	approved, _ := request.Params.Arguments["approve"].(bool)
 
-	qry, exists := queriesData.Queries[id]
-	if !exists {
-		return nil, fmt.Errorf("query with ID '%s' not found", id)
-	}
-
-	// Update status to "rejected" if not already.
-	qry.Status = "rejected"
-	queriesData.Queries[id] = qry
-
-	if err := core.SaveQueries(*params.QueriesFile, queriesData); err != nil {
-		return nil, err
-	}
-
-	dkClient, err := utils.DkFromContext(ctx)
+	dbInstance, err := utils.DatabaseFromContext(ctx)
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve DK from context: %s", err.Error()),
+					Text: fmt.Sprintf("Error while trying to get db instance : %s", err.Error()),
 				},
 			},
 		}, nil
 	}
 
-	answerMessage := utils.AnswerMessage{
-		Query:  qry.Question,
-		Answer: "This query was rejected!",
-		From:   dkClient.UserID,
+	var newStatus = "accepted"
+	if !approved {
+		newStatus = "rejected"
 	}
 
-	jsonAnswer, err := json.Marshal(answerMessage)
+	if err := db.UpdateQueryStatus(ctx, dbInstance, id, newStatus); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("query with ID '%s' not found", id)
+		}
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Error while trying to update the query status: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	qry, err := db.GetQuery(ctx, dbInstance, id)
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
 				mcp_lib.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Couldn't marshal answer: %s", err.Error()),
+					Text: fmt.Sprintf("Error while trying to get the query by its ID: %s", err.Error()),
 				},
 			},
 		}, nil
 	}
 
-	query := utils.RemoteMessage{
-		Type:    "answer",
-		Message: string(jsonAnswer),
-	}
-
-	jsonData, err := json.Marshal(query)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't marshal query: %s", err.Error()),
+	if approved {
+		dkClient, err := utils.DkFromContext(ctx)
+		if err != nil {
+			return &mcp_lib.CallToolResult{
+				Content: []mcp_lib.Content{
+					mcp_lib.TextContent{
+						Type: "text",
+						Text: fmt.Sprintf("Couldn't retrieve DK from context: %s", err.Error()),
+					},
 				},
-			},
-		}, nil
-	}
+			}, nil
+		}
 
-	err = dkClient.SendMessage(dk_client.Message{
-		From:      dkClient.UserID,
-		To:        qry.From,
-		Content:   string(jsonData),
-		Timestamp: time.Now(),
-	})
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't send message: %s", err.Error()),
+		answerMessage := utils.AnswerMessage{
+			Query:  qry.Question,
+			Answer: qry.Answer,
+			From:   dkClient.UserID,
+		}
+
+		jsonAnswer, err := json.Marshal(answerMessage)
+		if err != nil {
+			return &mcp_lib.CallToolResult{
+				Content: []mcp_lib.Content{
+					mcp_lib.TextContent{
+						Type: "text",
+						Text: fmt.Sprintf("Couldn't marshal answer: %s", err.Error()),
+					},
 				},
-			},
-		}, nil
+			}, nil
+		}
+
+		query := utils.RemoteMessage{
+			Type:    "answer",
+			Message: string(jsonAnswer),
+		}
+
+		jsonData, err := json.Marshal(query)
+		if err != nil {
+			return &mcp_lib.CallToolResult{
+				Content: []mcp_lib.Content{
+					mcp_lib.TextContent{
+						Type: "text",
+						Text: fmt.Sprintf("Couldn't marshal query: %s", err.Error()),
+					},
+				},
+			}, nil
+		}
+
+		err = dkClient.SendMessage(dk_client.Message{
+			From:      dkClient.UserID,
+			To:        qry.From,
+			Content:   string(jsonData),
+			Timestamp: time.Now(),
+		})
+		if err != nil {
+			return &mcp_lib.CallToolResult{
+				Content: []mcp_lib.Content{
+					mcp_lib.TextContent{
+						Type: "text",
+						Text: fmt.Sprintf("Couldn't send message: %s", err.Error()),
+					},
+				},
+			}, nil
+		}
 	}
 
 	return &mcp_lib.CallToolResult{
 		Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				Text: fmt.Sprintf("Question '%s' has been rejected.\n", qry.Question),
-			},
-		},
-	}, nil
-}
-
-func HandleAcceptQuestionTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	params, err := utils.ParamsFromContext(ctx)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-
-	args := request.Params.Arguments
-
-	id, ok := args["id"].(string)
-	if !ok || strings.TrimSpace(id) == "" {
-		return nil, fmt.Errorf("'id' parameter is required")
-	}
-
-	queriesData, err := core.LoadQueries(*params.QueriesFile)
-	if err != nil {
-		return nil, err
-	}
-
-	qry, exists := queriesData.Queries[id]
-	if !exists {
-		return nil, fmt.Errorf("query with ID '%s' not found", id)
-	}
-
-	// Update status to "accepted" if not already.
-	qry.Status = "accepted"
-	queriesData.Queries[id] = qry
-
-	if err := core.SaveQueries(*params.QueriesFile, queriesData); err != nil {
-		return nil, err
-	}
-
-	dkClient, err := utils.DkFromContext(ctx)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve DK from context: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-
-	answerMessage := utils.AnswerMessage{
-		Query:  qry.Question,
-		Answer: qry.Answer,
-		From:   dkClient.UserID,
-	}
-
-	jsonAnswer, err := json.Marshal(answerMessage)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't marshal answer: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-
-	query := utils.RemoteMessage{
-		Type:    "answer",
-		Message: string(jsonAnswer),
-	}
-
-	jsonData, err := json.Marshal(query)
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't marshal query: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-
-	err = dkClient.SendMessage(dk_client.Message{
-		From:      dkClient.UserID,
-		To:        qry.From,
-		Content:   string(jsonData),
-		Timestamp: time.Now(),
-	})
-	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't send message: %s", err.Error()),
-				},
-			},
-		}, nil
-	}
-
-	return &mcp_lib.CallToolResult{
-		Content: []mcp_lib.Content{
-			mcp_lib.TextContent{
-				Type: "text",
-				Text: fmt.Sprintf("Question '%s' has been accepted.\n", qry.Question),
+				Text: fmt.Sprintf("Question '%s' has been %s.\n", qry.Question, newStatus),
 			},
 		},
 	}, nil
@@ -1057,103 +654,71 @@ func HandleAcceptQuestionTool(ctx context.Context, request mcp_lib.CallToolReque
 //
 // The function validates the inputs, loads the queries from the file defined in the context parameters,
 // updates the answer for the specified query_id, saves the file back, and returns a success message or an error.
-func HandleUpdateAnswerTool(ctx context.Context, request mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
-	// Retrieve runtime parameters from the context.
-	parameters, err := utils.ParamsFromContext(ctx)
+func HandleUpdateAnswerTool(
+	ctx context.Context,
+	request mcp_lib.CallToolRequest,
+) (*mcp_lib.CallToolResult, error) {
+
+	//----------------------------------------------------------------------
+	// 1.  Grab the database handle from the context
+	//----------------------------------------------------------------------
+	// db, ok := ctx.Value("db").(*sql.DB) // replace if you use another helper
+	dbHandler, err := utils.DatabaseFromContext(ctx)
 	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Couldn't retrieve params from context: %s", err.Error()),
-				},
-			},
-		}, nil
+		return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+			mcp_lib.TextContent{Type: "text", Text: "internal error: DB handle missing"},
+		}}, nil
 	}
 
-	// Get the queries file path from the parameters.
-	queriesFile := *parameters.QueriesFile
-
-	// Retrieve input arguments
+	//----------------------------------------------------------------------
+	// 2.  Read & validate input arguments
+	//----------------------------------------------------------------------
 	args := request.Params.Arguments
 
-	// Retrieve and validate the 'query_id' parameter.
-	queryID, ok := args["query_id"].(string)
-	if !ok || strings.TrimSpace(queryID) == "" {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: "'query_id' parameter is required",
-				},
-			},
-		}, nil
+	queryID, _ := args["query_id"].(string)
+	if strings.TrimSpace(queryID) == "" {
+		return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+			mcp_lib.TextContent{Type: "text", Text: "'query_id' parameter is required"},
+		}}, nil
 	}
 
-	// Retrieve and validate the 'new_answer' parameter.
-	newAnswer, ok := args["new_answer"].(string)
-	if !ok || strings.TrimSpace(newAnswer) == "" {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: "'new_answer' parameter is required",
-				},
-			},
-		}, nil
+	newAnswer, _ := args["new_answer"].(string)
+	if strings.TrimSpace(newAnswer) == "" {
+		return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+			mcp_lib.TextContent{Type: "text", Text: "'new_answer' parameter is required"},
+		}}, nil
 	}
 
-	// Load the existing queries data from the queries file.
-	queriesData, err := core.LoadQueries(queriesFile)
+	//----------------------------------------------------------------------
+	// 3.  Perform the UPDATE … SET answer = ? WHERE id = ?
+	//     The query table was created in db.RunMigrations (see db.go).
+	//----------------------------------------------------------------------
+	res, err := dbHandler.ExecContext(ctx,
+		`UPDATE queries SET answer = ? WHERE id = ?`, newAnswer, queryID)
 	if err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error loading queries file: %v", err),
-				},
-			},
-		}, nil
+		return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+			mcp_lib.TextContent{Type: "text", Text: fmt.Sprintf("database error: %v", err)},
+		}}, nil
 	}
 
-	// Verify that a query exists with the provided queryID.
-	query, exists := queriesData.Queries[queryID]
-	if !exists {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("No query found for id: %s", queryID),
-				},
-			},
-		}, nil
+	//----------------------------------------------------------------------
+	// 4.  Check whether the row actually existed
+	//----------------------------------------------------------------------
+	if n, _ := res.RowsAffected(); n == 0 {
+		return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+			mcp_lib.TextContent{Type: "text", Text: fmt.Sprintf("No query found for id: %s", queryID)},
+		}}, nil
 	}
 
-	// Update the "answer" field with the new answer.
-	query.Answer = newAnswer
-	queriesData.Queries[queryID] = query
-
-	// Save the updated queries data back to the queries file.
-	if err := core.SaveQueries(queriesFile, queriesData); err != nil {
-		return &mcp_lib.CallToolResult{
-			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{
-					Type: "text",
-					Text: fmt.Sprintf("Error saving updated queries file: %v", err),
-				},
-			},
-		}, nil
-	}
-
-	// Return a success response.
-	return &mcp_lib.CallToolResult{
-		Content: []mcp_lib.Content{
-			mcp_lib.TextContent{
-				Type: "text",
-				Text: fmt.Sprintf("Successfully updated answer for query_id '%s'.", queryID),
-			},
+	//----------------------------------------------------------------------
+	// 5.  Success
+	//----------------------------------------------------------------------
+	return &mcp_lib.CallToolResult{Content: []mcp_lib.Content{
+		mcp_lib.TextContent{
+			Type: "text",
+			Text: fmt.Sprintf("Successfully updated answer for query_id '%s'.", queryID),
 		},
-	}, nil
+	}}, nil
 }
 
 // HandleGetActiveUsersTool retrieves the active/inactive users from the server
@@ -1338,29 +903,10 @@ func HandleGetPendingApplicationsTool(ctx context.Context, request mcp_lib.CallT
 		}
 	}
 
-	//----------------------------------------------------------------------
-	// 2. Load app_request.json (best‑effort)
-	//----------------------------------------------------------------------
-	type appRequest struct {
-		RequestedBy string `json:"requested_by"`
-		Description string `json:"description"`
-		Status      string `json:"status"`
-		Reason      string `json:"reason"`
-		Safety      string `json:"safety"`
+	dbConn, err := utils.DatabaseFromContext(ctx)
+	if err != nil {
+		// fall back or error out
 	}
-
-	appRequestPath := filepath.Dir(*parameters.ModelConfigFile)
-	appReqPath := filepath.Join(appRequestPath, "app_request.json")
-	appReqMap := map[string]appRequest{}
-
-	if data, err := os.ReadFile(appReqPath); err == nil {
-		_ = json.Unmarshal(data, &appReqMap) // ignore errors → leave map empty on malformed JSON
-	}
-
-	//----------------------------------------------------------------------
-	// 3. Merge inbox + app_request.json
-	//----------------------------------------------------------------------
-	const undef = "undefined"
 
 	type summary struct {
 		AppName     string `json:"app_name"`
@@ -1372,17 +918,10 @@ func HandleGetPendingApplicationsTool(ctx context.Context, request mcp_lib.CallT
 	}
 
 	var pending []summary
+	var undef = "Undefined"
 	for _, name := range inboxNames {
-		if ar, ok := appReqMap[name]; ok {
-			pending = append(pending, summary{
-				AppName:     name,
-				RequestedBy: ar.RequestedBy,
-				Description: ar.Description,
-				Safety:      ar.Safety,
-				Reason:      ar.Reason,
-				Status:      ar.Status,
-			})
-		} else {
+		ar, err := db.GetAppRequest(ctx, dbConn, name)
+		if err == sql.ErrNoRows {
 			pending = append(pending, summary{
 				AppName:     name,
 				RequestedBy: undef,
@@ -1391,17 +930,29 @@ func HandleGetPendingApplicationsTool(ctx context.Context, request mcp_lib.CallT
 				Reason:      undef,
 				Status:      "pending",
 			})
+		} else if err != nil {
+			fmt.Printf("error loading app_request %q: %v", name, err)
+			continue
+		} else {
+			pending = append(pending, summary{
+				AppName:     ar.AppName,
+				RequestedBy: ar.RequestedBy,
+				Description: ar.AppDescription,
+				Safety:      ar.Safety,
+				Reason:      ar.Reason,
+				Status:      ar.Status,
+			})
 		}
 	}
 
-	//----------------------------------------------------------------------
-	// 4. Pretty‑print & wrap in CallToolResult
-	//----------------------------------------------------------------------
 	out, err := json.MarshalIndent(pending, "", "  ")
 	if err != nil {
 		return &mcp_lib.CallToolResult{
 			Content: []mcp_lib.Content{
-				mcp_lib.TextContent{Type: "text", Text: fmt.Sprintf("Error formatting pending list: %s", err)},
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Couldn't marshal the output result %v", err.Error()),
+				},
 			},
 		}, nil
 	}
@@ -1410,9 +961,7 @@ func HandleGetPendingApplicationsTool(ctx context.Context, request mcp_lib.CallT
 		Content: []mcp_lib.Content{
 			mcp_lib.TextContent{
 				Type: "text",
-				// The agent that calls this tool can turn the JSON into a markdown table
-				Text: fmt.Sprintf("Return the list of pending applications details in markdown tabular format. %s", string(out)),
-				// Text: fmt.Sprintf("Pending application details (JSON):\n\n```json\n%s\n```", string(out)),
+				Text: fmt.Sprintf("Return the list of pending applications details in markdown tabular format. %s", out),
 			},
 		},
 	}, nil

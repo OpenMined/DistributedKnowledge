@@ -4,6 +4,7 @@ go 1.24.1
 
 require (
 	filippo.io/edwards25519 v1.1.0
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/mark3labs/mcp-go v0.18.0
 	github.com/philippgille/chromem-go v0.7.0
@@ -12,7 +13,7 @@ require (
 )
 
 require (
-	github.com/google/uuid v1.6.0 // indirect
+	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 )

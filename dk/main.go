@@ -4,6 +4,7 @@ import (
 	"context"
 	dk_client "dk/client"
 	"dk/core"
+	"dk/db"
 	"dk/http"
 	mcp_server "dk/mcp"
 	"dk/utils"
@@ -12,6 +13,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -23,6 +25,7 @@ func loadParameters() utils.Parameters {
 	params.PrivateKeyPath = flag.String("private", "path/to/private_key.pem", "Path to the private key file in PEM format")
 	params.PublicKeyPath = flag.String("public", "path/to/public_key.pem", "Path to the public key file in PEM format")
 	params.UserID = flag.String("userId", "defaultUser", "User ID for authentication")
+
 	// Keep the rag_sources flag so that it isn’t nil.
 	params.RagSourcesFile = flag.String("rag_sources", "/path/to/rag_sources.jsonl", "Path to the JSONL file containing source data")
 	params.ServerURL = flag.String("server", "https://localhost:8080", "Address to the websocket server")
@@ -36,20 +39,14 @@ func loadParameters() utils.Parameters {
 
 	// Generate the dependent file paths from the projectPath.
 	basePath := *projectPath
-	queriesFile := basePath + "/queries.json"
-	answersFile := basePath + "/answers.json"
-	automaticApprovalFile := basePath + "/automatic_approval.json"
 	vectorDBPath := basePath + "/vector_db"
-	descriptionSourceFile := basePath + "/description.json"
-	modelConfigFile := basePath + "/model_config.json"
+	modelConfigFile := filepath.Join(basePath, "model_config.json")
+	DBPath := filepath.Join(basePath, "app.db")
 
 	// Set the values in the Parameters struct using the generated strings.
-	params.QueriesFile = &queriesFile
-	params.AnswersFile = &answersFile
-	params.AutomaticApprovalFile = &automaticApprovalFile
 	params.VectorDBPath = &vectorDBPath
 	params.ModelConfigFile = &modelConfigFile
-	params.DescriptionSourceFile = &descriptionSourceFile
+	params.DBPath = &DBPath
 
 	return params
 }
@@ -58,8 +55,15 @@ func main() {
 	params := loadParameters()
 	rootCtx := context.Background()
 
-	// Ensure the model configuration file exists.
-	// ensureModelConfigFile(*params.ModelConfigFile)
+	database, err := db.Initialize(*params.DBPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer database.Close()
+
+	if err := db.RunMigrations(database); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
 
 	publicKey, privateKey, err := utils.LoadOrCreateKeys(*params.PrivateKeyPath, *params.PublicKeyPath)
 	if err != nil {
@@ -93,6 +97,7 @@ func main() {
 			log.Printf("LLM provider '%s' initialized successfully with model '%s'", modelConfig.Provider, modelConfig.Model)
 		}
 	}
+	rootCtx = utils.WithDatabase(rootCtx, database)
 
 	rootCtx = utils.WithDK(rootCtx, client)
 	client.SetReadLimit(1024 * 1024)
@@ -114,6 +119,7 @@ func main() {
 			ctx = utils.WithParams(ctx, params)
 			ctx = utils.WithChromemCollection(ctx, chromemCollection)
 			ctx = utils.WithDK(ctx, client)
+			ctx = utils.WithDatabase(ctx, database)
 			// Add LLM provider to MCP context if available.
 			if llmProvider != nil {
 				ctx = core.WithLLMProvider(ctx, llmProvider)

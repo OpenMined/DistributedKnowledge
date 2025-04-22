@@ -3,31 +3,27 @@ package utils
 import (
 	"context"
 	"crypto/ed25519"
+	"database/sql"
 	"dk/client"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/philippgille/chromem-go"
-	"io/fs"
 	"os"
-	"path/filepath"
+	"strings"
 )
 
 type Parameters struct {
-	PrivateKeyPath        *string
-	PublicKeyPath         *string
-	UserID                *string
-	QueriesFile           *string
-	AnswersFile           *string
-	AutomaticApprovalFile *string
-	VectorDBPath          *string
-	RagSourcesFile        *string
-	ModelConfigFile       *string
-	ServerURL             *string
-	DescriptionSourceFile *string
-	HTTPPort              *string
-	SyftboxConfig         *string
+	PrivateKeyPath  *string
+	PublicKeyPath   *string
+	UserID          *string
+	VectorDBPath    *string
+	RagSourcesFile  *string
+	ModelConfigFile *string
+	ServerURL       *string
+	HTTPPort        *string
+	SyftboxConfig   *string
+	DBPath          *string
 }
 
 type RemoteMessage struct {
@@ -81,6 +77,19 @@ func LoadOrCreateKeys(privateKeyPath, publicKeyPath string) (ed25519.PublicKey, 
 type DkKey struct{}
 type ParamsKey struct{}
 type chromemCollectionKey struct{}
+type databaseKey struct{}
+
+func WithDatabase(ctx context.Context, db *sql.DB) context.Context {
+	return context.WithValue(ctx, databaseKey{}, db)
+}
+
+func DatabaseFromContext(ctx context.Context) (*sql.DB, error) {
+	db, ok := ctx.Value(databaseKey{}).(*sql.DB)
+	if !ok {
+		return nil, fmt.Errorf("collection not found in context")
+	}
+	return db, nil
+}
 
 func WithChromemCollection(ctx context.Context, collection *chromem.Collection) context.Context {
 	return context.WithValue(ctx, chromemCollectionKey{}, collection)
@@ -118,72 +127,94 @@ func DkFromContext(ctx context.Context) (*lib.Client, error) {
 	return dk, nil
 }
 
-// UpdateDescriptions overwrites (or creates) descriptions.json with the
-// supplied data. The file is written atomically:
-//
-//  1. Marshal the map to JSON in memory.
-//  2. Write to a *.tmp file in the same directory.
-//  3. Rename the tmp file onto descriptions.json.
-//
-// This guarantees that callers never see a partially‑written file.
+// UpdateDescriptions replaces every row in descriptions_global
+// with the strings in data. It runs in a single transaction and
+// ignores empty or duplicate descriptions.
 func UpdateDescriptions(ctx context.Context, data []string) error {
-	params, err := ParamsFromContext(ctx)
-	if err != nil {
-		return err
-	}
-
 	if data == nil {
 		return errors.New("UpdateDescriptions: nil input")
 	}
 
-	// JSON encode with indentation for human readability.
-	blob, err := json.MarshalIndent(data, "", "  ")
+	db, err := DatabaseFromContext(ctx)
 	if err != nil {
-		return fmt.Errorf("marshal JSON: %w", err)
+		return fmt.Errorf("UpdateDescriptions: get DB from context: %w", err)
 	}
 
-	dir := filepath.Dir(*params.DescriptionSourceFile)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("create directory %q: %w", dir, err)
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("UpdateDescriptions: begin transaction: %w", err)
+	}
+	// ensure rollback on panic or error
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// 1) clear out old descriptions
+	if _, err = tx.ExecContext(ctx, `DELETE FROM descriptions_global`); err != nil {
+		return fmt.Errorf("UpdateDescriptions: delete existing: %w", err)
 	}
 
-	tmp := *params.DescriptionSourceFile + ".tmp"
-	if err := os.WriteFile(tmp, blob, 0o644); err != nil {
-		return fmt.Errorf("write tmp file: %w", err)
+	// 2) prepare insert (IGNORE duplicates)
+	stmt, err := tx.PrepareContext(ctx, `
+        INSERT OR IGNORE INTO descriptions_global(description)
+        VALUES (?)
+    `)
+	if err != nil {
+		return fmt.Errorf("UpdateDescriptions: prepare insert: %w", err)
+	}
+	defer stmt.Close()
+
+	// 3) insert each non‑empty, trimmed description
+	for _, d := range data {
+		d = strings.TrimSpace(d)
+		if d == "" {
+			continue
+		}
+		if _, err = stmt.ExecContext(ctx, d); err != nil {
+			return fmt.Errorf("UpdateDescriptions: inserting %q: %w", d, err)
+		}
 	}
 
-	// Atomic replace (best effort on the current OS).
-	if err := os.Rename(tmp, *params.DescriptionSourceFile); err != nil {
-		_ = os.Remove(tmp) // clean up on failure
-		return fmt.Errorf("rename tmp file: %w", err)
+	// 4) commit once all inserts succeed
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("UpdateDescriptions: commit: %w", err)
 	}
 	return nil
 }
 
-// GetDescriptions loads descriptions.json and returns its contents.
-// If the file is absent, an empty map and nil error are returned.
+// GetDescriptions reads all descriptions out of descriptions_global,
+// ordered by their primary key (in insertion order).
 func GetDescriptions(ctx context.Context) ([]string, error) {
-	out := []string{}
-
-	params, err := ParamsFromContext(ctx)
+	db, err := DatabaseFromContext(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GetDescriptions: get DB from context: %w", err)
 	}
 
-	b, err := os.ReadFile(*params.DescriptionSourceFile)
+	rows, err := db.QueryContext(ctx, `
+        SELECT description
+          FROM descriptions_global
+         ORDER BY id
+    `)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return out, nil // empty slice, no error
+		return nil, fmt.Errorf("GetDescriptions: query: %w", err)
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var desc string
+		if err := rows.Scan(&desc); err != nil {
+			return nil, fmt.Errorf("GetDescriptions: scan row: %w", err)
 		}
-		return nil, fmt.Errorf("read file: %w", err)
+		out = append(out, desc)
 	}
-
-	if len(b) == 0 {
-		return out, nil // empty file → empty slice
-	}
-
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, fmt.Errorf("unmarshal JSON: %w", err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetDescriptions: iterate: %w", err)
 	}
 	return out, nil
 }
