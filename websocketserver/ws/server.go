@@ -63,19 +63,36 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Validate JWT token from the query parameters.
 	tokenStr := r.URL.Query().Get("token")
 	if tokenStr == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Missing authentication token", http.StatusUnauthorized)
 		return
 	}
-	claims, err := auth.ParseToken(tokenStr, s.authService)
+
+	// Use enhanced token verification
+	tokenResult := auth.VerifyToken(tokenStr, s.authService, "")
+	if !tokenResult.Valid || tokenResult.Error != nil {
+		http.Error(w, fmt.Sprintf("Invalid token: %v", tokenResult.Error), http.StatusUnauthorized)
+		return
+	}
+
+	// Get user ID from verified token
+	userID := tokenResult.UserID
+
+	// Verify that the user exists in the database
+	var userExists bool
+	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = ?)", userID).Scan(&userExists)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		log.Printf("Database error checking user existence: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	userID, ok := claims["user_id"].(string)
-	if !ok {
-		http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+	if !userExists {
+		log.Printf("Security alert: Token contains valid signature but non-existent user ID: %s", userID)
+		http.Error(w, "Invalid user", http.StatusUnauthorized)
 		return
 	}
+
+	// Log connection for security auditing
+	log.Printf("Authenticated WebSocket connection for user %s", userID)
 
 	// Upgrade the connection to WebSocket.
 	conn, err := upgrader.Upgrade(w, r, nil)

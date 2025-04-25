@@ -8,8 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	// "log"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -27,8 +28,20 @@ type Service struct {
 
 // NewService creates a new authentication service instance.
 func NewService(db *sql.DB) *Service {
-	// In production, load jwtSecret from secure configuration.
-	secret := []byte("your-secret-key")
+	// Load JWT secret from environment variable
+	secret := []byte(os.Getenv("JWT_SECRET"))
+	// Check if the secret is valid
+	if len(secret) == 0 {
+		log.Println("WARNING: JWT_SECRET environment variable not set. Using a random secret.")
+		// Generate a random secret for development use only
+		secret = make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
+			log.Fatalf("Failed to generate random JWT secret: %v", err)
+		}
+	} else if len(secret) < 16 {
+		log.Println("WARNING: JWT_SECRET is too short. For production, use a secret with at least 16 bytes.")
+	}
+
 	return &Service{
 		db:        db,
 		jwtSecret: secret,
@@ -273,20 +286,72 @@ func (a *Service) handleChallengeResponse(w http.ResponseWriter, r *http.Request
 	w.Write(jsonResp)
 }
 
+// TokenVerifyResult holds the result of token verification with detailed information
+type TokenVerifyResult struct {
+	Valid  bool
+	Claims jwt.MapClaims
+	UserID string
+	Error  error
+}
+
 // ParseToken validates the JWT token and returns the claims.
+// This is kept for backward compatibility - new code should use VerifyToken instead
 func ParseToken(tokenStr string, service *Service) (jwt.MapClaims, error) {
+	result := VerifyToken(tokenStr, service, "")
+	return result.Claims, result.Error
+}
+
+// VerifyToken performs comprehensive token validation, including:
+// - Signature verification
+// - Expiration check
+// - Token method verification
+// - Optional user ID validation (if expected user ID is provided)
+func VerifyToken(tokenStr string, service *Service, expectedUserID string) TokenVerifyResult {
+	result := TokenVerifyResult{
+		Valid: false,
+	}
+
+	// Parse token with full validation
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		// Ensure the token method is HMAC.
+		// Ensure the token method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return service.jwtSecret, nil
 	})
+
+	// Handle parsing errors
 	if err != nil {
-		return nil, err
+		result.Error = fmt.Errorf("token validation failed: %w", err)
+		return result
 	}
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return claims, nil
+
+	// Verify claims
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		result.Error = fmt.Errorf("invalid token claims")
+		return result
 	}
-	return nil, fmt.Errorf("invalid token")
+
+	// Store claims in result
+	result.Claims = claims
+
+	// Extract user ID
+	userID, ok := claims["user_id"].(string)
+	if !ok || userID == "" {
+		result.Error = fmt.Errorf("invalid or missing user_id in token")
+		return result
+	}
+	result.UserID = userID
+
+	// Check if user exists in database (could be implemented in service)
+	// For now we'll just validate the expected user ID if provided
+	if expectedUserID != "" && userID != expectedUserID {
+		result.Error = fmt.Errorf("token belongs to a different user")
+		return result
+	}
+
+	// All checks passed
+	result.Valid = true
+	return result
 }
