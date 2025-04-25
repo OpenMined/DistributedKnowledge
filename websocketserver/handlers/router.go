@@ -23,6 +23,7 @@ func SetupRoutes(mux *http.ServeMux, database *sql.DB, authService *auth.Service
 	mux.HandleFunc("/user/descriptions", HandleUserDescriptions(authService, database))
 	mux.HandleFunc("/user/descriptions/", HandleGetUserDescriptions(database))
 	mux.HandleFunc("/direct-message/", HandleDirectMessage(authService, wsServer))
+	mux.HandleFunc("/register-document/", HandleRegisterDocument(authService, wsServer))
 
 	// Page rendering routes
 	mux.HandleFunc("/", ServeHome)

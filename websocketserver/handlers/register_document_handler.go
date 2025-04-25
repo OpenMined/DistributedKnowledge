@@ -14,94 +14,15 @@ import (
 	"websocketserver/ws"
 )
 
-// DirectMessagePayload represents the JSON payload for direct messages via HTTP
-type DirectMessagePayload struct {
-	Type    string `json:"type"`
-	Query   string `json:"query"`
-	Message string `json:"message,omitempty"`
+// RegisterDocumentPayload represents the JSON payload for document registration via HTTP
+type RegisterDocumentPayload struct {
+	Type     string `json:"type"`
+	Filename string `json:"filename"`
+	Content  string `json:"content"`
 }
 
-// AuthenticationResult holds the result of token authentication
-type AuthenticationResult struct {
-	UserID    string
-	Valid     bool
-	ErrorMsg  string
-	ErrorCode int
-}
-
-// authenticateRequest validates the Authorization header and JWT token
-// Also logs security events for auditing
-func authenticateRequest(r *http.Request, authService *auth.Service) AuthenticationResult {
-	result := AuthenticationResult{
-		Valid:     false,
-		ErrorCode: http.StatusUnauthorized,
-	}
-
-	clientIP := auth.GetClientIP(r)
-	securityLogger := auth.NewLogger()
-
-	// Extract and validate the Authorization header
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-		result.ErrorMsg = "Missing or invalid Authorization header"
-
-		// Log security event
-		securityLogger.LogAuthEvent(auth.SecurityEvent{
-			Timestamp: time.Now(),
-			Event:     auth.EventUnauthorizedAccess,
-			UserID:    "unknown",
-			IP:        clientIP,
-			Success:   false,
-			Details:   "Missing or invalid Authorization header",
-		})
-
-		return result
-	}
-
-	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-
-	// Use our enhanced token verification
-	tokenResult := auth.VerifyToken(tokenStr, authService, "")
-	if !tokenResult.Valid || tokenResult.Error != nil {
-		result.ErrorMsg = fmt.Sprintf("Invalid token: %v", tokenResult.Error)
-
-		// Log security event with user ID from token if available
-		userID := "unknown"
-		if tokenResult.UserID != "" {
-			userID = tokenResult.UserID
-		}
-
-		securityLogger.LogAuthEvent(auth.SecurityEvent{
-			Timestamp: time.Now(),
-			Event:     auth.EventTokenVerification,
-			UserID:    userID,
-			IP:        clientIP,
-			Success:   false,
-			Details:   fmt.Sprintf("Token verification failed: %v", tokenResult.Error),
-		})
-
-		return result
-	}
-
-	// Token is valid, extract user ID
-	result.UserID = tokenResult.UserID
-	result.Valid = true
-
-	// Log successful authentication
-	securityLogger.LogAuthEvent(auth.SecurityEvent{
-		Timestamp: time.Now(),
-		Event:     auth.EventTokenVerification,
-		UserID:    result.UserID,
-		IP:        clientIP,
-		Success:   true,
-		Details:   "Token successfully validated",
-	})
-
-	return result
-}
-
-// HandleDirectMessage handles POST requests to send direct messages to users via websocket
-func HandleDirectMessage(authService *auth.Service, wsServer *ws.Server) http.HandlerFunc {
+// HandleRegisterDocument handles POST requests to register documents via websocket
+func HandleRegisterDocument(authService *auth.Service, wsServer *ws.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		securityLogger := auth.NewLogger()
 		clientIP := auth.GetClientIP(r)
@@ -137,7 +58,7 @@ func HandleDirectMessage(authService *auth.Service, wsServer *ws.Server) http.Ha
 			return
 		}
 
-		var payload DirectMessagePayload
+		var payload RegisterDocumentPayload
 		if err := json.Unmarshal(body, &payload); err != nil {
 			securityLogger.LogAuthEvent(auth.SecurityEvent{
 				Timestamp: time.Now(),
@@ -151,49 +72,33 @@ func HandleDirectMessage(authService *auth.Service, wsServer *ws.Server) http.Ha
 			return
 		}
 
-		// Validate message type
-		if payload.Type != models.MessageTypeForward {
+		// Validate required fields
+		if strings.TrimSpace(payload.Filename) == "" || strings.TrimSpace(payload.Content) == "" {
 			securityLogger.LogAuthEvent(auth.SecurityEvent{
 				Timestamp: time.Now(),
 				Event:     auth.EventDirectMessageSending,
 				UserID:    fromUserID,
 				IP:        clientIP,
 				Success:   false,
-				Details:   fmt.Sprintf("Invalid message type: must be '%s'", models.MessageTypeForward),
+				Details:   "Missing required fields: filename and content are required",
 			})
-			auth.SendAuthErrorResponse(w, fmt.Sprintf("Type must be '%s'", models.MessageTypeForward), http.StatusBadRequest)
+			auth.SendAuthErrorResponse(w, "Filename and content are required", http.StatusBadRequest)
 			return
 		}
 
-		// Validate message content for queries
-		messageContent := payload.Query
-		if messageContent == "" {
-			messageContent = payload.Message
-		}
-		if messageContent == "" {
-			securityLogger.LogAuthEvent(auth.SecurityEvent{
-				Timestamp: time.Now(),
-				Event:     auth.EventDirectMessageSending,
-				UserID:    fromUserID,
-				IP:        clientIP,
-				Success:   false,
-				Details:   "Missing message content: either query or message field is required",
-			})
-			auth.SendAuthErrorResponse(w, "Either query or message field is required", http.StatusBadRequest)
-			return
-		}
-
-		// Create a forward message structure for queries
-		forwardMsg := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
+		// Create the document registration message
+		documentMsg := struct {
+			Type     string `json:"type"`
+			Filename string `json:"filename"`
+			Content  string `json:"content"`
 		}{
-			Type:    models.MessageTypeForward,
-			Message: messageContent,
+			Type:     models.MessageTypeRegisterDocument,
+			Filename: payload.Filename,
+			Content:  payload.Content,
 		}
 
-		// Marshal the forward message
-		forwardMsgJSON, err := json.Marshal(forwardMsg)
+		// Marshal the document message
+		documentMsgJSON, err := json.Marshal(documentMsg)
 		if err != nil {
 			securityLogger.LogAuthEvent(auth.SecurityEvent{
 				Timestamp: time.Now(),
@@ -201,9 +106,9 @@ func HandleDirectMessage(authService *auth.Service, wsServer *ws.Server) http.Ha
 				UserID:    fromUserID,
 				IP:        clientIP,
 				Success:   false,
-				Details:   fmt.Sprintf("Error creating forward message: %v", err),
+				Details:   fmt.Sprintf("Error creating document registration message: %v", err),
 			})
-			auth.SendAuthErrorResponse(w, "Error creating forward message", http.StatusInternalServerError)
+			auth.SendAuthErrorResponse(w, "Error creating document registration message", http.StatusInternalServerError)
 			return
 		}
 
@@ -213,7 +118,7 @@ func HandleDirectMessage(authService *auth.Service, wsServer *ws.Server) http.Ha
 			Message string `json:"message"`
 		}{
 			Type:    models.MessageTypeForward,
-			Message: string(forwardMsgJSON),
+			Message: string(documentMsgJSON),
 		}
 
 		// Marshal the wrapper message
@@ -235,7 +140,7 @@ func HandleDirectMessage(authService *auth.Service, wsServer *ws.Server) http.Ha
 		recipientID := fromUserID // Use authenticated user as recipient
 		wsMessage := models.Message{
 			From:             fromUserID,
-			To:               recipientID, // Set recipient to token owner's ID
+			To:               recipientID,
 			Timestamp:        time.Now(),
 			Status:           "pending",
 			Content:          string(content),
@@ -243,14 +148,14 @@ func HandleDirectMessage(authService *auth.Service, wsServer *ws.Server) http.Ha
 		}
 
 		// Log the message for security auditing
-		log.Printf("Processing direct message from %s to %s", fromUserID, recipientID)
+		log.Printf("Processing document registration from %s for file: %s", fromUserID, payload.Filename)
 		securityLogger.LogAuthEvent(auth.SecurityEvent{
 			Timestamp: time.Now(),
 			Event:     auth.EventDirectMessageSending,
 			UserID:    fromUserID,
 			IP:        clientIP,
 			Success:   true,
-			Details:   fmt.Sprintf("Sending query message to recipient: %s", recipientID),
+			Details:   fmt.Sprintf("Sending document registration message to recipient: %s", recipientID),
 		})
 
 		// Register a response channel for the recipient
@@ -354,16 +259,18 @@ func HandleDirectMessage(authService *auth.Service, wsServer *ws.Server) http.Ha
 			UserID:    fromUserID,
 			IP:        clientIP,
 			Success:   true,
-			Details:   fmt.Sprintf("Successfully delivered query to %s and received response", recipientID),
+			Details:   fmt.Sprintf("Successfully registered document for %s and received response", recipientID),
 		})
 
-		// Standard query response
+		// Document registration response
 		response := struct {
 			Success bool   `json:"success"`
-			Answer  string `json:"answer"`
+			Message string `json:"message"`
+			Type    string `json:"type"`
 		}{
-			Success: true,
-			Answer:  forwardResponse.Message,
+			Success: forwardResponse.Type == models.MessageTypeRegisterDocSuccess,
+			Message: forwardResponse.Message,
+			Type:    forwardResponse.Type,
 		}
 
 		// Return response to the HTTP client

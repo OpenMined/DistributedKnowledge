@@ -2,6 +2,14 @@ package models
 
 import "time"
 
+// Message type constants
+const (
+	MessageTypeForward            = "forward"
+	MessageTypeRegisterDocument   = "register_document"
+	MessageTypeRegisterDocSuccess = "register_document_success"
+	MessageTypeRegisterDocError   = "register_document_error"
+)
+
 // User represents a registered user.
 type User struct {
 	UserID    string    `json:"user_id"`
