@@ -26,20 +26,23 @@ var upgrader = websocket.Upgrader{
 
 // Server represents the WebSocket server.
 type Server struct {
-	db          *sql.DB
-	authService *auth.Service
-	clients     map[string]*Client // mapping from user_id to client connection
-	RateLimiter *RateLimiter       // rate limiter for message processing
-	mu          sync.RWMutex
+	db               *sql.DB
+	authService      *auth.Service
+	clients          map[string]*Client // mapping from user_id to client connection
+	RateLimiter      *RateLimiter       // rate limiter for message processing
+	mu               sync.RWMutex
+	responseChannels map[string]chan models.Message // mapping from user_id to response channels
+	responseMu       sync.RWMutex                   // mutex for response channels
 }
 
 // NewServer creates a new WebSocket server instance.
 func NewServer(db *sql.DB, authService *auth.Service, messageRate float64, messageBurst int) *Server {
 	return &Server{
-		db:          db,
-		authService: authService,
-		clients:     make(map[string]*Client),
-		RateLimiter: NewRateLimiter(messageRate, messageBurst),
+		db:               db,
+		authService:      authService,
+		clients:          make(map[string]*Client),
+		RateLimiter:      NewRateLimiter(messageRate, messageBurst),
+		responseChannels: make(map[string]chan models.Message),
 	}
 }
 
@@ -272,14 +275,42 @@ func (s *Server) deliverMessage(msg models.Message, isReconnection bool, targetU
 	return nil
 }
 
+// RegisterResponseChannel creates and registers a response channel for a user
+func (s *Server) RegisterResponseChannel(userID string) chan models.Message {
+	ch := make(chan models.Message, 1) // Buffer size of 1 to prevent blocking
+
+	s.responseMu.Lock()
+	s.responseChannels[userID] = ch
+	s.responseMu.Unlock()
+
+	return ch
+}
+
+// GetResponseChannel retrieves a response channel for a user
+func (s *Server) GetResponseChannel(userID string) (chan models.Message, bool) {
+	s.responseMu.RLock()
+	ch, ok := s.responseChannels[userID]
+	s.responseMu.RUnlock()
+
+	return ch, ok
+}
+
+// RemoveResponseChannel removes a response channel for a user
+func (s *Server) RemoveResponseChannel(userID string) {
+	s.responseMu.Lock()
+	delete(s.responseChannels, userID)
+	s.responseMu.Unlock()
+}
+
 // DeliverHTTPMessage delivers a message sent via HTTP to a WebSocket connection
 // This is used for the direct message API endpoint
 func (s *Server) DeliverHTTPMessage(msg models.Message) error {
 	// First, save the message in the database
-	insertQuery := `INSERT INTO messages (from_user, to_user, timestamp, content, status, is_broadcast, signature) 
-	                VALUES (?, ?, ?, ?, ?, ?, ?)`
+	insertQuery := `INSERT INTO messages (from_user, to_user, timestamp, content, status, is_broadcast, signature, is_forward_message) 
+	                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
-	res, err := s.db.Exec(insertQuery, msg.From, msg.To, msg.Timestamp, msg.Content, "pending", false, msg.Signature)
+	res, err := s.db.Exec(insertQuery, msg.From, msg.To, msg.Timestamp, msg.Content,
+		"pending", false, msg.Signature, msg.IsForwardMessage)
 	if err != nil {
 		log.Printf("Failed to insert HTTP message from %s to %s: %v", msg.From, msg.To, err)
 		return err
@@ -352,13 +383,63 @@ func (c *Client) readPump() {
 				msg.IsBroadcast = true
 			}
 
+			// Check if this is a forward response message by either:
+			// 1. The message is marked with IsForwardMessage flag
+			// 2. The content has "type":"forward_response"
+			if msg.IsForwardMessage {
+				log.Printf("Received message with IsForwardMessage flag from %s", c.userID)
+
+				// Forward messages should be sent to response channels regardless of content
+				c.server.responseMu.RLock()
+				responseCh, exists := c.server.responseChannels[c.userID]
+				c.server.responseMu.RUnlock()
+
+				if exists {
+					// Send the message to the response channel
+					select {
+					case responseCh <- msg:
+						log.Printf("Forward response sent to channel for user %s", c.userID)
+					default:
+						log.Printf("Warning: response channel for user %s is full or closed", c.userID)
+					}
+					continue // Skip normal message processing
+				}
+			} else {
+				// Fallback check by looking at message content for legacy clients
+				var content map[string]interface{}
+				if err := json.Unmarshal([]byte(msg.Content), &content); err == nil {
+					// Check if it's a forward_response type
+					if typ, ok := content["type"].(string); ok && typ == "forward_response" {
+						log.Printf("Received forward response message by content type from %s", c.userID)
+
+						// Check if there's a waiting response channel
+						c.server.responseMu.RLock()
+						responseCh, exists := c.server.responseChannels[c.userID]
+						c.server.responseMu.RUnlock()
+
+						if exists {
+							// Send the message to the response channel
+							select {
+							case responseCh <- msg:
+								log.Printf("Forward response sent to channel for user %s", c.userID)
+							default:
+								log.Printf("Warning: response channel for user %s is full or closed", c.userID)
+							}
+							continue // Skip normal message processing
+						}
+					}
+				}
+			}
+
 			// Use the client pointer as the session ID for persistence.
 			metrics.RecordMessageSent(sessionID, msg.IsBroadcast)
 			metrics.RecordMessageEventPersist(sessionID, c.userID, msg.IsBroadcast, time.Now())
 
 			// Save the message with a "pending" status, including the signature if present.
-			insertQuery := `INSERT INTO messages (from_user, to_user, timestamp, content, status, is_broadcast, signature) VALUES (?, ?, ?,?, ?, ?, ?)`
-			res, err := c.server.db.Exec(insertQuery, msg.From, msg.To, msg.Timestamp, msg.Content, "pending", msg.IsBroadcast, msg.Signature)
+			insertQuery := `INSERT INTO messages (from_user, to_user, timestamp, content, status, is_broadcast, signature, is_forward_message) 
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+			res, err := c.server.db.Exec(insertQuery, msg.From, msg.To, msg.Timestamp, msg.Content,
+				"pending", msg.IsBroadcast, msg.Signature, msg.IsForwardMessage)
 			if err != nil {
 				log.Printf("Failed to insert message from %s: %v", c.userID, err)
 				continue

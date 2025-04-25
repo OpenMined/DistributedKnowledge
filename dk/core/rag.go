@@ -43,6 +43,7 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]
 		return nil, err
 	}
 
+	log.Printf("Number of Documents: %d", chromemCollection.Count())
 	// For the Ollama embedding model, a prefix is required to differentiate between a query and a document.
 	// The documents were stored with "search_document: " as a prefix, so we use "search_query: " here.
 	query := "search_query: " + question

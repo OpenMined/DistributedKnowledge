@@ -84,6 +84,8 @@ func main() {
 		log.Fatalf("WebSocket connection failed: %v", err)
 	}
 
+	log.Printf("Token:  %s\n", client.Token())
+
 	// Load LLM model configuration and create provider.
 	modelConfig, err := core.LoadModelConfig(*params.ModelConfigFile)
 	if err != nil {

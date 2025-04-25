@@ -26,13 +26,14 @@ import (
 
 // Message represents the structure of messages exchanged with the server.
 type Message struct {
-	ID        int       `json:"id,omitempty"`
-	From      string    `json:"from"`
-	To        string    `json:"to"`
-	Timestamp time.Time `json:"timestamp,omitempty"`
-	Content   string    `json:"content"`
-	Status    string    `json:"status,omitempty"`
-	Signature string    `json:"signature,omitempty"` // Base64-encoded signature of message content
+	ID               int       `json:"id,omitempty"`
+	From             string    `json:"from"`
+	To               string    `json:"to"`
+	Timestamp        time.Time `json:"timestamp,omitempty"`
+	Content          string    `json:"content"`
+	Status           string    `json:"status,omitempty"`
+	Signature        string    `json:"signature,omitempty"`          // Base64-encoded signature of message content
+	IsForwardMessage bool      `json:"is_forward_message,omitempty"` // Indicates if this is a forward message
 }
 
 // EncryptedMessage is the structure that will be marshaled into the Message.Content field
@@ -531,8 +532,11 @@ func (c *Client) readPump() {
 				continue
 			}
 
-			// Skip decryption/signature verification for system messages.
-			if msg.From == "system" {
+			// Skip decryption/signature verification for system messages and forward messages.
+			if msg.From == "system" || msg.IsForwardMessage {
+				if msg.IsForwardMessage {
+					log.Printf("Received forward message, skipping decryption/verification")
+				}
 				c.recvCh <- msg
 				continue
 			}
@@ -605,30 +609,37 @@ func (c *Client) writePump() {
 			if conn == nil {
 				return
 			}
-			// For direct messages (non-broadcast), encrypt the message content.
-			if msg.To != "broadcast" {
-				recipientPub, err := c.GetUserPublicKey(msg.To)
-				if err != nil {
-					log.Printf("Failed to get recipient public key: %v", err)
+
+			// Skip encryption and signing for forward messages
+			if !msg.IsForwardMessage {
+				// For direct messages (non-broadcast), encrypt the message content.
+				if msg.To != "broadcast" {
+					recipientPub, err := c.GetUserPublicKey(msg.To)
+					if err != nil {
+						log.Printf("Failed to get recipient public key: %v", err)
+						continue
+					}
+					encryptedContent, err := encryptDirectMessage(msg.Content, recipientPub, c.privateKey)
+					if err != nil {
+						log.Printf("Failed to encrypt message: %v", err)
+						continue
+					}
+					msg.Content = encryptedContent
+				}
+
+				// Sign the message with our private key.
+				if err := c.signMessage(&msg); err != nil {
+					log.Printf("Failed to sign message: %v", err)
 					continue
 				}
-				encryptedContent, err := encryptDirectMessage(msg.Content, recipientPub, c.privateKey)
-				if err != nil {
-					log.Printf("Failed to encrypt message: %v", err)
-					continue
-				}
-				msg.Content = encryptedContent
+			} else {
+				// For forward messages, just log that we're skipping encryption and signing
+				log.Printf("Skipping encryption and signing for forward message")
 			}
 
 			// Add timestamp if not present.
 			if msg.Timestamp.IsZero() {
 				msg.Timestamp = time.Now()
-			}
-
-			// Sign the message with our private key.
-			if err := c.signMessage(&msg); err != nil {
-				log.Printf("Failed to sign message: %v", err)
-				continue
 			}
 
 			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))

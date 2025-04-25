@@ -31,6 +31,8 @@ func HandleRequests(ctx context.Context) {
 			HandleQuery(ctx, msg)
 		} else if query.Type == "app" {
 			HandleApplicationRequest(ctx, msg)
+		} else if query.Type == "forward" {
+			HandleForwardMessage(ctx, msg)
 		} else {
 			HandleAnswer(ctx, msg)
 		}
@@ -222,6 +224,113 @@ func HandleAnswer(ctx context.Context, msg dk_client.Message) (string, error) {
 		return "", err
 	}
 	return "", nil // no reply – same behaviour as before
+}
+
+func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, error) {
+	var remoteMsg utils.RemoteMessage
+	if err := json.Unmarshal([]byte(msg.Content), &remoteMsg); err != nil ||
+		strings.TrimSpace(remoteMsg.Message) == "" {
+		return "", fmt.Errorf("invalid forward message: %w", err)
+	}
+
+	var forwardMsg struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	}
+
+	if err := json.Unmarshal([]byte(remoteMsg.Message), &forwardMsg); err != nil {
+		return "", fmt.Errorf("invalid forward payload: %w", err)
+	}
+
+	// Process query if type is "forward" and message contains a query
+	if forwardMsg.Type == "forward" && forwardMsg.Message != "" {
+		// Retrieve relevant documents using RAG
+		docs, err := RetrieveDocuments(ctx, forwardMsg.Message, 3)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve documents: %w", err)
+		}
+
+		log.Printf("Received message is: %s", forwardMsg.Message)
+		// Get LLM provider from context or config
+		llmProvider, err := LLMProviderFromContext(ctx)
+		if err != nil {
+			// Try to load from config if not in context
+			params, err := utils.ParamsFromContext(ctx)
+			if err != nil {
+				return "", err
+			}
+
+			if params.ModelConfigFile != nil {
+				modelConfig, err := LoadModelConfig(*params.ModelConfigFile)
+				if err != nil {
+					return "", fmt.Errorf("failed to load model config: %w", err)
+				}
+
+				llmProvider, err = CreateLLMProvider(modelConfig)
+				if err != nil {
+					return "", fmt.Errorf("failed to create LLM provider: %w", err)
+				}
+
+				// Store provider in context for future use
+				ctx = WithLLMProvider(ctx, llmProvider)
+			} else {
+				return "", fmt.Errorf("no LLM provider found and no model config file specified")
+			}
+		}
+
+		log.Printf("My docs: %v", docs)
+		// Generate answer using the LLM provider
+		answer, err := llmProvider.GenerateAnswer(ctx, forwardMsg.Message, docs)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate answer: %w", err)
+		}
+
+		// Create response message
+		response := struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		}{
+			Type:    "forward_response",
+			Message: answer,
+		}
+
+		// Convert to JSON
+		responseJSON, err := json.Marshal(response)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal response: %w", err)
+		}
+
+		// Wrap in RemoteMessage
+		responseWrapper := utils.RemoteMessage{
+			Type:    "forward_response",
+			Message: string(responseJSON),
+		}
+
+		// Marshal the wrapped response
+		responseWrapperJSON, err := json.Marshal(responseWrapper)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal wrapped response: %w", err)
+		}
+
+		// Send response back through the client
+		dkClient, err := utils.DkFromContext(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to get DK client from context: %w", err)
+		}
+
+		// Send response back to the originator with IsForwardMessage flag
+		dkClient.SendMessage(dk_client.Message{
+			From:             dkClient.UserID,
+			To:               msg.From,
+			Content:          string(responseWrapperJSON),
+			Timestamp:        time.Now(),
+			IsForwardMessage: true, // Set this flag to indicate it's a forward response
+		})
+
+		return answer, nil
+	}
+
+	return "", nil // no reply for other forward message types
 }
 
 func HandleApplicationRequest(ctx context.Context, msg dk_client.Message) (string, error) {

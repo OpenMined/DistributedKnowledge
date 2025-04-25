@@ -67,6 +67,7 @@ func RunMigrations(db *sql.DB) error {
 		status TEXT NOT NULL,
     is_broadcast BOOLEAN DEFAULT FALSE,
     signature TEXT,
+    is_forward_message BOOLEAN DEFAULT FALSE,
 		FOREIGN KEY(from_user) REFERENCES users(user_id),
 		FOREIGN KEY(to_user) REFERENCES users(user_id)
 	);`
