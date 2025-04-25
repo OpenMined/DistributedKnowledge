@@ -1204,3 +1204,46 @@ func HandleSubmitAppFolderTool(ctx context.Context, request mcp_lib.CallToolRequ
 	}, nil
 
 }
+
+// HandleGetTokenTool retrieves the current JWT token used by the client.
+// This tool can be useful for debugging authentication issues or extending
+// the client's functionality with external tools that need the token.
+func HandleGetTokenTool(ctx context.Context, _ mcp_lib.CallToolRequest) (*mcp_lib.CallToolResult, error) {
+	// Retrieve the DK client from the context
+	dkClient, err := utils.DkFromContext(ctx)
+	if err != nil {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: fmt.Sprintf("Failed to retrieve client from context: %s", err.Error()),
+				},
+			},
+		}, nil
+	}
+
+	// Get the token using the client's Token method
+	token := dkClient.Token()
+
+	// Check if the token is empty
+	if token == "" {
+		return &mcp_lib.CallToolResult{
+			Content: []mcp_lib.Content{
+				mcp_lib.TextContent{
+					Type: "text",
+					Text: "No authentication token found. The client may not be logged in.",
+				},
+			},
+		}, nil
+	}
+
+	// Return the token
+	return &mcp_lib.CallToolResult{
+		Content: []mcp_lib.Content{
+			mcp_lib.TextContent{
+				Type: "text",
+				Text: token,
+			},
+		},
+	}, nil
+}

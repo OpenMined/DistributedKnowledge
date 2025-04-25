@@ -48,7 +48,7 @@ func main() {
 
 	// Setup HTTPS routes using the multiplexer.
 	mux := http.NewServeMux()
-	
+
 	// Setup all routes
 	handlers.SetupRoutes(mux, database, authService, wsServer)
 

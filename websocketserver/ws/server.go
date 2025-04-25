@@ -272,6 +272,30 @@ func (s *Server) deliverMessage(msg models.Message, isReconnection bool, targetU
 	return nil
 }
 
+// DeliverHTTPMessage delivers a message sent via HTTP to a WebSocket connection
+// This is used for the direct message API endpoint
+func (s *Server) DeliverHTTPMessage(msg models.Message) error {
+	// First, save the message in the database
+	insertQuery := `INSERT INTO messages (from_user, to_user, timestamp, content, status, is_broadcast, signature) 
+	                VALUES (?, ?, ?, ?, ?, ?, ?)`
+
+	res, err := s.db.Exec(insertQuery, msg.From, msg.To, msg.Timestamp, msg.Content, "pending", false, msg.Signature)
+	if err != nil {
+		log.Printf("Failed to insert HTTP message from %s to %s: %v", msg.From, msg.To, err)
+		return err
+	}
+
+	lastID, err := res.LastInsertId()
+	if err == nil {
+		msg.ID = int(lastID)
+	} else {
+		log.Printf("Failed to get last insert ID for HTTP message: %v", err)
+	}
+
+	// Now attempt to deliver the message using the existing mechanism
+	return s.deliverMessage(msg, false, "")
+}
+
 // Modify readPump to use the updated deliverMessage signature
 func (c *Client) readPump() {
 	defer func() {

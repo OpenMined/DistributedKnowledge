@@ -233,5 +233,19 @@ func NewMCPServer() *server.MCPServer {
 		),
 		HandleSubmitAppFolderTool,
 	)
+
+	// Tool: Get Client Token
+	mcpServer.AddTool(
+		mcp_lib.NewTool("cqGetToken",
+			mcp_lib.WithDescription("Retrieves the current JWT token used by the client for authentication."),
+			mcp_lib.WithBoolean(
+				"flag",
+				mcp_lib.Description("Ignore this parameter"),
+				mcp_lib.DefaultBool(false),
+			),
+		),
+		HandleGetTokenTool,
+	)
+
 	return mcpServer
 }
