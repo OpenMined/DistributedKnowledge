@@ -27,15 +27,34 @@ type Parameters struct {
 }
 
 type RemoteMessage struct {
-	Type    string            `json:"type"`
-	Message string            `json:"message,omitempty"`
-	Files   map[string]string `json:"files,omitempty"`
+	Type     string            `json:"type"`
+	Message  string            `json:"message,omitempty"`
+	Files    map[string]string `json:"files,omitempty"`
+	Filename string            `json:"filename,omitempty"`
+	Content  string            `json:"content,omitempty"`
 }
 
 type AnswerMessage struct {
 	Answer string `json:"answer"`
 	From   string `json:"from"`
 	Query  string `json:"query"`
+}
+
+// Message type constants
+const (
+	MessageTypeForward            = "forward"
+	MessageTypeAnswer             = "answer"
+	MessageTypeQuery              = "query"
+	MessageTypeApp                = "app"
+	MessageTypeRegisterDocument   = "register_document"
+	MessageTypeRegisterDocSuccess = "register_document_success"
+	MessageTypeRegisterDocError   = "register_document_error"
+)
+
+type RegisterDocumentMessage struct {
+	Type     string `json:"type"` // Should be "register_document"
+	Filename string `json:"filename"`
+	Content  string `json:"content"`
 }
 
 func LoadOrCreateKeys(privateKeyPath, publicKeyPath string) (ed25519.PublicKey, ed25519.PrivateKey, error) {

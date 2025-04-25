@@ -228,29 +228,86 @@ func HandleAnswer(ctx context.Context, msg dk_client.Message) (string, error) {
 
 func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, error) {
 	var remoteMsg utils.RemoteMessage
-	if err := json.Unmarshal([]byte(msg.Content), &remoteMsg); err != nil ||
-		strings.TrimSpace(remoteMsg.Message) == "" {
+	if err := json.Unmarshal([]byte(msg.Content), &remoteMsg); err != nil {
+		log.Printf("Error unmarshaling forward message: %v", err)
 		return "", fmt.Errorf("invalid forward message: %w", err)
 	}
 
+	log.Printf("Received forward message with type: %s", remoteMsg.Type)
+
+	// Get DK client early as we'll need it for both paths
+	dkClient, err := utils.DkFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get DK client from context: %w", err)
+	}
+
+	var responseMsg string
+	var responseType string
 	var forwardMsg struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
+		Type     string `json:"type"`
+		Message  string `json:"message"`
+		Filename string `json:"filename"`
+		Content  string `json:"content"`
 	}
 
-	if err := json.Unmarshal([]byte(remoteMsg.Message), &forwardMsg); err != nil {
-		return "", fmt.Errorf("invalid forward payload: %w", err)
+	// Check if this is a document registration request directly from the remoteMsg
+	if remoteMsg.Filename != "" && remoteMsg.Content != "" {
+		// Direct fields in the remoteMsg
+		log.Printf("Processing document registration from direct fields for file: %s", remoteMsg.Filename)
+		
+		forwardMsg.Type = utils.MessageTypeRegisterDocument
+		forwardMsg.Filename = remoteMsg.Filename
+		forwardMsg.Content = remoteMsg.Content
+	} else if strings.TrimSpace(remoteMsg.Message) != "" {
+		// Try to unmarshal the nested message
+		if err := json.Unmarshal([]byte(remoteMsg.Message), &forwardMsg); err != nil {
+			log.Printf("Error unmarshaling nested message: %v", err)
+			// If we can't unmarshal, it might be a simple forward query
+			forwardMsg.Type = utils.MessageTypeForward
+			forwardMsg.Message = remoteMsg.Message
+		}
+	} else {
+		log.Printf("Warning: Empty forward message received")
+		responseMsg = "Empty message received"
+		responseType = "error"
+		goto SendResponse
 	}
 
-	// Process query if type is "forward" and message contains a query
-	if forwardMsg.Type == "forward" && forwardMsg.Message != "" {
+	log.Printf("Processing forward message of type: %s", forwardMsg.Type)
+
+	// Handle document registration
+	if (forwardMsg.Type == utils.MessageTypeRegisterDocument || 
+	   (forwardMsg.Filename != "" && forwardMsg.Content != "")) {
+		log.Printf("Processing document registration request for file: %s", forwardMsg.Filename)
+		
+		// Validate the filename
+		if strings.TrimSpace(forwardMsg.Filename) == "" {
+			responseMsg = "Error: Filename cannot be empty"
+			responseType = utils.MessageTypeRegisterDocError
+		} else if strings.TrimSpace(forwardMsg.Content) == "" {
+			responseMsg = "Error: Document content cannot be empty"
+			responseType = utils.MessageTypeRegisterDocError
+		} else {
+			// Use the UpdateDocument function to save or update the document in RAG
+			if err := UpdateDocument(ctx, forwardMsg.Filename, forwardMsg.Content); err != nil {
+				responseMsg = fmt.Sprintf("Error registering document: %v", err)
+				responseType = utils.MessageTypeRegisterDocError
+				log.Printf("Failed to register document '%s': %v", forwardMsg.Filename, err)
+			} else {
+				responseMsg = fmt.Sprintf("Document '%s' successfully registered", forwardMsg.Filename)
+				responseType = utils.MessageTypeRegisterDocSuccess
+				log.Printf("Successfully registered document: %s", forwardMsg.Filename)
+			}
+		}
+	} else if forwardMsg.Type == utils.MessageTypeForward && forwardMsg.Message != "" {
+		// This is a regular query
 		// Retrieve relevant documents using RAG
 		docs, err := RetrieveDocuments(ctx, forwardMsg.Message, 3)
 		if err != nil {
 			return "", fmt.Errorf("failed to retrieve documents: %w", err)
 		}
 
-		log.Printf("Received message is: %s", forwardMsg.Message)
+		log.Printf("Processing forward query: %s", forwardMsg.Message)
 		// Get LLM provider from context or config
 		llmProvider, err := LLMProviderFromContext(ctx)
 		if err != nil {
@@ -278,59 +335,60 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 			}
 		}
 
-		log.Printf("My docs: %v", docs)
 		// Generate answer using the LLM provider
 		answer, err := llmProvider.GenerateAnswer(ctx, forwardMsg.Message, docs)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate answer: %w", err)
 		}
-
-		// Create response message
-		response := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		}{
-			Type:    "forward_response",
-			Message: answer,
-		}
-
-		// Convert to JSON
-		responseJSON, err := json.Marshal(response)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal response: %w", err)
-		}
-
-		// Wrap in RemoteMessage
-		responseWrapper := utils.RemoteMessage{
-			Type:    "forward_response",
-			Message: string(responseJSON),
-		}
-
-		// Marshal the wrapped response
-		responseWrapperJSON, err := json.Marshal(responseWrapper)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal wrapped response: %w", err)
-		}
-
-		// Send response back through the client
-		dkClient, err := utils.DkFromContext(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to get DK client from context: %w", err)
-		}
-
-		// Send response back to the originator with IsForwardMessage flag
-		dkClient.SendMessage(dk_client.Message{
-			From:             dkClient.UserID,
-			To:               msg.From,
-			Content:          string(responseWrapperJSON),
-			Timestamp:        time.Now(),
-			IsForwardMessage: true, // Set this flag to indicate it's a forward response
-		})
-
-		return answer, nil
+		
+		responseMsg = answer
+		responseType = "forward_response"
+	} else {
+		log.Printf("Received unsupported forward message type: %s", forwardMsg.Type)
+		responseMsg = "Unsupported message type"
+		responseType = "error" 
 	}
 
-	return "", nil // no reply for other forward message types
+SendResponse:
+	// Create response message
+	response := struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	}{
+		Type:    responseType,
+		Message: responseMsg,
+	}
+
+	// Convert to JSON
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	// Wrap in RemoteMessage
+	responseWrapper := utils.RemoteMessage{
+		Type:    utils.MessageTypeForward,  // The outer message type remains "forward"
+		Message: string(responseJSON),
+	}
+
+	// Marshal the wrapped response
+	responseWrapperJSON, err := json.Marshal(responseWrapper)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal wrapped response: %w", err)
+	}
+
+	log.Printf("Sending response with type: %s and message: %s", responseType, responseMsg)
+
+	// Send response back to the originator with IsForwardMessage flag
+	dkClient.SendMessage(dk_client.Message{
+		From:             dkClient.UserID,
+		To:               msg.From,
+		Content:          string(responseWrapperJSON),
+		Timestamp:        time.Now(),
+		IsForwardMessage: true, // Set this flag to indicate it's a forward response
+	})
+
+	return responseMsg, nil
 }
 
 func HandleApplicationRequest(ctx context.Context, msg dk_client.Message) (string, error) {
