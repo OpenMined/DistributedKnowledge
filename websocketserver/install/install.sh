@@ -98,6 +98,15 @@ INSTALL_PATH="/usr/local/bin"
 read -p "${PASTEL_BLUE}MCP config file path${RESET} [default: ${PASTEL_GREEN}$HOME/.mcp.json${RESET}]: " MCP_CONFIG_DIR </dev/tty
 MCP_CONFIG_DIR=${MCP_CONFIG_DIR:-$HOME/.mcp.json}
 
+
+read -p "${PASTEL_BLUE}Syftbox config file path${RESET} [default: ${PASTEL_GREEN}$HOME/.syftbox/config.json${RESET}]: " SYFTBOX_CONFIG_DIR </dev/tty
+SYFTBOX_CONFIG_DIR=${SYFTBOX_CONFIG_DIR:-$HOME/.syftbox/config.json}
+
+# Check if Syftbox config directory exists
+if [ ! -f "$SYFTBOX_CONFIG_DIR" ]; then
+    SYFTBOX_CONFIG_DIR=""
+fi
+
 # -----------------------------------------------------------------------------
 # 4. User Configuration: Credentials, Server, and Project Directories
 # -----------------------------------------------------------------------------
@@ -308,6 +317,7 @@ if [ ! -f "$MCP_CONFIG_DIR" ]; then
         "-private", "$KEYS_PATH/private_key",
         "-public", "$KEYS_PATH/public_key",
         "-project_path", "$PROJECT_DIR",
+        "-syftbox_config", "$SYFTBOX_CONFIG_DIR",
         "-rag_sources", "$RAG_FILE",
         "-server", "$SERVER_ADDRESS"
       ]
@@ -319,6 +329,7 @@ else
     if grep -q '"mcpServers"' "$MCP_CONFIG_DIR"; then
         awk -v ip="$INSTALL_PATH/dk" \
             -v uid="$USER_ID" \
+            -v syftbox="$SYFTBOX_CONFIG_DIR" \
             -v kp="$KEYS_PATH" \
             -v pd="$PROJECT_DIR" \
             -v rg="$RAG_FILE" \
@@ -331,6 +342,7 @@ BEGIN { inBlock=0; inserted=0 }
     print "        \"command\": \"" ip "\","
     print "        \"args\": ["
     print "            \"-userId\", \"" uid "\","
+    print "            \"-syftbox_config\", \"" syftbox "\","
     print "            \"-private\", \"" kp "/private_key\","
     print "            \"-public\", \"" kp "/public_key\","
     print "            \"-project_path\", \"" pd "\","
@@ -342,8 +354,7 @@ BEGIN { inBlock=0; inserted=0 }
   }
   print
   if (inBlock && /^[[:space:]]*}\s*$/) { inBlock=0 }
-}
-' "$MCP_CONFIG_DIR" > "$MCP_CONFIG_DIR.tmp" && mv "$MCP_CONFIG_DIR.tmp" "$MCP_CONFIG_DIR"
+}' "$MCP_CONFIG_DIR" > "$MCP_CONFIG_DIR.tmp" && mv "$MCP_CONFIG_DIR.tmp" "$MCP_CONFIG_DIR" && sed -i '${/^[[:space:]]*}$/d;}' "$MCP_CONFIG_DIR" 
     else
         cat << EOF > "$MCP_CONFIG_DIR.tmp"
 {
@@ -355,6 +366,7 @@ BEGIN { inBlock=0; inserted=0 }
         "-private", "$KEYS_PATH/private_key",
         "-public", "$KEYS_PATH/public_key",
         "-project_path", "$PROJECT_DIR",
+        "-syftbox_config", "$SYFTBOX_CONFIG_DIR",
         "-rag_sources", "$RAG_FILE",
         "-server", "$SERVER_ADDRESS"
       ]
