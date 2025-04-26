@@ -97,7 +97,7 @@ func TestSendDirectMessage(t *testing.T) {
 	selfServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload DirectMessagePayload
 		json.NewDecoder(r.Body).Decode(&payload)
-		
+
 		// Verify payload fields
 		if payload.Recipient != "test_user" {
 			t.Errorf("Expected Recipient 'test_user', got '%s'", payload.Recipient)

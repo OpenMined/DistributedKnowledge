@@ -254,7 +254,7 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 	if remoteMsg.Filename != "" && remoteMsg.Content != "" {
 		// Direct fields in the remoteMsg
 		log.Printf("Processing document registration from direct fields for file: %s", remoteMsg.Filename)
-		
+
 		forwardMsg.Type = utils.MessageTypeRegisterDocument
 		forwardMsg.Filename = remoteMsg.Filename
 		forwardMsg.Content = remoteMsg.Content
@@ -275,11 +275,12 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 
 	log.Printf("Processing forward message of type: %s", forwardMsg.Type)
 
-	// Handle document registration
-	if (forwardMsg.Type == utils.MessageTypeRegisterDocument || 
-	   (forwardMsg.Filename != "" && forwardMsg.Content != "")) {
-		log.Printf("Processing document registration request for file: %s", forwardMsg.Filename)
-		
+	// Handle document registration or appending
+	if forwardMsg.Type == utils.MessageTypeRegisterDocument ||
+		forwardMsg.Type == utils.MessageTypeAppendDocument ||
+		(forwardMsg.Filename != "" && forwardMsg.Content != "") {
+		log.Printf("Processing document operation request for file: %s, type: %s", forwardMsg.Filename, forwardMsg.Type)
+
 		// Validate the filename
 		if strings.TrimSpace(forwardMsg.Filename) == "" {
 			responseMsg = "Error: Filename cannot be empty"
@@ -288,15 +289,31 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 			responseMsg = "Error: Document content cannot be empty"
 			responseType = utils.MessageTypeRegisterDocError
 		} else {
-			// Use the UpdateDocument function to save or update the document in RAG
-			if err := UpdateDocument(ctx, forwardMsg.Filename, forwardMsg.Content); err != nil {
-				responseMsg = fmt.Sprintf("Error registering document: %v", err)
-				responseType = utils.MessageTypeRegisterDocError
-				log.Printf("Failed to register document '%s': %v", forwardMsg.Filename, err)
+			// Check if this is an append operation
+			isAppend := forwardMsg.Type == utils.MessageTypeAppendDocument
+
+			if isAppend {
+				// Use the AppendDocument function to append content to an existing document in RAG
+				if err := AppendDocument(ctx, forwardMsg.Filename, forwardMsg.Content); err != nil {
+					responseMsg = fmt.Sprintf("Error appending to document: %v", err)
+					responseType = utils.MessageTypeRegisterDocError
+					log.Printf("Failed to append to document '%s': %v", forwardMsg.Filename, err)
+				} else {
+					responseMsg = fmt.Sprintf("Content successfully appended to document '%s'", forwardMsg.Filename)
+					responseType = utils.MessageTypeRegisterDocSuccess
+					log.Printf("Successfully appended to document: %s", forwardMsg.Filename)
+				}
 			} else {
-				responseMsg = fmt.Sprintf("Document '%s' successfully registered", forwardMsg.Filename)
-				responseType = utils.MessageTypeRegisterDocSuccess
-				log.Printf("Successfully registered document: %s", forwardMsg.Filename)
+				// Use the UpdateDocument function to save or update the document in RAG
+				if err := UpdateDocument(ctx, forwardMsg.Filename, forwardMsg.Content); err != nil {
+					responseMsg = fmt.Sprintf("Error registering document: %v", err)
+					responseType = utils.MessageTypeRegisterDocError
+					log.Printf("Failed to register document '%s': %v", forwardMsg.Filename, err)
+				} else {
+					responseMsg = fmt.Sprintf("Document '%s' successfully registered", forwardMsg.Filename)
+					responseType = utils.MessageTypeRegisterDocSuccess
+					log.Printf("Successfully registered document: %s", forwardMsg.Filename)
+				}
 			}
 		}
 	} else if forwardMsg.Type == utils.MessageTypeForward && forwardMsg.Message != "" {
@@ -340,13 +357,13 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 		if err != nil {
 			return "", fmt.Errorf("failed to generate answer: %w", err)
 		}
-		
+
 		responseMsg = answer
 		responseType = "forward_response"
 	} else {
 		log.Printf("Received unsupported forward message type: %s", forwardMsg.Type)
 		responseMsg = "Unsupported message type"
-		responseType = "error" 
+		responseType = "error"
 	}
 
 SendResponse:
@@ -367,7 +384,7 @@ SendResponse:
 
 	// Wrap in RemoteMessage
 	responseWrapper := utils.RemoteMessage{
-		Type:    utils.MessageTypeForward,  // The outer message type remains "forward"
+		Type:    utils.MessageTypeForward, // The outer message type remains "forward"
 		Message: string(responseJSON),
 	}
 

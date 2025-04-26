@@ -47,12 +47,13 @@ const (
 	MessageTypeQuery              = "query"
 	MessageTypeApp                = "app"
 	MessageTypeRegisterDocument   = "register_document"
+	MessageTypeAppendDocument     = "append_document"
 	MessageTypeRegisterDocSuccess = "register_document_success"
 	MessageTypeRegisterDocError   = "register_document_error"
 )
 
 type RegisterDocumentMessage struct {
-	Type     string `json:"type"` // Should be "register_document"
+	Type     string `json:"type"` // Should be "register_document" or "append_document"
 	Filename string `json:"filename"`
 	Content  string `json:"content"`
 }

@@ -268,7 +268,28 @@ func GetDocument(ctx context.Context, fileName string) (*Document, error) {
 // It re‑uses the existing helpers to keep the behaviour (embeddings, description
 // list, etc.) consistent in one place.
 func UpdateDocument(ctx context.Context, fileName, newContent string) error {
-	// Remove first – we don’t care if the old doc did not exist.
+	// Remove first – we don't care if the old doc did not exist.
+	if err := RemoveDocument(ctx, fileName); err != nil {
+		return err
+	}
+	return AddDocument(ctx, fileName, newContent, false)
+}
+
+// AppendDocument appends new content to an existing document identified by fileName.
+// If the document doesn't exist, it creates a new one with the provided content.
+func AppendDocument(ctx context.Context, fileName, newContent string) error {
+	// Try to get the existing document
+	existingDoc, err := GetDocument(ctx, fileName)
+	if err != nil {
+		return err
+	}
+
+	// If document exists, append the new content
+	if existingDoc != nil {
+		newContent = existingDoc.Content + "\n\n" + newContent
+	}
+
+	// Remove existing document and add with combined content
 	if err := RemoveDocument(ctx, fileName); err != nil {
 		return err
 	}

@@ -138,7 +138,7 @@ func (c *Client) RegisterDocument(filename string, content string) (string, erro
 		Message string `json:"message"`
 		Type    string `json:"type"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
