@@ -62,7 +62,20 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]
 		// Cut off the prefix we added before adding the document (see comment above).
 		// This is specific to the "nomic-embed-text" model.
 		contentString := strings.TrimPrefix(res.Content, "search_document: ")
-		content := Document{FileName: res.Metadata["file"], Content: contentString}
+
+		// Extract metadata from the document's metadata map
+		var metadataItems []string
+		for key, value := range res.Metadata {
+			if strings.HasPrefix(key, "metadata_") {
+				metadataItems = append(metadataItems, value)
+			}
+		}
+
+		content := Document{
+			FileName: res.Metadata["file"],
+			Content:  contentString,
+			Metadata: metadataItems,
+		}
 		results = append(results, content)
 	}
 
@@ -92,19 +105,30 @@ func RemoveDocument(ctx context.Context, filename string) error {
 	return nil
 }
 
-func AddDocument(ctx context.Context, fileName string, fileContent string, UpdateDescriptions bool) error {
+func AddDocument(ctx context.Context, fileName string, fileContent string, UpdateDescriptions bool, metadata ...string) error {
 	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
 	if err != nil {
 		log.Printf("[RAG] %v", err)
 		return nil
 	}
 	content := "search_document: " + fileContent
+
+	// Create metadata map with the required "file" field
+	docMetadata := map[string]string{
+		"file": fileName,
+	}
+
+	// Add additional metadata if provided
+	if len(metadata) > 0 {
+		for i, item := range metadata {
+			docMetadata[fmt.Sprintf("metadata_%d", i)] = item
+		}
+	}
+
 	newDoc := chromem.Document{
-		ID: uuid.NewString(),
-		Metadata: map[string]string{
-			"file": fileName,
-		},
-		Content: content,
+		ID:       uuid.NewString(),
+		Metadata: docMetadata,
+		Content:  content,
 	}
 
 	err = chromemCollection.AddDocument(ctx, newDoc)
@@ -125,7 +149,6 @@ func AddDocument(ctx context.Context, fileName string, fileContent string, Updat
 
 		llmProvider, err := LLMProviderFromContext(ctx)
 		if err != nil {
-
 			panic(err)
 		}
 
@@ -261,13 +284,26 @@ func GetDocument(ctx context.Context, fileName string) (*Document, error) {
 	}
 
 	content := strings.TrimPrefix(results[0].Content, "search_document: ")
-	return &Document{FileName: results[0].Metadata["file"], Content: content}, nil
+
+	// Extract metadata from the document's metadata map
+	var metadataItems []string
+	for key, value := range results[0].Metadata {
+		if strings.HasPrefix(key, "metadata_") {
+			metadataItems = append(metadataItems, value)
+		}
+	}
+
+	return &Document{
+		FileName: results[0].Metadata["file"],
+		Content:  content,
+		Metadata: metadataItems,
+	}, nil
 }
 
 // UpdateDocument overwrites (or creates) the document identified by fileName.
 // It re‑uses the existing helpers to keep the behaviour (embeddings, description
 // list, etc.) consistent in one place.
-func UpdateDocument(ctx context.Context, fileName, newContent string) error {
+func UpdateDocument(ctx context.Context, fileName, newContent string, metadata ...string) error {
 	// Remove first – we don't care if the old doc did not exist.
 	if err := RemoveDocument(ctx, fileName); err != nil {
 		return err
@@ -277,7 +313,7 @@ func UpdateDocument(ctx context.Context, fileName, newContent string) error {
 
 // AppendDocument appends new content to an existing document identified by fileName.
 // If the document doesn't exist, it creates a new one with the provided content.
-func AppendDocument(ctx context.Context, fileName, newContent string) error {
+func AppendDocument(ctx context.Context, fileName, newContent string, metadata ...string) error {
 	// Try to get the existing document
 	existingDoc, err := GetDocument(ctx, fileName)
 	if err != nil {

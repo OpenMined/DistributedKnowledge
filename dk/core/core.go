@@ -244,10 +244,11 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 	var responseMsg string
 	var responseType string
 	var forwardMsg struct {
-		Type     string `json:"type"`
-		Message  string `json:"message"`
-		Filename string `json:"filename"`
-		Content  string `json:"content"`
+		Type     string   `json:"type"`
+		Message  string   `json:"message"`
+		Filename string   `json:"filename"`
+		Content  string   `json:"content"`
+		Metadata []string `json:"metadata,omitempty"`
 	}
 
 	// Check if this is a document registration request directly from the remoteMsg
@@ -258,6 +259,7 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 		forwardMsg.Type = utils.MessageTypeRegisterDocument
 		forwardMsg.Filename = remoteMsg.Filename
 		forwardMsg.Content = remoteMsg.Content
+		forwardMsg.Metadata = remoteMsg.Metadata
 	} else if strings.TrimSpace(remoteMsg.Message) != "" {
 		// Try to unmarshal the nested message
 		if err := json.Unmarshal([]byte(remoteMsg.Message), &forwardMsg); err != nil {
@@ -294,7 +296,7 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 
 			if isAppend {
 				// Use the AppendDocument function to append content to an existing document in RAG
-				if err := AppendDocument(ctx, forwardMsg.Filename, forwardMsg.Content); err != nil {
+				if err := AppendDocument(ctx, forwardMsg.Filename, forwardMsg.Content, forwardMsg.Metadata...); err != nil {
 					responseMsg = fmt.Sprintf("Error appending to document: %v", err)
 					responseType = utils.MessageTypeRegisterDocError
 					log.Printf("Failed to append to document '%s': %v", forwardMsg.Filename, err)
@@ -305,7 +307,7 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 				}
 			} else {
 				// Use the UpdateDocument function to save or update the document in RAG
-				if err := UpdateDocument(ctx, forwardMsg.Filename, forwardMsg.Content); err != nil {
+				if err := UpdateDocument(ctx, forwardMsg.Filename, forwardMsg.Content, forwardMsg.Metadata...); err != nil {
 					responseMsg = fmt.Sprintf("Error registering document: %v", err)
 					responseType = utils.MessageTypeRegisterDocError
 					log.Printf("Failed to register document '%s': %v", forwardMsg.Filename, err)

@@ -11,8 +11,9 @@ import (
 
 // RagRequest represents the JSON structure for POST /rag requests
 type RagRequest struct {
-	Filename    string `json:"filename"`
-	FileContent string `json:"filecontent"`
+	Filename    string   `json:"filename"`
+	FileContent string   `json:"filecontent"`
+	Metadata    []string `json:"metadata,omitempty"`
 }
 
 // RagResponse represents the structure for GET /rag responses
@@ -32,8 +33,9 @@ type SingleDocumentResponse struct {
 
 // PatchRagRequest is used by PATCH /rag
 type PatchRagRequest struct {
-	Filename    string `json:"filename"`
-	FileContent string `json:"filecontent"`
+	Filename    string   `json:"filename"`
+	FileContent string   `json:"filecontent"`
+	Metadata    []string `json:"metadata,omitempty"`
 }
 
 // setupHTTPServer initializes and starts the HTTP server
@@ -76,7 +78,7 @@ func SetupHTTPServer(ctx context.Context, port string) {
 		}
 
 		// Update (remove ‑ then add) the document.
-		if err := core.UpdateDocument(ctx, req.Filename, req.FileContent); err != nil {
+		if err := core.UpdateDocument(ctx, req.Filename, req.FileContent, req.Metadata...); err != nil {
 			sendErrorResponse(w, "Failed to update document: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -98,7 +100,7 @@ func SetupHTTPServer(ctx context.Context, port string) {
 			return
 		}
 
-		if err := core.AddDocument(ctx, req.Filename, req.FileContent, true); err != nil {
+		if err := core.AddDocument(ctx, req.Filename, req.FileContent, true, req.Metadata...); err != nil {
 			sendErrorResponse(w, "Failed to add document: "+err.Error(), http.StatusInternalServerError)
 			return
 		}

@@ -32,6 +32,7 @@ type RemoteMessage struct {
 	Files    map[string]string `json:"files,omitempty"`
 	Filename string            `json:"filename,omitempty"`
 	Content  string            `json:"content,omitempty"`
+	Metadata []string          `json:"metadata,omitempty"`
 }
 
 type AnswerMessage struct {
@@ -53,9 +54,10 @@ const (
 )
 
 type RegisterDocumentMessage struct {
-	Type     string `json:"type"` // Should be "register_document" or "append_document"
-	Filename string `json:"filename"`
-	Content  string `json:"content"`
+	Type     string   `json:"type"` // Should be "register_document" or "append_document"
+	Filename string   `json:"filename"`
+	Content  string   `json:"content"`
+	Metadata []string `json:"metadata,omitempty"`
 }
 
 func LoadOrCreateKeys(privateKeyPath, publicKeyPath string) (ed25519.PublicKey, ed25519.PrivateKey, error) {
