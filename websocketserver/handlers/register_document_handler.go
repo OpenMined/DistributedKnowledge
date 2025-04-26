@@ -16,9 +16,10 @@ import (
 
 // RegisterDocumentPayload represents the JSON payload for document registration via HTTP
 type RegisterDocumentPayload struct {
-	Type     string `json:"type"`
-	Filename string `json:"filename"`
-	Content  string `json:"content"`
+	Type     string   `json:"type"`
+	Filename string   `json:"filename"`
+	Content  string   `json:"content"`
+	Metadata []string `json:"metadata,omitempty"`
 }
 
 // HandleRegisterDocument handles POST requests to register documents via websocket
@@ -88,13 +89,15 @@ func HandleRegisterDocument(authService *auth.Service, wsServer *ws.Server) http
 
 		// Create the document registration message
 		documentMsg := struct {
-			Type     string `json:"type"`
-			Filename string `json:"filename"`
-			Content  string `json:"content"`
+			Type     string   `json:"type"`
+			Filename string   `json:"filename"`
+			Content  string   `json:"content"`
+			Metadata []string `json:"metadata,omitempty"`
 		}{
 			Type:     models.MessageTypeRegisterDocument,
 			Filename: payload.Filename,
 			Content:  payload.Content,
+			Metadata: payload.Metadata,
 		}
 
 		// Marshal the document message

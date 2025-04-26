@@ -16,9 +16,10 @@ import (
 
 // AppendDocumentPayload represents the JSON payload for document appending via HTTP
 type AppendDocumentPayload struct {
-	Type     string `json:"type"`
-	Filename string `json:"filename"`
-	Content  string `json:"content"`
+	Type     string   `json:"type"`
+	Filename string   `json:"filename"`
+	Content  string   `json:"content"`
+	Metadata []string `json:"metadata,omitempty"`
 }
 
 // HandleAppendDocument handles POST requests to append content to documents via websocket
@@ -88,13 +89,15 @@ func HandleAppendDocument(authService *auth.Service, wsServer *ws.Server) http.H
 
 		// Create the document append message
 		documentMsg := struct {
-			Type     string `json:"type"`
-			Filename string `json:"filename"`
-			Content  string `json:"content"`
+			Type     string   `json:"type"`
+			Filename string   `json:"filename"`
+			Content  string   `json:"content"`
+			Metadata []string `json:"metadata,omitempty"`
 		}{
 			Type:     models.MessageTypeAppendDocument, // Use the new message type constant
 			Filename: payload.Filename,
 			Content:  payload.Content,
+			Metadata: payload.Metadata,
 		}
 
 		// Marshal the document message
