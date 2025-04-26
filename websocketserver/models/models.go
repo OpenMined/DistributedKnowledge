@@ -6,6 +6,7 @@ import "time"
 const (
 	MessageTypeForward            = "forward"
 	MessageTypeRegisterDocument   = "register_document"
+	MessageTypeAppendDocument     = "append_document"
 	MessageTypeRegisterDocSuccess = "register_document_success"
 	MessageTypeRegisterDocError   = "register_document_error"
 )
