@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"dk/core"
+	"dk/utils"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -154,6 +155,20 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "Document removed successfully"})
+	})
+
+	// GET /rag/count - Get the total number of documents in the vector database
+	mux.HandleFunc("GET /rag/count", func(w http.ResponseWriter, r *http.Request) {
+		chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+		if err != nil {
+			sendErrorResponse(w, "Failed to access vector database: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		count := chromemCollection.Count()
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(CountResponse{Count: count})
 	})
 
 	server := &http.Server{
