@@ -51,9 +51,11 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]
 	// Query the collection for the top 'numResults' similar documents.
 	tmpNumResults := numResults
 	var docRes []chromem.Result
+	// Filter to only include documents where metadata 'active' = 'true'
+	filter := map[string]string{"active": "true"}
 	for tmpNumResults > 0 {
 		// Query the collection for the top 'numResults' similar documents.
-		docRes, _ = chromemCollection.Query(ctx, query, tmpNumResults, nil, nil)
+		docRes, _ = chromemCollection.Query(ctx, query, tmpNumResults, filter, nil)
 		tmpNumResults = tmpNumResults - 1
 	}
 
@@ -116,7 +118,8 @@ func AddDocument(ctx context.Context, fileName string, fileContent string, Updat
 
 	// Create metadata map with the required "file" field
 	docMetadata := map[string]string{
-		"file": fileName,
+		"file":   fileName,
+		"active": "true",
 	}
 
 	// Add additional metadata if provided
@@ -377,4 +380,61 @@ func AppendDocument(ctx context.Context, fileName, newContent string, metadata m
 		return err
 	}
 	return AddDocument(ctx, fileName, newContent, false, metadata)
+}
+
+// ToggleActiveMetadata retrieves documents based on a filter and toggles the 'active' key
+// in their metadata. If 'active' is present, it removes it; if not present, it adds it.
+func ToggleActiveMetadata(ctx context.Context, filterField string, filterValue string) error {
+	// Get collection to check document count
+	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("Failed to get the vector db collection: %w", err)
+	}
+
+	// Use collection count instead of a fixed value to avoid "nResults must be <= number of documents" error
+	count := chromemCollection.Count()
+
+	// Get all documents matching the filter criteria
+	// Using a large number to get all potential matches
+	documents, err := GetDocuments(ctx, filterField, filterValue, count)
+	if err != nil {
+		return fmt.Errorf("failed to get documents: %w", err)
+	}
+
+	if len(documents) == 0 {
+		// No documents found matching the criteria
+		return nil
+	}
+
+	for _, doc := range documents {
+		// Create a new metadata map
+		// newMetadata := make(map[string]string)
+		// for key, value := range doc.Metadata {
+		// 	newMetadata[key] = value
+		// }
+
+		val, exists := doc.Metadata["active"]
+
+		// Check if the 'active' key exists in the metadata
+		if val == "true" || !exists { // _, exists := doc.Metadata["active"]; exists {
+			// Remove the 'active' key from metadata
+			// newMetadata["active"] = "false"
+			doc.Metadata["active"] = "false"
+		} else {
+			// Add 'active' key to metadata if it doesn't exist
+			// newMetadata["active"] = "true"
+			doc.Metadata["active"] = "true"
+		}
+
+		// Remove and re-add the document with updated metadata
+		if err := RemoveDocument(ctx, doc.FileName); err != nil {
+			return fmt.Errorf("failed to remove document %s: %w", doc.FileName, err)
+		}
+
+		if err := AddDocument(ctx, doc.FileName, doc.Content, false, doc.Metadata); err != nil {
+			return fmt.Errorf("failed to re-add document %s: %w", doc.FileName, err)
+		}
+	}
+
+	return nil
 }

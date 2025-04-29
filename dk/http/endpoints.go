@@ -219,6 +219,34 @@ func SetupHTTPServer(ctx context.Context, port string) {
 		json.NewEncoder(w).Encode(CountResponse{Count: count})
 	})
 
+	// POST /rag/toggle-active-metadata - Toggle 'active' metadata field on documents
+	mux.HandleFunc("POST /rag/toggle-active-metadata", func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			FilterField string `json:"filter_field"`
+			FilterValue string `json:"filter_value"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			sendErrorResponse(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if request.FilterField == "" || request.FilterValue == "" {
+			sendErrorResponse(w, "filter_field and filter_value are required", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("Toggling 'active' metadata on documents with %s: %s", request.FilterField, request.FilterValue)
+
+		if err := core.ToggleActiveMetadata(ctx, request.FilterField, request.FilterValue); err != nil {
+			sendErrorResponse(w, "Failed to toggle active metadata: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "Active metadata toggled successfully"})
+	})
+
 	server := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
