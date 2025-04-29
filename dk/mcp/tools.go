@@ -424,6 +424,8 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 	// If either is provided we enforce both to be valid.
 	fileName, hasFileName := args["file_name"].(string)
 	fileContent, hasFileContent := args["file_content"].(string)
+	metadata := make(map[string]string)
+
 	if hasFileName || hasFileContent {
 		// Check that both parameters are provided and are not empty.
 		if !hasFileName || strings.TrimSpace(fileName) == "" {
@@ -447,7 +449,7 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 			}, nil
 		}
 
-		core.AddDocument(ctx, fileName, fileContent, true)
+		core.AddDocument(ctx, fileName, fileContent, true, metadata)
 
 		// Return a success response.
 		return &mcp_lib.CallToolResult{
@@ -489,7 +491,7 @@ func HandleUpdateRagSourcesTool(ctx context.Context, request mcp_lib.CallToolReq
 	// Determine the base file name.
 	baseFile := filepath.Base(filePath)
 
-	core.AddDocument(ctx, baseFile, string(data), true)
+	core.AddDocument(ctx, baseFile, string(data), true, metadata)
 
 	// Return a success response.
 	return &mcp_lib.CallToolResult{

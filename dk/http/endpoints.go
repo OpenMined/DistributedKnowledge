@@ -12,9 +12,11 @@ import (
 
 // RagRequest represents the JSON structure for POST /rag requests
 type RagRequest struct {
-	Filename    string   `json:"filename"`
-	FileContent string   `json:"filecontent"`
-	Metadata    []string `json:"metadata,omitempty"`
+	Filename    string `json:"filename"`
+	FileContent string `json:"filecontent"`
+
+	Metadata map[string]string `json:"metadata"` // arbitrary keys & values, all strings
+	// Metadata    []string `json:"metadata,omitempty"`
 }
 
 // RagResponse represents the structure for GET /rag responses
@@ -34,24 +36,36 @@ type SingleDocumentResponse struct {
 
 // PatchRagRequest is used by PATCH /rag
 type PatchRagRequest struct {
-	Filename    string   `json:"filename"`
-	FileContent string   `json:"filecontent"`
-	Metadata    []string `json:"metadata,omitempty"`
+	Filename    string `json:"filename"`
+	FileContent string `json:"filecontent"`
+	// Metadata    []string `json:"metadata,omitempty"`
+
+	Metadata map[string]string `json:"metadata"` // arbitrary keys & values, all strings
+}
+
+// CountResponse is used by GET /rag/count
+type CountResponse struct {
+	Count int `json:"count"`
+}
+
+// FilterRequest is used by GET /rag/filter
+type FilterRequest struct {
+	Metadata map[string]string `json:"metadata"`
 }
 
 // setupHTTPServer initializes and starts the HTTP server
 func SetupHTTPServer(ctx context.Context, port string) {
 	mux := http.NewServeMux()
 
-	// GET /rag/{file_name} – fetch one document by exact file name
+	// GET /rag/{file_name} – fetch one document by exact file name
 	mux.HandleFunc("GET /rag/{filename}", func(w http.ResponseWriter, r *http.Request) {
-		fileName := r.PathValue("filename") // Go 1.22+ path parameter helper
+		fileName := r.PathValue("filename") // Go 1.22+ path parameter helper
 		if fileName == "" {
 			sendErrorResponse(w, "File name is required", http.StatusBadRequest)
 			return
 		}
 
-		doc, err := core.GetDocument(ctx, fileName)
+		doc, err := core.GetDocument(ctx, "file", fileName, 1)
 		if err != nil {
 			sendErrorResponse(w, "Failed to retrieve document: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -66,7 +80,41 @@ func SetupHTTPServer(ctx context.Context, port string) {
 		json.NewEncoder(w).Encode(SingleDocumentResponse{Document: *doc})
 	})
 
-	// PATCH /rag – replace a document’s content
+	mux.HandleFunc("GET /rag/{filterField}/{filterValue}", func(w http.ResponseWriter, r *http.Request) {
+		filterField := r.PathValue("filterField") // Go 1.22+ path parameter helper
+		filterValue := r.PathValue("filterValue") // Go 1.22+ path parameter helper
+
+		if filterField == "" || filterValue == "" {
+			sendErrorResponse(w, "Filter field and value are required", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("Looking for documents with %s: %s", filterField, filterValue)
+
+		// Get collection to check document count
+		chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+		if err != nil {
+			sendErrorResponse(w, "Failed to access vector database: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Use collection count instead of a fixed value to avoid "nResults must be <= number of documents" error
+		count := chromemCollection.Count()
+		docs, err := core.GetDocuments(ctx, filterField, filterValue, count)
+		if err != nil {
+			sendErrorResponse(w, "Failed to retrieve documents: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(docs) == 0 {
+			sendErrorResponse(w, "No documents found with this filter criteria", http.StatusNotFound)
+			return
+		}
+		log.Printf("Found %d documents with %s: %s", len(docs), filterField, filterValue)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(RagResponse{Documents: docs})
+	})
+
+	// PATCH /rag – replace a document's content
 	mux.HandleFunc("PATCH /rag", func(w http.ResponseWriter, r *http.Request) {
 		var req PatchRagRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -79,7 +127,7 @@ func SetupHTTPServer(ctx context.Context, port string) {
 		}
 
 		// Update (remove ‑ then add) the document.
-		if err := core.UpdateDocument(ctx, req.Filename, req.FileContent, req.Metadata...); err != nil {
+		if err := core.UpdateDocument(ctx, req.Filename, req.FileContent, req.Metadata); err != nil {
 			sendErrorResponse(w, "Failed to update document: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -101,7 +149,7 @@ func SetupHTTPServer(ctx context.Context, port string) {
 			return
 		}
 
-		if err := core.AddDocument(ctx, req.Filename, req.FileContent, true, req.Metadata...); err != nil {
+		if err := core.AddDocument(ctx, req.Filename, req.FileContent, true, req.Metadata); err != nil {
 			sendErrorResponse(w, "Failed to add document: "+err.Error(), http.StatusInternalServerError)
 			return
 		}

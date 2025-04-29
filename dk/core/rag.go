@@ -64,17 +64,18 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]
 		contentString := strings.TrimPrefix(res.Content, "search_document: ")
 
 		// Extract metadata from the document's metadata map
-		var metadataItems []string
+		metadata := make(map[string]string)
 		for key, value := range res.Metadata {
-			if strings.HasPrefix(key, "metadata_") {
-				metadataItems = append(metadataItems, value)
+			// Skip the "file" field as it's handled separately
+			if key != "file" {
+				metadata[key] = value
 			}
 		}
 
 		content := Document{
 			FileName: res.Metadata["file"],
 			Content:  contentString,
-			Metadata: metadataItems,
+			Metadata: metadata,
 		}
 		results = append(results, content)
 	}
@@ -105,7 +106,7 @@ func RemoveDocument(ctx context.Context, filename string) error {
 	return nil
 }
 
-func AddDocument(ctx context.Context, fileName string, fileContent string, UpdateDescriptions bool, metadata ...string) error {
+func AddDocument(ctx context.Context, fileName string, fileContent string, UpdateDescriptions bool, metadata map[string]string) error {
 	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
 	if err != nil {
 		log.Printf("[RAG] %v", err)
@@ -119,10 +120,8 @@ func AddDocument(ctx context.Context, fileName string, fileContent string, Updat
 	}
 
 	// Add additional metadata if provided
-	if len(metadata) > 0 {
-		for i, item := range metadata {
-			docMetadata[fmt.Sprintf("metadata_%d", i)] = item
-		}
+	for key, value := range metadata {
+		docMetadata[key] = value
 	}
 
 	newDoc := chromem.Document{
@@ -261,9 +260,9 @@ func FeedChromem(ctx context.Context, sourcePath string, update bool) {
 	}
 }
 
-func GetDocument(ctx context.Context, fileName string) (*Document, error) {
-	if strings.TrimSpace(fileName) == "" {
-		return nil, errors.New("filename must be non‑empty")
+func GetDocument(ctx context.Context, filterName string, filterValue string, nElements int) (*Document, error) {
+	if strings.TrimSpace(filterValue) == "" {
+		return nil, errors.New("filterValue shouldn't be empty")
 	}
 
 	col, err := utils.ChromemCollectionFromContext(ctx)
@@ -271,7 +270,7 @@ func GetDocument(ctx context.Context, fileName string) (*Document, error) {
 		return nil, err
 	}
 
-	where := map[string]string{"file": fileName}
+	where := map[string]string{filterName: filterValue}
 
 	// chromem-go requires a non‑empty queryText; a throw‑away literal is fine.
 	const dummyQuery = "search_query: _"
@@ -286,36 +285,84 @@ func GetDocument(ctx context.Context, fileName string) (*Document, error) {
 	content := strings.TrimPrefix(results[0].Content, "search_document: ")
 
 	// Extract metadata from the document's metadata map
-	var metadataItems []string
+	metadata := make(map[string]string)
 	for key, value := range results[0].Metadata {
-		if strings.HasPrefix(key, "metadata_") {
-			metadataItems = append(metadataItems, value)
-		}
+		metadata[key] = value
+		// if strings.HasPrefix(key, "metadata_") {
+		// Strip the "metadata_" prefix and use the rest as the key
+		// }
 	}
 
 	return &Document{
 		FileName: results[0].Metadata["file"],
 		Content:  content,
-		Metadata: metadataItems,
+		Metadata: metadata,
 	}, nil
+}
+
+// GetDocuments returns all documents that match the given filter criteria
+func GetDocuments(ctx context.Context, filterName string, filterValue string, nElements int) ([]Document, error) {
+	if strings.TrimSpace(filterValue) == "" {
+		return nil, errors.New("filterValue shouldn't be empty")
+	}
+
+	col, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	where := map[string]string{filterName: filterValue}
+
+	// chromem-go requires a non‑empty queryText; a throw‑away literal is fine.
+	const dummyQuery = "search_query: _"
+	results, err := col.Query(ctx, dummyQuery, nElements, where, nil)
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	if len(results) == 0 {
+		return []Document{}, nil
+	}
+
+	documents := make([]Document, 0, len(results))
+	for _, res := range results {
+		content := strings.TrimPrefix(res.Content, "search_document: ")
+
+		// Extract metadata from the document's metadata map
+		metadata := make(map[string]string)
+		for key, value := range res.Metadata {
+			// Skip the "file" field as it's handled separately
+			if key != "file" {
+				metadata[key] = value
+			}
+		}
+
+		documents = append(documents, Document{
+			FileName: res.Metadata["file"],
+			Content:  content,
+			Metadata: metadata,
+		})
+	}
+
+	return documents, nil
 }
 
 // UpdateDocument overwrites (or creates) the document identified by fileName.
 // It re‑uses the existing helpers to keep the behaviour (embeddings, description
 // list, etc.) consistent in one place.
-func UpdateDocument(ctx context.Context, fileName, newContent string, metadata ...string) error {
+func UpdateDocument(ctx context.Context, fileName, newContent string, metadata map[string]string) error {
 	// Remove first – we don't care if the old doc did not exist.
 	if err := RemoveDocument(ctx, fileName); err != nil {
 		return err
 	}
-	return AddDocument(ctx, fileName, newContent, false)
+	return AddDocument(ctx, fileName, newContent, false, metadata)
 }
 
 // AppendDocument appends new content to an existing document identified by fileName.
 // If the document doesn't exist, it creates a new one with the provided content.
-func AppendDocument(ctx context.Context, fileName, newContent string, metadata ...string) error {
+func AppendDocument(ctx context.Context, fileName, newContent string, metadata map[string]string) error {
 	// Try to get the existing document
-	existingDoc, err := GetDocument(ctx, fileName)
+	existingDoc, err := GetDocument(ctx, "file", fileName, 1)
 	if err != nil {
 		return err
 	}
@@ -329,5 +376,5 @@ func AppendDocument(ctx context.Context, fileName, newContent string, metadata .
 	if err := RemoveDocument(ctx, fileName); err != nil {
 		return err
 	}
-	return AddDocument(ctx, fileName, newContent, false)
+	return AddDocument(ctx, fileName, newContent, false, metadata)
 }

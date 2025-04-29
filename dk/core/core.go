@@ -244,13 +244,14 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 	var responseMsg string
 	var responseType string
 	var forwardMsg struct {
-		Type     string   `json:"type"`
-		Message  string   `json:"message"`
-		Filename string   `json:"filename"`
-		Content  string   `json:"content"`
-		Metadata []string `json:"metadata,omitempty"`
+		Type     string            `json:"type"`
+		Message  string            `json:"message"`
+		Filename string            `json:"filename"`
+		Content  string            `json:"content"`
+		Metadata map[string]string `json:"metadata,omitempty"`
 	}
 
+	log.Printf("\n\n My stringfied data : %s \n\n", string(remoteMsg.Message))
 	// Check if this is a document registration request directly from the remoteMsg
 	if remoteMsg.Filename != "" && remoteMsg.Content != "" {
 		// Direct fields in the remoteMsg
@@ -296,7 +297,7 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 
 			if isAppend {
 				// Use the AppendDocument function to append content to an existing document in RAG
-				if err := AppendDocument(ctx, forwardMsg.Filename, forwardMsg.Content, forwardMsg.Metadata...); err != nil {
+				if err := AppendDocument(ctx, forwardMsg.Filename, forwardMsg.Content, forwardMsg.Metadata); err != nil {
 					responseMsg = fmt.Sprintf("Error appending to document: %v", err)
 					responseType = utils.MessageTypeRegisterDocError
 					log.Printf("Failed to append to document '%s': %v", forwardMsg.Filename, err)
@@ -307,7 +308,7 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 				}
 			} else {
 				// Use the UpdateDocument function to save or update the document in RAG
-				if err := UpdateDocument(ctx, forwardMsg.Filename, forwardMsg.Content, forwardMsg.Metadata...); err != nil {
+				if err := UpdateDocument(ctx, forwardMsg.Filename, forwardMsg.Content, forwardMsg.Metadata); err != nil {
 					responseMsg = fmt.Sprintf("Error registering document: %v", err)
 					responseType = utils.MessageTypeRegisterDocError
 					log.Printf("Failed to register document '%s': %v", forwardMsg.Filename, err)
