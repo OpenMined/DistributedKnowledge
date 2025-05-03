@@ -438,3 +438,27 @@ func ToggleActiveMetadata(ctx context.Context, filterField string, filterValue s
 
 	return nil
 }
+
+// DeleteAllDocuments removes all documents from the collection in stages:
+// 1. First deletes documents with metadata "active" = "true"
+// 2. Then deletes documents with metadata "active" = "false"
+func DeleteAllDocuments(ctx context.Context) error {
+	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get the vector db collection: %w", err)
+	}
+
+	// First delete documents with "active" = "true"
+	filter := map[string]string{"active": "true"}
+	if err := chromemCollection.Delete(ctx, filter, nil); err != nil {
+		return fmt.Errorf("failed to delete documents with active=true: %w", err)
+	}
+
+	// Then delete documents with "active" = "false"
+	filter = map[string]string{"active": "false"}
+	if err := chromemCollection.Delete(ctx, filter, nil); err != nil {
+		return fmt.Errorf("failed to delete documents with active=false: %w", err)
+	}
+
+	return nil
+}
