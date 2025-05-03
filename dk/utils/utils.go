@@ -1,16 +1,20 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"database/sql"
 	"dk/client"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/philippgille/chromem-go"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type Parameters struct {
@@ -239,4 +243,230 @@ func GetDescriptions(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("GetDescriptions: iterate: %w", err)
 	}
 	return out, nil
+}
+
+// APIInfo represents an API for HTTP communication with the websocket server
+type APIInfo struct {
+	APIName   string   `json:"api_name"`
+	Documents []string `json:"documents,omitempty"`
+	Policy    string   `json:"policy,omitempty"`
+}
+
+// TrackerDocuments represents the structure for tracker documents
+type TrackerDocuments struct {
+	Datasets  map[string]string `json:"datasets,omitempty"`
+	Templates map[string]string `json:"templates,omitempty"`
+}
+
+// TrackerInfo represents a tracker for HTTP communication with the websocket server
+type TrackerInfo struct {
+	TrackerName        string           `json:"tracker_name"`
+	TrackerDescription string           `json:"tracker_description,omitempty"`
+	TrackerVersion     string           `json:"tracker_version,omitempty"`
+	TrackerDocuments   TrackerDocuments `json:"tracker_documents,omitempty"`
+}
+
+// TrackerData represents the data stored for a single tracker
+type TrackerData struct {
+	TrackerDescription string          `json:"tracker_description,omitempty"`
+	TrackerVersion     string          `json:"tracker_version,omitempty"`
+	TrackerDocuments   TrackerDocuments `json:"tracker_documents,omitempty"`
+}
+
+// TrackerListPayload represents a list of trackers for a user
+// Used in the new tracker registration endpoint format
+type TrackerListPayload struct {
+	UserID   string                 `json:"user_id"`
+	Trackers map[string]TrackerData `json:"trackers"` // Map of tracker name to tracker data
+}
+
+// RegisterAPI sends an API registration request to the websocket server
+func RegisterAPI(ctx context.Context, api APIInfo) error {
+	params, err := ParamsFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("RegisterAPI: failed to get params from context: %w", err)
+	}
+
+	if params.ServerURL == nil || *params.ServerURL == "" {
+		return fmt.Errorf("RegisterAPI: server URL is not configured")
+	}
+
+	url := fmt.Sprintf("%s/user/apis", *params.ServerURL)
+	
+	// Get the client from context
+	dk, err := DkFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("RegisterAPI: failed to get DK client from context: %w", err)
+	}
+
+	// Access the JWT token directly from the client
+	token := dk.Token()
+	if token == "" {
+		return fmt.Errorf("RegisterAPI: no JWT token available, please login first")
+	}
+
+	// Prepare the request body
+	jsonBody, err := json.Marshal(api)
+	if err != nil {
+		return fmt.Errorf("RegisterAPI: error marshaling API data: %w", err)
+	}
+
+	// Create the request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return fmt.Errorf("RegisterAPI: error creating request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	// Send the request
+	client := &http.Client{Timeout: time.Second * 30}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("RegisterAPI: error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		var errorResponse struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errorResponse); err == nil && errorResponse.Error != "" {
+			return fmt.Errorf("RegisterAPI: server returned error: %s", errorResponse.Error)
+		}
+		return fmt.Errorf("RegisterAPI: server returned status code %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// RegisterTracker sends a tracker registration request to the websocket server
+// This function maintains backward compatibility with the old format
+func RegisterTracker(ctx context.Context, tracker TrackerInfo) error {
+	params, err := ParamsFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("RegisterTracker: failed to get params from context: %w", err)
+	}
+
+	if params.ServerURL == nil || *params.ServerURL == "" {
+		return fmt.Errorf("RegisterTracker: server URL is not configured")
+	}
+
+	url := fmt.Sprintf("%s/user/trackers", *params.ServerURL)
+	
+	// Get the client from context
+	dk, err := DkFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("RegisterTracker: failed to get DK client from context: %w", err)
+	}
+
+	// Access the JWT token directly from the client
+	token := dk.Token()
+	if token == "" {
+		return fmt.Errorf("RegisterTracker: no JWT token available, please login first")
+	}
+
+	// Prepare the request body
+	jsonBody, err := json.Marshal(tracker)
+	if err != nil {
+		return fmt.Errorf("RegisterTracker: error marshaling tracker data: %w", err)
+	}
+
+	// Create the request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return fmt.Errorf("RegisterTracker: error creating request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	// Send the request
+	client := &http.Client{Timeout: time.Second * 30}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("RegisterTracker: error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		var errorResponse struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errorResponse); err == nil && errorResponse.Error != "" {
+			return fmt.Errorf("RegisterTracker: server returned error: %s", errorResponse.Error)
+		}
+		return fmt.Errorf("RegisterTracker: server returned status code %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// RegisterTrackerList sends an updated tracker list to the websocket server
+// This uses the new format where the entire tracker list is sent at once
+func RegisterTrackerList(ctx context.Context, trackerList TrackerListPayload) error {
+	params, err := ParamsFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("RegisterTrackerList: failed to get params from context: %w", err)
+	}
+
+	if params.ServerURL == nil || *params.ServerURL == "" {
+		return fmt.Errorf("RegisterTrackerList: server URL is not configured")
+	}
+
+	url := fmt.Sprintf("%s/user/trackers", *params.ServerURL)
+	
+	// Get the client from context
+	dk, err := DkFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("RegisterTrackerList: failed to get DK client from context: %w", err)
+	}
+
+	// Access the JWT token directly from the client
+	token := dk.Token()
+	if token == "" {
+		return fmt.Errorf("RegisterTrackerList: no JWT token available, please login first")
+	}
+
+	// Prepare the request body
+	jsonBody, err := json.Marshal(trackerList)
+	if err != nil {
+		return fmt.Errorf("RegisterTrackerList: error marshaling tracker list data: %w", err)
+	}
+
+	// Create the request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return fmt.Errorf("RegisterTrackerList: error creating request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	// Send the request
+	client := &http.Client{Timeout: time.Second * 30}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("RegisterTrackerList: error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		var errorResponse struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errorResponse); err == nil && errorResponse.Error != "" {
+			return fmt.Errorf("RegisterTrackerList: server returned error: %s", errorResponse.Error)
+		}
+		return fmt.Errorf("RegisterTrackerList: server returned status code %d", resp.StatusCode)
+	}
+
+	return nil
 }

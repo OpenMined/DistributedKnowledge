@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // RagRequest represents the JSON structure for POST /rag requests
@@ -51,6 +52,45 @@ type CountResponse struct {
 // FilterRequest is used by GET /rag/filter
 type FilterRequest struct {
 	Metadata map[string]string `json:"metadata"`
+}
+
+// Using utils.TrackerDocuments directly for consistency
+
+// Tracker represents a user's tracker configuration
+type Tracker struct {
+	ID                int                     `json:"id,omitempty"`
+	UserID            string                  `json:"user_id"`
+	TrackerName       string                  `json:"tracker_name"`
+	TrackerDescription string                 `json:"tracker_description,omitempty"`
+	TrackerVersion    string                  `json:"tracker_version,omitempty"`
+	TrackerDocuments  utils.TrackerDocuments  `json:"tracker_documents,omitempty"`
+	CreatedAt         time.Time               `json:"created_at,omitempty"`
+	UpdatedAt         time.Time               `json:"updated_at,omitempty"`
+}
+
+// TrackerData represents the data stored for a single tracker
+type TrackerData struct {
+	TrackerDescription string                 `json:"tracker_description,omitempty"`
+	TrackerVersion     string                 `json:"tracker_version,omitempty"`
+	TrackerDocuments   utils.TrackerDocuments `json:"tracker_documents,omitempty"`
+}
+
+// TrackerListPayload represents the new structure for the POST /tracker endpoint
+// where trackers is a map with tracker names as keys and tracker data as values
+type TrackerListPayload struct {
+	UserID   string                 `json:"user_id"`
+	Trackers map[string]TrackerData `json:"trackers"`
+}
+
+// API represents a user's API configuration
+type API struct {
+	ID        int       `json:"id,omitempty"`
+	UserID    string    `json:"user_id"`
+	APIName   string    `json:"api_name"`
+	Documents []string  `json:"documents,omitempty"`
+	Policy    string    `json:"policy,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }
 
 // setupHTTPServer initializes and starts the HTTP server
@@ -138,8 +178,11 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 	// POST /rag - Add document to vector database
 	mux.HandleFunc("POST /rag", func(w http.ResponseWriter, r *http.Request) {
+
+		log.Println("Some user made a request ")
 		var req RagRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Printf("Invalid json body...")	
 			sendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
@@ -245,6 +288,87 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "Active metadata toggled successfully"})
+	})
+
+	// DELETE /rag/all - Delete all documents from the vector database
+	mux.HandleFunc("DELETE /rag/all", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Received request to delete all documents from vector database")
+
+		if err := core.DeleteAllDocuments(ctx); err != nil {
+			sendErrorResponse(w, "Failed to delete vector database: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "All documents successfully deleted from vector database"})
+	})
+	
+	// POST /api - Register a new API to the websocket server
+	mux.HandleFunc("POST /api", func(w http.ResponseWriter, r *http.Request) {
+		var api API
+		if err := json.NewDecoder(r.Body).Decode(&api); err != nil {
+			sendErrorResponse(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if api.APIName == "" {
+			sendErrorResponse(w, "API name is required", http.StatusBadRequest)
+			return
+		}
+
+		// Convert API to APIInfo to communicate with the websocket server
+		apiInfo := utils.APIInfo{
+			APIName:   api.APIName,
+			Documents: api.Documents,
+			Policy:    api.Policy,
+		}
+
+		// Register the API with the websocket server
+		if err := utils.RegisterAPI(ctx, apiInfo); err != nil {
+			sendErrorResponse(w, "Failed to register API: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"status": "API registered successfully"})
+	})
+
+	// POST /user/trackers - Update the user's tracker list in the websocket server
+	mux.HandleFunc("POST /user/trackers", func(w http.ResponseWriter, r *http.Request) {
+		var trackerList TrackerListPayload
+		if err := json.NewDecoder(r.Body).Decode(&trackerList); err != nil {
+			sendErrorResponse(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if len(trackerList.Trackers) == 0 {
+			sendErrorResponse(w, "At least one tracker must be provided", http.StatusBadRequest)
+			return
+		}
+
+		// Convert from http.TrackerListPayload to utils.TrackerListPayload
+		utilTrackerList := utils.TrackerListPayload{
+			UserID:   trackerList.UserID,
+			Trackers: make(map[string]utils.TrackerData),
+		}
+		
+		// Copy each tracker from http to utils struct
+		for name, data := range trackerList.Trackers {
+			utilTrackerList.Trackers[name] = utils.TrackerData{
+				TrackerDescription: data.TrackerDescription,
+				TrackerVersion:     data.TrackerVersion,
+				TrackerDocuments:   data.TrackerDocuments,
+			}
+		}
+		
+		// Use RegisterTrackerList utility for batch registration
+		if err := utils.RegisterTrackerList(ctx, utilTrackerList); err != nil {
+			sendErrorResponse(w, "Failed to register tracker list: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"status": "Tracker list updated successfully"})
 	})
 
 	server := &http.Server{
