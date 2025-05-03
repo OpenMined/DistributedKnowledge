@@ -81,6 +81,32 @@ func RunMigrations(db *sql.DB) error {
     FOREIGN KEY (message_id) REFERENCES messages(id)
   );
   `
+  
+	// New tables for Trackers and APIs
+	trackersTable := `
+	CREATE TABLE IF NOT EXISTS user_trackers (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id TEXT NOT NULL,
+		tracker_name TEXT NOT NULL,
+		tracker_description TEXT,
+		tracker_version TEXT,
+		tracker_documents TEXT,  -- JSON object with datasets and templates maps
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(user_id) REFERENCES users(user_id)
+	);`
+
+	apisTable := `
+	CREATE TABLE IF NOT EXISTS user_apis (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id TEXT NOT NULL,
+		api_name TEXT NOT NULL,
+		documents TEXT,  -- JSON object with datasets and templates maps
+		policy TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(user_id) REFERENCES users(user_id)
+	);`
 	if _, err := db.Exec(userTable); err != nil {
 		return fmt.Errorf("failed to create users table: %v", err)
 	}
@@ -101,5 +127,14 @@ func RunMigrations(db *sql.DB) error {
 	if _, err := db.Exec(descriptionsTable); err != nil {
 		return fmt.Errorf("failed to create user_descriptions table: %v", err)
 	}
+	
+	// Create the new Trackers and APIs tables
+	if _, err := db.Exec(trackersTable); err != nil {
+		return fmt.Errorf("failed to create user_trackers table: %v", err)
+	}
+	if _, err := db.Exec(apisTable); err != nil {
+		return fmt.Errorf("failed to create user_apis table: %v", err)
+	}
+	
 	return nil
 }
