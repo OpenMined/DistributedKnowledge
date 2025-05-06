@@ -13,6 +13,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func SetupChromemCollection(vectorPath string) *chromem.Collection {
@@ -43,20 +44,31 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]
 		return nil, err
 	}
 
-	log.Printf("Number of Documents: %d", chromemCollection.Count())
 	// For the Ollama embedding model, a prefix is required to differentiate between a query and a document.
 	// The documents were stored with "search_document: " as a prefix, so we use "search_query: " here.
 	query := "search_query: " + question
 
 	// Query the collection for the top 'numResults' similar documents.
-	tmpNumResults := numResults
 	var docRes []chromem.Result
 	// Filter to only include documents where metadata 'active' = 'true'
 	filter := map[string]string{"active": "true"}
-	for tmpNumResults > 0 {
-		// Query the collection for the top 'numResults' similar documents.
-		docRes, _ = chromemCollection.Query(ctx, query, tmpNumResults, filter, nil)
-		tmpNumResults = tmpNumResults - 1
+	
+	// Get the total document count to avoid requesting more than available
+	totalCount := chromemCollection.Count()
+	
+	// Use the smaller of numResults or totalCount to avoid "nResults must be <= number of documents" error
+	queryLimit := numResults
+	if totalCount < numResults {
+		queryLimit = totalCount
+	}
+	
+	// Only query if we have documents
+	if queryLimit > 0 {
+		var err error
+		docRes, err = chromemCollection.Query(ctx, query, queryLimit, filter, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error querying collection: %w", err)
+		}
 	}
 
 	var results []Document = []Document{}
@@ -78,6 +90,7 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]
 			FileName: res.Metadata["file"],
 			Content:  contentString,
 			Metadata: metadata,
+			Score:    res.Similarity,
 		}
 		results = append(results, content)
 	}
@@ -116,10 +129,14 @@ func AddDocument(ctx context.Context, fileName string, fileContent string, Updat
 	}
 	content := "search_document: " + fileContent
 
-	// Create metadata map with the required "file" field
+	// Format current time in the required format
+	currentTime := time.Now().Format("Jan 2, 2006, 03:04 PM")
+
+	// Create metadata map with the required "file", "active", and "date" fields
 	docMetadata := map[string]string{
 		"file":   fileName,
 		"active": "true",
+		"date":   currentTime,
 	}
 
 	// Add additional metadata if provided
@@ -300,6 +317,7 @@ func GetDocument(ctx context.Context, filterName string, filterValue string, nEl
 		FileName: results[0].Metadata["file"],
 		Content:  content,
 		Metadata: metadata,
+		Score:    results[0].Similarity,
 	}, nil
 }
 
@@ -344,6 +362,7 @@ func GetDocuments(ctx context.Context, filterName string, filterValue string, nE
 			FileName: res.Metadata["file"],
 			Content:  content,
 			Metadata: metadata,
+			Score:    res.Similarity,
 		})
 	}
 

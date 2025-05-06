@@ -319,11 +319,12 @@ You will receive input structured as follows:
 * **Scope Lock**: Do not access external websites, files, or tools. Do not provide information not present in the '<CONTEXT>'. Your sole function is to process the provided '<QUESTION>' against the provided '<CONTEXT>'.
 `
 
-// Document represents a content document with its filename and metadata
+// Document represents a content document with its filename, metadata, and retrieval score
 type Document struct {
 	Content  string            `json:"content"`
 	FileName string            `json:"file"`
 	Metadata map[string]string `json:"metadata,omitempty"`
+	Score    float32           `json:"score,omitempty"`
 }
 
 // LLMProvider defines the interface that all LLM providers must implement
