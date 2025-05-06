@@ -268,8 +268,8 @@ type TrackerInfo struct {
 
 // TrackerData represents the data stored for a single tracker
 type TrackerData struct {
-	TrackerDescription string          `json:"tracker_description,omitempty"`
-	TrackerVersion     string          `json:"tracker_version,omitempty"`
+	TrackerDescription string           `json:"tracker_description,omitempty"`
+	TrackerVersion     string           `json:"tracker_version,omitempty"`
 	TrackerDocuments   TrackerDocuments `json:"tracker_documents,omitempty"`
 }
 
@@ -292,7 +292,7 @@ func RegisterAPI(ctx context.Context, api APIInfo) error {
 	}
 
 	url := fmt.Sprintf("%s/user/apis", *params.ServerURL)
-	
+
 	// Get the client from context
 	dk, err := DkFromContext(ctx)
 	if err != nil {
@@ -356,7 +356,7 @@ func RegisterTracker(ctx context.Context, tracker TrackerInfo) error {
 	}
 
 	url := fmt.Sprintf("%s/user/trackers", *params.ServerURL)
-	
+
 	// Get the client from context
 	dk, err := DkFromContext(ctx)
 	if err != nil {
@@ -420,7 +420,7 @@ func RegisterTrackerList(ctx context.Context, trackerList TrackerListPayload) er
 	}
 
 	url := fmt.Sprintf("%s/user/trackers", *params.ServerURL)
-	
+
 	// Get the client from context
 	dk, err := DkFromContext(ctx)
 	if err != nil {

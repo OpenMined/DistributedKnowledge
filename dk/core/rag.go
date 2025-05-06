@@ -38,7 +38,7 @@ func SetupChromemCollection(vectorPath string) *chromem.Collection {
 	return collection
 }
 
-func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]Document, error) {
+func RetrieveDocuments(ctx context.Context, question string, numResults int, metadataFilter map[string]string) ([]Document, error) {
 	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -50,18 +50,24 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int) ([]
 
 	// Query the collection for the top 'numResults' similar documents.
 	var docRes []chromem.Result
-	// Filter to only include documents where metadata 'active' = 'true'
+
+	// Create combined filter with always-active filter + any custom metadata filters
 	filter := map[string]string{"active": "true"}
-	
+
+	// Add any custom metadata filters
+	for key, value := range metadataFilter {
+		filter[key] = value
+	}
+
 	// Get the total document count to avoid requesting more than available
 	totalCount := chromemCollection.Count()
-	
+
 	// Use the smaller of numResults or totalCount to avoid "nResults must be <= number of documents" error
 	queryLimit := numResults
 	if totalCount < numResults {
 		queryLimit = totalCount
 	}
-	
+
 	// Only query if we have documents
 	if queryLimit > 0 {
 		var err error

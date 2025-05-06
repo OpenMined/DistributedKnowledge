@@ -54,18 +54,25 @@ type FilterRequest struct {
 	Metadata map[string]string `json:"metadata"`
 }
 
+// RagQueryRequest is used by GET /rag with metadata filtering
+type RagQueryRequest struct {
+	Query      string            `json:"query"`
+	NumResults int               `json:"num_results"`
+	Metadata   map[string]string `json:"metadata"`
+}
+
 // Using utils.TrackerDocuments directly for consistency
 
 // Tracker represents a user's tracker configuration
 type Tracker struct {
-	ID                int                     `json:"id,omitempty"`
-	UserID            string                  `json:"user_id"`
-	TrackerName       string                  `json:"tracker_name"`
+	ID                 int                    `json:"id,omitempty"`
+	UserID             string                 `json:"user_id"`
+	TrackerName        string                 `json:"tracker_name"`
 	TrackerDescription string                 `json:"tracker_description,omitempty"`
-	TrackerVersion    string                  `json:"tracker_version,omitempty"`
-	TrackerDocuments  utils.TrackerDocuments  `json:"tracker_documents,omitempty"`
-	CreatedAt         time.Time               `json:"created_at,omitempty"`
-	UpdatedAt         time.Time               `json:"updated_at,omitempty"`
+	TrackerVersion     string                 `json:"tracker_version,omitempty"`
+	TrackerDocuments   utils.TrackerDocuments `json:"tracker_documents,omitempty"`
+	CreatedAt          time.Time              `json:"created_at,omitempty"`
+	UpdatedAt          time.Time              `json:"updated_at,omitempty"`
 }
 
 // TrackerData represents the data stored for a single tracker
@@ -182,7 +189,7 @@ func SetupHTTPServer(ctx context.Context, port string) {
 		log.Println("Some user made a request ")
 		var req RagRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.Printf("Invalid json body...")	
+			log.Printf("Invalid json body...")
 			sendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
@@ -201,34 +208,75 @@ func SetupHTTPServer(ctx context.Context, port string) {
 		json.NewEncoder(w).Encode(map[string]string{"status": "Document added successfully"})
 	})
 
-	// GET /rag - Retrieve documents based on query
+	// GET /rag - Retrieve documents based on query with optional metadata filtering
 	mux.HandleFunc("GET /rag", func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query().Get("query")
-		if query == "" {
-			sendErrorResponse(w, "Query parameter is required", http.StatusBadRequest)
-			return
-		}
-
-		numResultsStr := r.URL.Query().Get("num_results")
-		numResults := 5 // default value
-		if numResultsStr != "" {
-			var err error
-			numResults, err = strconv.Atoi(numResultsStr)
-			if err != nil || numResults <= 0 {
-				sendErrorResponse(w, "Invalid num_results parameter", http.StatusBadRequest)
+		// Check content type to determine if it's a JSON request
+		contentType := r.Header.Get("Content-Type")
+		if contentType == "application/json" {
+			// Handle JSON request with metadata filtering
+			var req RagQueryRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				sendErrorResponse(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
 				return
 			}
-		}
 
-		docs, err := core.RetrieveDocuments(ctx, query, numResults)
-		if err != nil {
-			sendErrorResponse(w, "Failed to retrieve documents: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+			if req.Query == "" {
+				sendErrorResponse(w, "Query parameter is required", http.StatusBadRequest)
+				return
+			}
 
-		response := RagResponse{Documents: docs}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+			// Set default number of results if not specified
+			if req.NumResults <= 0 {
+				req.NumResults = 5
+			}
+
+			// Initialize empty metadata map if not provided
+			if req.Metadata == nil {
+				req.Metadata = make(map[string]string)
+			}
+
+			// Retrieve documents with metadata filter
+			docs, err := core.RetrieveDocuments(ctx, req.Query, req.NumResults, req.Metadata)
+			if err != nil {
+				sendErrorResponse(w, "Failed to retrieve documents: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			response := RagResponse{Documents: docs}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		} else {
+			// Handle traditional query parameters approach
+			query := r.URL.Query().Get("query")
+			if query == "" {
+				sendErrorResponse(w, "Query parameter is required", http.StatusBadRequest)
+				return
+			}
+
+			numResultsStr := r.URL.Query().Get("num_results")
+			numResults := 5 // default value
+			if numResultsStr != "" {
+				var err error
+				numResults, err = strconv.Atoi(numResultsStr)
+				if err != nil || numResults <= 0 {
+					sendErrorResponse(w, "Invalid num_results parameter", http.StatusBadRequest)
+					return
+				}
+			}
+
+			// Create an empty metadata map for the URL parameter version
+			metadata := make(map[string]string)
+
+			docs, err := core.RetrieveDocuments(ctx, query, numResults, metadata)
+			if err != nil {
+				sendErrorResponse(w, "Failed to retrieve documents: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			response := RagResponse{Documents: docs}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}
 	})
 
 	// DELETE /rag - Remove document from vector database
@@ -302,7 +350,7 @@ func SetupHTTPServer(ctx context.Context, port string) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "All documents successfully deleted from vector database"})
 	})
-	
+
 	// POST /api - Register a new API to the websocket server
 	mux.HandleFunc("POST /api", func(w http.ResponseWriter, r *http.Request) {
 		var api API
@@ -351,7 +399,7 @@ func SetupHTTPServer(ctx context.Context, port string) {
 			UserID:   trackerList.UserID,
 			Trackers: make(map[string]utils.TrackerData),
 		}
-		
+
 		// Copy each tracker from http to utils struct
 		for name, data := range trackerList.Trackers {
 			utilTrackerList.Trackers[name] = utils.TrackerData{
@@ -360,7 +408,7 @@ func SetupHTTPServer(ctx context.Context, port string) {
 				TrackerDocuments:   data.TrackerDocuments,
 			}
 		}
-		
+
 		// Use RegisterTrackerList utility for batch registration
 		if err := utils.RegisterTrackerList(ctx, utilTrackerList); err != nil {
 			sendErrorResponse(w, "Failed to register tracker list: "+err.Error(), http.StatusInternalServerError)

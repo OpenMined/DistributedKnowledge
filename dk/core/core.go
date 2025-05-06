@@ -77,8 +77,8 @@ func HandleQuery(ctx context.Context, msg dk_client.Message) (string, error) {
 		}
 	}
 
-	// Retrieve relevant documents
-	docs, err := RetrieveDocuments(ctx, query.Message, 3)
+	// Retrieve relevant documents with empty metadata filter
+	docs, err := RetrieveDocuments(ctx, query.Message, 3, make(map[string]string))
 
 	if err != nil {
 		return "", fmt.Errorf("failed to retrieve documents: %v", err)
@@ -322,7 +322,7 @@ func HandleForwardMessage(ctx context.Context, msg dk_client.Message) (string, e
 	} else if forwardMsg.Type == utils.MessageTypeForward && forwardMsg.Message != "" {
 		// This is a regular query
 		// Retrieve relevant documents using RAG
-		docs, err := RetrieveDocuments(ctx, forwardMsg.Message, 3)
+		docs, err := RetrieveDocuments(ctx, forwardMsg.Message, 3, make(map[string]string))
 		if err != nil {
 			return "", fmt.Errorf("failed to retrieve documents: %w", err)
 		}
