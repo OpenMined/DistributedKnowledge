@@ -40,20 +40,20 @@ type TrackerDocuments struct {
 
 // Tracker represents a user's tracker information.
 type Tracker struct {
-	ID                int              `json:"id,omitempty"`
-	UserID            string           `json:"user_id"`
-	TrackerName       string           `json:"tracker_name"`
+	ID                 int              `json:"id,omitempty"`
+	UserID             string           `json:"user_id"`
+	TrackerName        string           `json:"tracker_name"`
 	TrackerDescription string           `json:"tracker_description,omitempty"`
-	TrackerVersion    string           `json:"tracker_version,omitempty"`
-	TrackerDocuments  TrackerDocuments `json:"tracker_documents,omitempty"`
-	CreatedAt         time.Time        `json:"created_at,omitempty"`
-	UpdatedAt         time.Time        `json:"updated_at,omitempty"`
+	TrackerVersion     string           `json:"tracker_version,omitempty"`
+	TrackerDocuments   TrackerDocuments `json:"tracker_documents,omitempty"`
+	CreatedAt          time.Time        `json:"created_at,omitempty"`
+	UpdatedAt          time.Time        `json:"updated_at,omitempty"`
 }
 
 // TrackerData represents the data for a single tracker without its name
 type TrackerData struct {
-	TrackerDescription string          `json:"tracker_description,omitempty"`
-	TrackerVersion     string          `json:"tracker_version,omitempty"`
+	TrackerDescription string           `json:"tracker_description,omitempty"`
+	TrackerVersion     string           `json:"tracker_version,omitempty"`
 	TrackerDocuments   TrackerDocuments `json:"tracker_documents,omitempty"`
 }
 

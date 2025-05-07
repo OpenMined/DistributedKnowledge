@@ -30,6 +30,10 @@ func SetupRoutes(mux *http.ServeMux, database *sql.DB, authService *auth.Service
 	mux.HandleFunc("/register-document/", HandleRegisterDocument(authService, wsServer))
 	mux.HandleFunc("/append-document/", HandleAppendDocument(authService, wsServer))
 
+	// Tracker application routes
+	mux.HandleFunc("/tracker-apps", HandleListTrackerApps())
+	mux.HandleFunc("/tracker-folder/", HandleFetchTrackerFolder(authService))
+
 	// Page rendering routes
 	mux.HandleFunc("/", ServeHome)
 	mux.HandleFunc("/download", ServeDownload)

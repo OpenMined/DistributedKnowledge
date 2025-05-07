@@ -81,7 +81,7 @@ func RunMigrations(db *sql.DB) error {
     FOREIGN KEY (message_id) REFERENCES messages(id)
   );
   `
-  
+
 	// New tables for Trackers and APIs
 	trackersTable := `
 	CREATE TABLE IF NOT EXISTS user_trackers (
@@ -127,7 +127,7 @@ func RunMigrations(db *sql.DB) error {
 	if _, err := db.Exec(descriptionsTable); err != nil {
 		return fmt.Errorf("failed to create user_descriptions table: %v", err)
 	}
-	
+
 	// Create the new Trackers and APIs tables
 	if _, err := db.Exec(trackersTable); err != nil {
 		return fmt.Errorf("failed to create user_trackers table: %v", err)
@@ -135,6 +135,6 @@ func RunMigrations(db *sql.DB) error {
 	if _, err := db.Exec(apisTable); err != nil {
 		return fmt.Errorf("failed to create user_apis table: %v", err)
 	}
-	
+
 	return nil
 }

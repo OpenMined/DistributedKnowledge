@@ -116,12 +116,12 @@ func HandleUserTrackers(authService *auth.Service, db *sql.DB) http.HandlerFunc 
 				http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 				return
 			}
-			
+
 			if len(trackerList.Trackers) == 0 {
 				http.Error(w, "Tracker list cannot be empty", http.StatusBadRequest)
 				return
 			}
-			
+
 			// Begin transaction
 			tx, err := db.Begin()
 			if err != nil {
@@ -142,7 +142,7 @@ func HandleUserTrackers(authService *auth.Service, db *sql.DB) http.HandlerFunc 
 				http.Error(w, "Database error fetching existing trackers", http.StatusInternalServerError)
 				return
 			}
-			
+
 			existingTrackers := make(map[string]bool)
 			for rows.Next() {
 				var trackerName string
@@ -154,12 +154,12 @@ func HandleUserTrackers(authService *auth.Service, db *sql.DB) http.HandlerFunc 
 				existingTrackers[trackerName] = true
 			}
 			rows.Close()
-			
+
 			if err = rows.Err(); err != nil {
 				http.Error(w, "Error iterating tracker rows", http.StatusInternalServerError)
 				return
 			}
-			
+
 			// 2. Process each tracker in the new list - update or insert
 			now := time.Now()
 			for trackerName, trackerData := range trackerList.Trackers {
@@ -173,7 +173,7 @@ func HandleUserTrackers(authService *auth.Service, db *sql.DB) http.HandlerFunc 
 						return
 					}
 				}
-				
+
 				if existing := existingTrackers[trackerName]; existing {
 					// Update existing tracker
 					updateQuery := `
@@ -194,7 +194,7 @@ func HandleUserTrackers(authService *auth.Service, db *sql.DB) http.HandlerFunc 
 						http.Error(w, "Database error updating tracker: "+trackerName, http.StatusInternalServerError)
 						return
 					}
-					
+
 					// Remove from existingTrackers map to mark as processed
 					delete(existingTrackers, trackerName)
 				} else {
@@ -220,7 +220,7 @@ func HandleUserTrackers(authService *auth.Service, db *sql.DB) http.HandlerFunc 
 					}
 				}
 			}
-			
+
 			// 3. Delete any trackers that were not in the updated list
 			if len(existingTrackers) > 0 {
 				for trackerName := range existingTrackers {
@@ -232,14 +232,14 @@ func HandleUserTrackers(authService *auth.Service, db *sql.DB) http.HandlerFunc 
 					}
 				}
 			}
-			
+
 			// Commit transaction
 			if err = tx.Commit(); err != nil {
 				http.Error(w, "Database commit error", http.StatusInternalServerError)
 				return
 			}
 			commit = true
-			
+
 			// Return success
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Tracker list updated successfully"))
