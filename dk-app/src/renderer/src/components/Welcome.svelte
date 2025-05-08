@@ -47,7 +47,7 @@
 <div class="flex items-center justify-center h-full w-full">
   <div class="text-center animate-[fadeIn_0.5s_ease-in-out]">
     <img
-      src="/dk_logo.png"
+      src="./dk_logo.png"
       alt="Logo"
       width="150"
       height="150"

@@ -642,7 +642,7 @@
     {#if currentStep === 1}
       <div class="p-6 animate-[fadeIn_0.5s_ease-in-out]">
         <img
-          src="/dk_logo.png"
+          src="./dk_logo.png"
           alt="Logo"
           width="100"
           height="100"

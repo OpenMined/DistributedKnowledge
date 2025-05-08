@@ -1,5 +1,5 @@
 import { app, BrowserWindow } from 'electron'
-import { electronApp, optimizer } from '@electron-toolkit/utils'
+import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createMainWindow } from './windows/mainWindow'
 import { setupIpcHandlers, setWsClient } from './ipc/handlers'
 import { initializeClient, disconnectClient } from './services/clientService'
@@ -342,7 +342,7 @@ app.whenReady().then(async () => {
   setupIpcHandlers()
 
   // Create main window
-  createMainWindow()
+  const mainWindow = createMainWindow()
   logger.info('Main window created')
 
   // Start the external programs only if config exists and onboarding is completed

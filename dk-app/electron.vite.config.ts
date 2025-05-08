@@ -38,6 +38,18 @@ export default defineConfig({
         '@assets': resolve('src/renderer/src/assets'),
         '@shared': resolve('src/shared')
       }
-    }
+    },
+    build: {
+      outDir: 'out/renderer',
+      emptyOutDir: true,
+      rollupOptions: {
+        input: {
+          index: resolve('src/renderer/index.html')
+        }
+      },
+      assetsInlineLimit: 0, // Prevent inlining assets
+      assetsDir: 'assets' // Output directory for assets
+    },
+    publicDir: resolve('src/renderer/public') // Specify public directory explicitly
   }
 })

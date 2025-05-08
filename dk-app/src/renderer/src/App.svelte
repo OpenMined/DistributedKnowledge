@@ -332,7 +332,7 @@
 {:else}
   <!-- Simple floating logo while checking config -->
   <div class="flex items-center justify-center h-screen bg-background">
-    <img src="/dk_logo.png" alt="Loading" width="150" height="150" class="animate-float" />
+    <img src="./dk_logo.png" alt="Loading" width="150" height="150" class="animate-float" />
   </div>
 {/if}
 

@@ -18,14 +18,14 @@ const isDevelopment = process.env.NODE_ENV !== 'production'
 function getLogDirectory() {
   // For packaged app, use same base directory as config
   if (process.type === 'browser') {
-    const { app } = require('electron');
-    return path.join(app.getPath('userData'), 'logs');
+    const { app } = require('electron')
+    return path.join(app.getPath('userData'), 'logs')
   }
   // Fallback for non-electron environment
-  return path.join(process.cwd(), 'logs');
+  return path.join(process.cwd(), 'logs')
 }
 
-const logDir = getLogDirectory();
+const logDir = getLogDirectory()
 
 // Create logs directory if it doesn't exist
 if (!fs.existsSync(logDir)) {

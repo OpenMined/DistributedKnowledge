@@ -1,6 +1,7 @@
 import { BrowserWindow, shell, app } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
+import { existsSync } from 'fs'
 
 export function createMainWindow(): BrowserWindow {
   // Create the browser window.
@@ -30,7 +31,27 @@ export function createMainWindow(): BrowserWindow {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../../renderer/index.html'))
+    // Try multiple possible paths for the renderer HTML file
+    const possiblePaths = [
+      join(__dirname, '../renderer/index.html'),
+      join(__dirname, '../../renderer/index.html')
+    ]
+
+    // Try each path and use the first one that exists
+    let rendererPath = possiblePaths[0] // Default to first path
+
+    for (const path of possiblePaths) {
+      try {
+        if (existsSync(path)) {
+          rendererPath = path
+          break
+        }
+      } catch (error) {
+        // Ignore errors checking for file existence
+      }
+    }
+
+    mainWindow.loadFile(rendererPath)
   }
 
   return mainWindow

@@ -230,7 +230,7 @@
         tabindex="0"
       >
         <div class="flex items-center justify-center">
-          <img src="/dk_logo.png" alt="Logo" width="28" height="28" />
+          <img src="./dk_logo.png" alt="Logo" width="28" height="28" />
         </div>
         {#if expanded}
           <ChevronLeft size={18} class="opacity-70" aria-hidden="true" />
