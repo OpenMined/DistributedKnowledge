@@ -39,15 +39,14 @@ function initLLMService(): void {
         // Special cases:
         // 1. Ollama doesn't require an API key
         // 2. Don't initialize Anthropic if its API key is set to "ollama" (invalid placeholder)
+        const typedConfig = providerConfig as ProviderConfig
         if (
           providerName === 'ollama' ||
-          (providerName !== 'anthropic' && providerConfig.apiKey) ||
-          (providerName === 'anthropic' &&
-            providerConfig.apiKey &&
-            providerConfig.apiKey !== 'ollama')
+          (providerName !== 'anthropic' && typedConfig.apiKey) ||
+          (providerName === 'anthropic' && typedConfig.apiKey && typedConfig.apiKey !== 'ollama')
         ) {
-          logger.debug(`Initializing provider ${providerName} with config:`, providerConfig)
-          llmService.initProvider(providerName as LLMProvider, providerConfig)
+          logger.debug(`Initializing provider ${providerName} with config:`, typedConfig)
+          llmService.initProvider(providerName as LLMProvider, typedConfig)
         } else {
           logger.warn(`Skipping provider ${providerName} due to missing or invalid API key`)
         }
@@ -157,9 +156,15 @@ export function registerLLMHandlers(): void {
         // Update config
         const fullConfig: SharedTypes.LLMConfig = getLLMConfig()
         fullConfig.providers[provider] = {
-          ...fullConfig.providers[provider],
-          ...config
-        }
+          ...(fullConfig.providers[provider] || {}),
+          ...config,
+          // Ensure these required fields are set for ProviderConfig
+          apiKey: (fullConfig.providers[provider]?.apiKey || config.apiKey || '') as string,
+          defaultModel: (fullConfig.providers[provider]?.defaultModel ||
+            config.defaultModel ||
+            '') as string,
+          models: (fullConfig.providers[provider]?.models || config.models || []) as string[]
+        } as ProviderConfig
         saveLLMConfig(fullConfig)
 
         // Reinitialize the provider

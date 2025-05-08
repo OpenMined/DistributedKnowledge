@@ -1,5 +1,5 @@
 import { ipcRenderer } from 'electron'
-import { LLMAPI, ProviderConfig } from '@shared/ipc'
+import { LLMAPI } from '@shared/ipc'
 import { LLMChannels } from '@shared/channels'
 import * as LLMTypes from '@shared/llmTypes'
 // Alias types for easier use
@@ -7,6 +7,7 @@ type ChatCompletionRequest = LLMTypes.ChatCompletionRequest
 type StreamingChunk = LLMTypes.StreamingChunk
 type ChatCompletionResponse = LLMTypes.ChatCompletionResponse
 type LLMProvider = LLMTypes.LLMProvider
+type ProviderConfig = LLMTypes.ProviderConfig
 import * as SharedTypes from '@shared/types'
 type AIMessage = SharedTypes.AIMessage
 

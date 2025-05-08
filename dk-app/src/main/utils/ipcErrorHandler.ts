@@ -16,7 +16,7 @@ const { AppError, ErrorType, createSuccessResponse, createErrorResponse } = Erro
  */
 export function wrapIpcHandler<T>(
   handler: (event: IpcMainInvokeEvent, ...args: any[]) => Promise<T>,
-  errorType: ErrorType = ErrorType.IPC
+  errorType: (typeof ErrorType)[keyof typeof ErrorType] = ErrorType.IPC
 ): (event: IpcMainInvokeEvent, ...args: any[]) => Promise<ApiResponse<T>> {
   return async (event: IpcMainInvokeEvent, ...args: any[]): Promise<ApiResponse<T>> => {
     try {
@@ -44,7 +44,7 @@ export function wrapIpcHandler<T>(
  */
 export function wrapIpcHandlers<T extends Record<string, any>>(
   handlers: T,
-  errorTypes: Partial<Record<keyof T, ErrorType>> = {}
+  errorTypes: Partial<Record<keyof T, (typeof ErrorType)[keyof typeof ErrorType]>> = {}
 ): T {
   const wrappedHandlers = { ...handlers }
 
@@ -68,7 +68,7 @@ export function wrapIpcHandlers<T extends Record<string, any>>(
  */
 export async function tryOperation<T>(
   operation: () => Promise<T>,
-  errorType: ErrorType = ErrorType.UNKNOWN
+  errorType: (typeof ErrorType)[keyof typeof ErrorType] = ErrorType.UNKNOWN
 ): Promise<ApiResponse<T>> {
   try {
     const result = await operation()

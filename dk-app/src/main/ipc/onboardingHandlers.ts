@@ -13,8 +13,7 @@ import { generateKeys } from '../services/client'
 import { loadOrCreateKeys, getAppPaths } from '../utils'
 import { AppConfig, OnboardingConfig } from '../../shared/types'
 import logger from '../../shared/logging'
-import * as LLMTypes from '@shared/llmTypes'
-type LLMProvider = LLMTypes.LLMProvider
+import { LLMProvider } from '@shared/llmTypes'
 import { homedir } from 'os'
 import { mkdirSync, existsSync, writeFileSync } from 'fs'
 
@@ -253,27 +252,23 @@ export function registerOnboardingHandlers(): void {
             }
 
             // Set provider-specific configuration
-            if (config.llm?.activeProvider === LLMProvider.OLLAMA) {
+            if (config.llm?.activeProvider === 'ollama') {
               modelConfig.provider = 'ollama'
-              modelConfig.model =
-                config.llm.providers[LLMProvider.OLLAMA]?.defaultModel || 'gemma3:4b'
+              modelConfig.model = config.llm.providers['ollama']?.defaultModel || 'gemma3:4b'
               modelConfig.base_url = 'http://localhost:11434/api/generate'
-            } else if (config.llm?.activeProvider === LLMProvider.ANTHROPIC) {
+            } else if (config.llm?.activeProvider === 'anthropic') {
               modelConfig.provider = 'anthropic'
-              modelConfig.api_key = config.llm.providers[LLMProvider.ANTHROPIC]?.apiKey || ''
+              modelConfig.api_key = config.llm.providers['anthropic']?.apiKey || ''
               modelConfig.model =
-                config.llm.providers[LLMProvider.ANTHROPIC]?.defaultModel ||
-                'claude-3-opus-20240229'
-            } else if (config.llm?.activeProvider === LLMProvider.OPENAI) {
+                config.llm.providers['anthropic']?.defaultModel || 'claude-3-opus-20240229'
+            } else if (config.llm?.activeProvider === 'openai') {
               modelConfig.provider = 'openai'
-              modelConfig.api_key = config.llm.providers[LLMProvider.OPENAI]?.apiKey || ''
-              modelConfig.model =
-                config.llm.providers[LLMProvider.OPENAI]?.defaultModel || 'gpt-4-turbo'
-            } else if (config.llm?.activeProvider === LLMProvider.GEMINI) {
+              modelConfig.api_key = config.llm.providers['openai']?.apiKey || ''
+              modelConfig.model = config.llm.providers['openai']?.defaultModel || 'gpt-4-turbo'
+            } else if (config.llm?.activeProvider === 'gemini') {
               modelConfig.provider = 'gemini'
-              modelConfig.api_key = config.llm.providers[LLMProvider.GEMINI]?.apiKey || ''
-              modelConfig.model =
-                config.llm.providers[LLMProvider.GEMINI]?.defaultModel || 'gemini-1.5-pro'
+              modelConfig.api_key = config.llm.providers['gemini']?.apiKey || ''
+              modelConfig.model = config.llm.providers['gemini']?.defaultModel || 'gemini-1.5-pro'
             }
 
             // Write the config file

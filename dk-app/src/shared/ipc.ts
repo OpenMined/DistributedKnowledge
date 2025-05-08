@@ -10,7 +10,8 @@ import {
   RAGDocument,
   DocumentStats,
   User,
-  ChatMessage
+  ChatMessage,
+  AIMessage
 } from './types'
 import * as LLMTypes from './llmTypes'
 // Alias types for easier use

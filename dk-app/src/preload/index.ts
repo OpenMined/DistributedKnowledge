@@ -1,6 +1,6 @@
 import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { api } from '@apis/index'
+import { api } from './apis/index'
 import logger from '@shared/logging'
 
 // Use `contextBridge` APIs to expose Electron APIs to

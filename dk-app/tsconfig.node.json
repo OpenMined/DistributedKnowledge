@@ -11,7 +11,7 @@
     "noImplicitThis": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "types": ["electron-vite/node"],
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["./src/shared/*"],

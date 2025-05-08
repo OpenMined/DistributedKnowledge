@@ -22,10 +22,10 @@
     "cleanup": "rm -rf node_modules out dist logs .eslintcache"
   },
   "build": {
-     "mac": {
-       "identity": null
-     }
-   },
+    "mac": {
+      "identity": null
+    }
+  },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",

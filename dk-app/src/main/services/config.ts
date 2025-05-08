@@ -6,11 +6,11 @@ import * as SharedTypes from '../../shared/types'
 type AppConfig = SharedTypes.AppConfig
 type DKConfig = SharedTypes.DKConfig
 type OnboardingStatus = SharedTypes.OnboardingStatus
+type LLMConfig = SharedTypes.LLMConfig
 import { createServiceLogger } from '../../shared/logging'
 // Import LLMConfig and defaultLLMConfig for initialization
 import { defaultLLMConfig } from './llm/config'
 import { LLMProvider } from '@shared/llmTypes'
-// We'll use LLMConfig from the shared types
 import { homedir } from 'os'
 import { getAppPaths } from '../utils'
 
@@ -349,5 +349,5 @@ export function getLLMConfig(): LLMConfig {
     activeProvider: appConfig.llm.activeProvider as LLMProvider
   }
 
-  return convertedConfig as LLMConfig
+  return convertedConfig
 }
