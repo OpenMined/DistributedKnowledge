@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Electron</title>
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+    <script>
+      // Initialize theme based on stored preference or system preference
+      ;(function () {
+        const savedTheme = localStorage.getItem('dark-mode')
+        let darkMode = false
+
+        if (savedTheme !== null) {
+          darkMode = savedTheme === 'true'
+        } else {
+          // Check if user prefers dark mode
+          darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+        }
+
+        if (darkMode) {
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
+  </head>
+
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

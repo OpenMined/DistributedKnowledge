@@ -1,0 +1,95 @@
+@import './base.css';
+@import './scrollbar.css';
+
+@layer base {
+  body {
+    @apply m-0 p-0 overflow-hidden bg-background;
+    user-select: none;
+  }
+
+  code {
+    @apply font-semibold py-0.5 px-1.5 rounded text-sm bg-muted/60 font-mono;
+  }
+}
+
+@layer components {
+  #app {
+    @apply w-full h-screen relative;
+  }
+
+  .app-container {
+    @apply flex items-center justify-center flex-col w-full h-full box-border;
+  }
+
+  .logo {
+    @apply mb-5 h-32 w-32 transition-all duration-300;
+    -webkit-user-drag: none;
+    will-change: filter;
+  }
+
+  .logo:hover {
+    @apply filter drop-shadow-lg;
+  }
+
+  .creator {
+    @apply text-sm leading-4 text-muted-foreground font-semibold mb-2.5;
+  }
+
+  .text {
+    @apply text-2xl text-foreground font-bold leading-8 text-center mx-2.5 py-4;
+  }
+
+  .tip {
+    @apply text-base leading-6 text-muted-foreground font-semibold;
+  }
+
+  .svelte {
+    @apply font-bold bg-gradient-to-br from-[#ff3e00] to-[#647eff] bg-clip-text text-transparent;
+  }
+
+  .ts {
+    @apply font-bold bg-gradient-to-br from-[#3178c6] to-[#f0dc4e] bg-clip-text text-transparent;
+  }
+
+  .actions {
+    @apply flex pt-8 -m-1.5 flex-wrap justify-start;
+  }
+
+  .action {
+    @apply flex-shrink-0 p-1.5;
+  }
+
+  .action a {
+    @apply cursor-pointer no-underline inline-block border border-solid border-transparent text-center font-semibold whitespace-nowrap rounded-full px-5 py-2 text-sm;
+    @apply border-border text-foreground bg-secondary/80 hover:border-border/80 hover:text-foreground hover:bg-accent;
+  }
+
+  .versions {
+    @apply absolute bottom-7 mx-auto py-4 font-mono flex overflow-hidden items-center rounded-[22px] bg-card/90 backdrop-blur-lg;
+  }
+
+  .versions li {
+    @apply block float-left border-r border-border/30 px-5 text-sm leading-4 opacity-80 last:border-0;
+  }
+}
+
+@layer utilities {
+  @media (max-width: 720px) {
+    .text {
+      @apply text-xl;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .versions {
+      @apply hidden;
+    }
+  }
+
+  @media (max-width: 350px) {
+    .tip,
+    .actions {
+      @apply hidden;
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  "include": [
+    "src/renderer/src/env.d.ts",
+    "src/renderer/src/**/*",
+    "src/renderer/src/**/*.svelte",
+    "src/preload/*.d.ts"
+  ],
+  "compilerOptions": {
+    "verbatimModuleSyntax": true,
+    "useDefineForClassFields": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "allowJs": true,
+    "checkJs": true,
+    "composite": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/renderer/src/*"],
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@components/*": ["./src/renderer/src/components/*"],
+      "@lib/*": ["./src/renderer/src/lib/*"],
+      "@assets/*": ["./src/renderer/src/assets/*"],
+      "@shared/*": ["./src/shared/*"]
+    },
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  }
+}
