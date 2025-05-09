@@ -447,13 +447,25 @@ export async function startExternalProcesses(): Promise<void> {
           ? ';C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\Wbem'
           : ''
 
+      // Include user's ~/.local/bin in PATH for additional binaries
+      // Using userInfo().homedir for more reliable path resolution in confined environments
+      const userHomeDir = os.userInfo().homedir
+      const userLocalBin = path.join(userHomeDir, '.local/bin')
+      const newPath = `${process.env.PATH || ''}${platformPaths}:${commonPaths}:${userLocalBin}`
+
+      // Log the updated PATH for debugging
+      logger.info(`User home directory resolved to: ${userHomeDir}`)
+      logger.info(`Adding user's local bin to PATH: ${userLocalBin}`)
+      logger.info(`Full PATH environment variable: ${newPath}`)
+
       syftboxProcess = spawn(syftboxPath, ['--config', syftboxConfigPath], {
         stdio: 'pipe',
         detached: false,
         env: {
           ...process.env,
           // Ensure PATH is properly set for all platforms to find system binaries like 'uv'
-          PATH: `${process.env.PATH || ''}${platformPaths}:${commonPaths}`
+          // Also include user's ~/.local/bin directory
+          PATH: newPath
         }
       })
     } catch (error) {
