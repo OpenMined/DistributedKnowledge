@@ -88,15 +88,24 @@ export function getAppPaths() {
   const userHomedir = userInfo().homedir
   const username = userInfo().username
 
+  // Config base directory
+  const configDir = path.join(userData, 'config')
+
+  // Calculate base directory for all app data (parent of config directory)
+  const basePath = path.dirname(configDir)
+
   // Log paths for debugging
   logger.info(
-    `App paths: userData=${userData}, appData=${appData}, userHomedir=${userHomedir}, username=${username}`
+    `App paths: userData=${userData}, appData=${appData}, userHomedir=${userHomedir}, username=${username}, basePath=${basePath}`
   )
 
   return {
+    // Base path (parent directory of config)
+    basePath,
+
     // Config paths
-    configDir: path.join(userData, 'config'),
-    configFile: path.join(userData, 'config', 'config.json'),
+    configDir,
+    configFile: path.join(configDir, 'config.json'),
 
     // Data paths
     dataDir: path.join(userData, 'data'),
@@ -104,6 +113,10 @@ export function getAppPaths() {
     // Binary paths
     binDir: path.join(userData, 'bin'),
     dkBinary: path.join(userData, 'bin', 'dk'),
+
+    // Resource paths for resources and logs (using base path)
+    resourcesDir: path.join(basePath, 'resources'),
+    logsDir: path.join(basePath, 'logs'),
 
     // SyftBox paths (platform-specific)
     syftboxConfig:

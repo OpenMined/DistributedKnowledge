@@ -9,6 +9,7 @@ import fs from 'fs'
 import path from 'path'
 import url from 'url'
 import { appConfig } from '../services/config'
+import { getAppPaths } from '../utils'
 
 /**
  * Fetch trackers from the server
@@ -85,8 +86,11 @@ async function fetchTrackersFromServer(): Promise<Record<string, any>> {
 function transformTrackerData(serverData: Record<string, any>): TrackerListItem[] {
   const result: TrackerListItem[] = []
 
-  // Save the SVG icons to a temp directory for caching
-  const iconDir = path.join(process.cwd(), 'resources', 'tracker-icons')
+  // Get the app paths from centralized configuration
+  const appPaths = getAppPaths()
+
+  // Save the SVG icons to the resourcesDir directory for caching
+  const iconDir = path.join(appPaths.resourcesDir, 'tracker-icons')
 
   // Ensure directory exists
   if (!fs.existsSync(iconDir)) {

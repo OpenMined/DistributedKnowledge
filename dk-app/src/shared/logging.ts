@@ -16,8 +16,20 @@ const isDevelopment = process.env.NODE_ENV !== 'production'
 
 // Determine logs directory location
 function getLogDirectory() {
-  // For packaged app, use same base directory as config
+  // For packaged app, use the centralized logging directory from utils
   if (process.type === 'browser') {
+    try {
+      const { getAppPaths } = require('../main/utils')
+      const appPaths = getAppPaths()
+      // Use the logsDir from centralized path config
+      if (appPaths && appPaths.logsDir) {
+        return appPaths.logsDir
+      }
+    } catch (error) {
+      console.error('Failed to get paths from utils:', error)
+    }
+
+    // Fallback to old behavior if central config fails
     const { app } = require('electron')
     return path.join(app.getPath('userData'), 'logs')
   }
