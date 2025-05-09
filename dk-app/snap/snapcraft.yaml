@@ -1,0 +1,46 @@
+name: dk
+version: '1.0.0'
+summary: Distributed Knowledge Application
+description: |
+  An Electron application for distributed knowledge management.
+
+  This application requires access to .syftbox/config.json in the user's
+  home directory to connect to the SyftBox service, which is required for
+  core functionality.
+base: core20
+confinement: strict
+grade: stable
+
+# Request auto-connection for our custom interface
+plugs:
+  syftbox-config-plug:
+    interface: personal-files
+    read: [$HOME/.syftbox/config.json]
+
+# Auto-connection for personal-files interfaces requires approval
+# from the Snap Store reviewers during the review process
+
+# The application parts
+parts:
+  dk:
+    plugin: nil
+    source: .
+    override-build: |
+      # This will be handled by electron-builder
+
+apps:
+  dk:
+    command: dk
+    extensions: [gnome-3-38]
+    plugs:
+      - network
+      - network-bind
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - audio-playback
+      - home
+      - syftbox-config-plug
+    environment:
+      TMPDIR: $XDG_RUNTIME_DIR

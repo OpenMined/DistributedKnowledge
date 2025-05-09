@@ -4,7 +4,7 @@ import * as nacl from 'tweetnacl'
 import { BrowserWindow, app } from 'electron'
 import { createServiceLogger } from '../shared/logging'
 import { ToastOptions } from '../shared/types'
-import { homedir } from 'os'
+import { homedir, userInfo } from 'os'
 
 // Create a specific logger for utils
 const logger = createServiceLogger('utils')
@@ -83,7 +83,15 @@ export function getAppPaths() {
   // Base directories
   const userData = app.getPath('userData')
   const appData = app.getPath('appData')
-  const home = homedir()
+
+  // Using os.userInfo() to get accurate user homedir even in confined environments like Snap
+  const userHomedir = userInfo().homedir
+  const username = userInfo().username
+
+  // Log paths for debugging
+  logger.info(
+    `App paths: userData=${userData}, appData=${appData}, userHomedir=${userHomedir}, username=${username}`
+  )
 
   return {
     // Config paths
@@ -101,6 +109,6 @@ export function getAppPaths() {
     syftboxConfig:
       process.platform === 'win32'
         ? path.join(appData, 'syftbox', 'config.json')
-        : path.join(home, '.syftbox', 'config.json')
+        : path.join(userHomedir, '.syftbox', 'config.json')
   }
 }

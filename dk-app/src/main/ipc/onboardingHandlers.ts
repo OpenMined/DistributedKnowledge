@@ -535,7 +535,7 @@ export function registerOnboardingHandlers(): void {
         if (syftboxInstalled) {
           logger.info('Syftbox installation verified: config.json found')
         } else {
-          logger.warn('Syftbox installation not detected: config.json not found')
+          logger.warn(`Syftbox installation not detected: ${syftboxConfigPath} not found`)
         }
       } catch (error) {
         logger.warn('Failed to check Syftbox installation:', error)

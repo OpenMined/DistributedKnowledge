@@ -44,6 +44,20 @@ linux:
     - deb
   maintainer: electronjs.org
   category: Utility
+  # Snap-specific configuration
+  snap:
+    confinement: strict
+    # Use our custom snapcraft.yaml
+    useSnapcraft: true
+    # The following plugs will be merged with our custom snapcraft.yaml
+    plugs:
+      # Add standard system interfaces
+      - network
+      - network-bind
+      - desktop
+      - desktop-legacy
+      # Add interface for accessing syftbox config
+      - syftbox-config
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
