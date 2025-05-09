@@ -264,7 +264,7 @@ export function registerOnboardingHandlers(): void {
             } else if (config.llm?.activeProvider === 'openai') {
               modelConfig.provider = 'openai'
               modelConfig.api_key = config.llm.providers['openai']?.apiKey || ''
-              modelConfig.model = config.llm.providers['openai']?.defaultModel || 'gpt-4-turbo'
+              modelConfig.model = config.llm.providers['openai']?.defaultModel || 'gpt-4o'
             } else if (config.llm?.activeProvider === 'gemini') {
               modelConfig.provider = 'gemini'
               modelConfig.api_key = config.llm.providers['gemini']?.apiKey || ''

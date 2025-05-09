@@ -19,15 +19,29 @@ export class OpenAIProvider implements LLMProviderInterface {
     this.provider = LLMProvider.OPENAI
     this.apiKey = config.apiKey
     this.baseUrl = config.baseUrl || 'https://api.openai.com'
-    this.defaultModel = config.defaultModel || 'gpt-4-turbo'
-    this.availableModels = config.models || [
-      'gpt-4-turbo',
-      'gpt-4-turbo-preview',
-      'gpt-4',
-      'gpt-4-32k',
-      'gpt-3.5-turbo',
-      'gpt-3.5-turbo-16k'
-    ]
+
+    // Ensure we use the provided defaultModel if specified
+    this.defaultModel = config.defaultModel || 'gpt-4o'
+    console.log(`OpenAIProvider constructor - using defaultModel: ${this.defaultModel}`)
+
+    // Make sure our currently selected model is always in the available models list
+    const defaultModels = ['gpt-4.1-nano', 'gpt-4.1-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini']
+
+    // Ensure our default model is in the models list
+    if (
+      this.defaultModel &&
+      !defaultModels.includes(this.defaultModel) &&
+      !config.models?.includes(this.defaultModel)
+    ) {
+      defaultModels.push(this.defaultModel)
+    }
+
+    this.availableModels = config.models || defaultModels
+
+    // Double check our models list includes the default model
+    if (this.defaultModel && !this.availableModels.includes(this.defaultModel)) {
+      this.availableModels.push(this.defaultModel)
+    }
   }
 
   async getModels(): Promise<string[]> {
@@ -55,11 +69,28 @@ export class OpenAIProvider implements LLMProviderInterface {
 
       // Add the predefined models if they're not in the list
       const allModels = [...new Set([...this.availableModels, ...chatModels])]
+
+      // Make sure our default model is always included
+      if (this.defaultModel && !allModels.includes(this.defaultModel)) {
+        allModels.push(this.defaultModel)
+        console.log(`Added default model ${this.defaultModel} to models list`)
+      }
+
+      // Log the models we're returning
+      console.log(`OpenAI models: ${allModels.join(', ')}`)
+
       return allModels
     } catch (error) {
       console.error('Error fetching OpenAI models:', error)
       // Fall back to the predefined models list if API call fails
-      return this.availableModels
+      const fallbackModels = [...this.availableModels]
+
+      // Make sure our default model is always included
+      if (this.defaultModel && !fallbackModels.includes(this.defaultModel)) {
+        fallbackModels.push(this.defaultModel)
+      }
+
+      return fallbackModels
     }
   }
 

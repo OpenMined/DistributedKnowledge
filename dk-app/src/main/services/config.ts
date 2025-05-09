@@ -331,7 +331,11 @@ export function saveConfig(config: Partial<AppConfig>): boolean {
  * Save LLM configuration to the main config file
  */
 export function saveLLMConfig(config: LLMConfig): boolean {
-  logger.debug('Saving LLM configuration to main config file')
+  logger.debug('Saving LLM configuration to main config file', JSON.stringify(config))
+  // Log the OpenAI provider specifically
+  if (config.providers[LLMProvider.OPENAI]) {
+    logger.debug('OpenAI provider config:', JSON.stringify(config.providers[LLMProvider.OPENAI]))
+  }
   return saveConfig({ llm: config })
 }
 

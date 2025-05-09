@@ -1,7 +1,7 @@
 <script lang="ts">
   import { cn } from '@lib/utils'
-  import { onMount, onDestroy } from 'svelte'
-  import { Bot, User, ArrowRight, LoaderCircle } from 'lucide-svelte'
+  import { onMount, onDestroy, afterUpdate } from 'svelte'
+  import { Bot, User, ArrowRight, LoaderCircle, Copy, CheckCircle } from 'lucide-svelte'
   import { formatMessageTimestamp } from '@shared/utils'
   import * as SharedTypes from '@shared/types'
   type AIMessage = SharedTypes.AIMessage
@@ -14,6 +14,9 @@
   import logger from '@lib/utils/logger'
   import { safeIpcCall } from '@lib/utils/errorHandler'
   import { AppError, ErrorType } from '@shared/errors'
+
+  // Reference to the chat container for auto-scrolling
+  let chatContainer: HTMLElement
 
   // Initial welcome message
   let messages: AIMessage[] = [
@@ -221,6 +224,16 @@
     cleanupStreamHandlers()
   })
 
+  // Auto-scroll to bottom whenever messages change
+  afterUpdate(() => {
+    if (chatContainer) {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
+  })
+
   // Function to send a message to the AI assistant
   async function sendMessage() {
     if (!newMessageText.trim() || isWaitingForResponse) return
@@ -334,6 +347,32 @@
     }
   }
 
+  // Function to copy text to clipboard
+  function copyToClipboard(text: string, messageId: string) {
+    // Create a temporary object to track copy state
+    const messageCopyState = { ...copyState }
+
+    // Set this message's copy state to true (showing checkmark)
+    messageCopyState[messageId] = true
+    copyState = messageCopyState
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(text).catch((err) => {
+      console.error('Failed to copy text: ', err)
+      window.api.toast.show('Failed to copy text to clipboard', { type: 'error' })
+    })
+
+    // Reset copy state after 2 seconds
+    setTimeout(() => {
+      const resetState = { ...copyState }
+      resetState[messageId] = false
+      copyState = resetState
+    }, 2000)
+  }
+
+  // Track copy button states (for showing copy/check icons)
+  let copyState: Record<string, boolean> = {}
+
   // Clear the chat history
   async function clearChat() {
     try {
@@ -411,7 +450,10 @@
     </div>
   </div>
 
-  <div class="flex-1 p-4 overflow-y-auto flex flex-col gap-5 custom-scrollbar">
+  <div
+    bind:this={chatContainer}
+    class="flex-1 p-4 overflow-y-auto flex flex-col gap-5 custom-scrollbar"
+  >
     {#each messages as message (message.id)}
       <div class="flex flex-col gap-1">
         <div
@@ -435,13 +477,31 @@
             {/if}
           </div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-baseline gap-2">
-              <span class="font-medium text-sm">
-                {message.role === 'assistant' ? 'AI Assistant' : 'You'}
-              </span>
-              <span class="text-xs text-muted-foreground">
-                {formatMessageTimestamp(message.timestamp)}
-              </span>
+            <div class="flex items-baseline justify-between">
+              <div class="flex items-baseline gap-2">
+                <span class="font-medium text-sm">
+                  {message.role === 'assistant' ? 'AI Assistant' : 'You'}
+                </span>
+                <span class="text-xs text-muted-foreground">
+                  {formatMessageTimestamp(message.timestamp)}
+                </span>
+              </div>
+
+              <!-- Copy button for AI assistant messages only -->
+              {#if message.role === 'assistant' && message.content && !message.isLoading}
+                <button
+                  class="text-muted-foreground hover:text-foreground transition-colors p-1"
+                  on:click={() => copyToClipboard(message.content, message.id)}
+                  aria-label="Copy message"
+                  title="Copy message"
+                >
+                  {#if copyState[message.id]}
+                    <CheckCircle size={16} class="text-success" />
+                  {:else}
+                    <Copy size={16} />
+                  {/if}
+                </button>
+              {/if}
             </div>
 
             {#if message.isLoading && message.content === ''}

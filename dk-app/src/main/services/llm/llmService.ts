@@ -28,6 +28,21 @@ export class LLMService {
    * Initialize a provider with configuration
    */
   public initProvider(provider: LLMProvider, config: ProviderConfig): void {
+    console.log(`Initializing provider ${provider} with config:`, JSON.stringify(config))
+
+    // Ensure we have a valid defaultModel
+    if (!config.defaultModel) {
+      console.warn(`No defaultModel in config for ${provider}, using fallback`)
+      config.defaultModel = this.getDefaultModelForProvider(provider)
+    }
+
+    // Check if models array contains the defaultModel
+    if (config.models && !config.models.includes(config.defaultModel)) {
+      console.warn(`defaultModel ${config.defaultModel} not in models array for ${provider}`)
+      // Add it to the models array
+      config.models.push(config.defaultModel)
+    }
+
     switch (provider) {
       case LLMProvider.ANTHROPIC:
         this.providers.set(provider, new AnthropicProvider(config))
@@ -44,16 +59,65 @@ export class LLMService {
       default:
         throw new Error(`Unsupported provider: ${provider}`)
     }
+
+    // Log the provider instance for debugging
+    const providerInstance = this.providers.get(provider)
+    console.log(
+      `Provider ${provider} initialized with defaultModel: ${(providerInstance as any).defaultModel}`
+    )
   }
 
   /**
    * Set the active provider
    */
   public setActiveProvider(provider: LLMProvider): void {
+    // Initialize the provider with default config if not initialized
     if (!this.providers.has(provider)) {
-      throw new Error(`Provider ${provider} not initialized`)
+      // Use default config from the defaultLLMConfig
+      const defaultProviderConfig = {
+        apiKey: '',
+        defaultModel: this.getDefaultModelForProvider(provider),
+        models: this.getDefaultModelsForProvider(provider)
+      }
+      this.initProvider(provider, defaultProviderConfig)
     }
     this.activeProvider = provider
+  }
+
+  /**
+   * Get default model for a provider
+   */
+  private getDefaultModelForProvider(provider: LLMProvider): string {
+    switch (provider) {
+      case LLMProvider.ANTHROPIC:
+        return 'claude-3-opus-20240229'
+      case LLMProvider.OPENAI:
+        return 'gpt-4o'
+      case LLMProvider.GEMINI:
+        return 'gemini-1.5-pro'
+      case LLMProvider.OLLAMA:
+        return 'gemma3:4b'
+      default:
+        return ''
+    }
+  }
+
+  /**
+   * Get default models for a provider
+   */
+  private getDefaultModelsForProvider(provider: LLMProvider): string[] {
+    switch (provider) {
+      case LLMProvider.ANTHROPIC:
+        return ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307']
+      case LLMProvider.OPENAI:
+        return ['gpt-4.1-nano', 'gpt-4.1-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini']
+      case LLMProvider.GEMINI:
+        return ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro']
+      case LLMProvider.OLLAMA:
+        return ['gemma3:4b', 'gemma:2b', 'qwen2.5:latest']
+      default:
+        return []
+    }
   }
 
   /**

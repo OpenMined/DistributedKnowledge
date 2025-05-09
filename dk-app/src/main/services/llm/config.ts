@@ -15,8 +15,8 @@ export const defaultLLMConfig: LLMConfig = {
     },
     [LLMProvider.OPENAI]: {
       apiKey: '',
-      defaultModel: 'gpt-4-turbo',
-      models: ['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']
+      defaultModel: 'gpt-4o',
+      models: ['gpt-4.1-nano', 'gpt-4.1-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini']
     },
     [LLMProvider.GEMINI]: {
       apiKey: '',

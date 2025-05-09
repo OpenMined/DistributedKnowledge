@@ -66,19 +66,47 @@
       errorMessage = ''
       successMessage = ''
 
-      const config = { ...llmConfig.providers[provider] }
+      // Get the configuration to save
+      let config
 
-      // Sanitize empty API keys (keep them unchanged on the server)
-      if (config.apiKey === '') {
-        delete config.apiKey
+      if (llmConfig.providers[provider]) {
+        // Provider exists, use existing config
+        config = { ...llmConfig.providers[provider] }
+      } else {
+        // Provider doesn't exist yet, use the temporary config
+        config = createDefaultProviderConfig(provider)
+      }
+
+      // For Ollama, ensure we always have a baseUrl
+      if (provider === LLMProvider.OLLAMA && !config.baseUrl) {
+        config.baseUrl = 'http://localhost:11434'
+      }
+
+      // Don't send empty API keys for non-Ollama providers
+      if (provider !== LLMProvider.OLLAMA && config.apiKey === '') {
+        errorMessage = 'Please enter a valid API key'
+        isSaving = false
+        return
       }
 
       const success = await window.api.llm.updateProviderConfig(provider, config)
 
       if (success) {
         successMessage = `${provider} configuration updated successfully`
+        // Store the selected model to check if it's preserved
+        const selectedModel = config.defaultModel
+        console.log(`Selected model before refresh: ${selectedModel}`)
+
         // Refresh config
         llmConfig = await window.api.llm.getConfig()
+        console.log(`Model after refresh: ${llmConfig.providers[provider]?.defaultModel}`)
+
+        // Log if they don't match
+        if (selectedModel !== llmConfig.providers[provider]?.defaultModel) {
+          console.warn(
+            `Model changed from ${selectedModel} to ${llmConfig.providers[provider]?.defaultModel}`
+          )
+        }
       } else {
         errorMessage = `Failed to update ${provider} configuration`
       }
@@ -118,6 +146,51 @@
 
   function changeTab(tab: string) {
     activeTab = tab
+  }
+
+  /**
+   * Create a default provider configuration for newly selected providers
+   */
+  function createDefaultProviderConfig(provider: LLMProvider) {
+    const baseConfig = {
+      apiKey: '',
+      models: []
+    }
+
+    switch (provider) {
+      case LLMProvider.ANTHROPIC:
+        return {
+          ...baseConfig,
+          defaultModel: 'claude-3-opus-20240229',
+          models: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307']
+        }
+      case LLMProvider.OPENAI:
+        return {
+          ...baseConfig,
+          defaultModel: 'gpt-4o',
+          models: ['gpt-4.1-nano', 'gpt-4.1-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini']
+        }
+      case LLMProvider.GEMINI:
+        return {
+          ...baseConfig,
+          defaultModel: 'gemini-1.5-pro',
+          models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro']
+        }
+      case LLMProvider.OLLAMA:
+        return {
+          ...baseConfig,
+          apiKey: '', // Not used for Ollama
+          baseUrl: 'http://localhost:11434',
+          defaultModel: 'gemma3:4b',
+          models: ['gemma3:4b', 'gemma:2b', 'qwen2.5:latest']
+        }
+      default:
+        return {
+          ...baseConfig,
+          defaultModel: '',
+          models: []
+        }
+    }
   }
 </script>
 
@@ -248,13 +321,26 @@
                   </div>
                 </div>
 
-                <!-- Only show configuration for active provider -->
+                <!-- Always show configuration for active provider -->
                 <div class="space-y-6 pt-4">
-                  {#if llmConfig.providers[llmConfig.activeProvider]}
+                  {#if true}
                     {@const providerName = llmConfig.activeProvider}
-                    {@const providerConfig = llmConfig.providers[providerName]}
+                    {@const providerConfig =
+                      llmConfig.providers[providerName] ||
+                      createDefaultProviderConfig(providerName)}
+
+                    <!-- Create a temporary config object for newly selected providers -->
                     <div class="border border-border rounded-md p-4">
                       <h4 class="text-md font-medium mb-3 capitalize">{providerName} Settings</h4>
+
+                      <!-- Show information alert if provider not configured -->
+                      {#if !llmConfig.providers[providerName]}
+                        <div
+                          class="bg-blue-500/20 text-blue-700 dark:text-blue-300 p-3 rounded-md mb-4"
+                        >
+                          This provider is not configured yet. Please enter your API details below.
+                        </div>
+                      {/if}
 
                       <div class="space-y-4">
                         <!-- API Key -->
@@ -278,7 +364,7 @@
                         </div>
 
                         <!-- Base URL (only for Ollama) -->
-                        {#if providerName === 'ollama' && providerConfig.baseUrl !== undefined}
+                        {#if providerName === 'ollama'}
                           <div class="space-y-2">
                             <label
                               for="{providerName}-base-url"

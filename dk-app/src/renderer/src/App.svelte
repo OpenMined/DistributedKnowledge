@@ -32,7 +32,6 @@
   let isSearching = false
   let searchCategory = 'all' // 'all', 'documents', 'trackers', 'apis'
 
-
   // Function to handle theme changes
   function handleThemeChange(event: CustomEvent<boolean>): void {
     darkMode = event.detail
@@ -215,7 +214,6 @@
 
   // Initialize state
   onMount(async () => {
-
     // Initialize theme state
     const savedTheme = localStorage.getItem('dark-mode')
     if (savedTheme !== null) {

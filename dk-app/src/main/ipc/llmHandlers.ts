@@ -153,22 +153,56 @@ export function registerLLMHandlers(): void {
     LLMChannels.UpdateProviderConfig,
     async (_, provider: LLMProvider, config: Partial<ProviderConfig>) => {
       try {
+        // Log incoming config
+        logger.debug(`Updating provider ${provider} with config:`, JSON.stringify(config))
+
         // Update config
         const fullConfig: SharedTypes.LLMConfig = getLLMConfig()
+
+        // Log existing config before change
+        logger.debug(
+          `Existing config for provider ${provider}:`,
+          JSON.stringify(fullConfig.providers[provider])
+        )
+
+        // Give priority to the incoming config values for defaultModel
+        // This ensures user's model selection is preserved
+        const defaultModel =
+          config.defaultModel ||
+          fullConfig.providers[provider]?.defaultModel ||
+          (provider === LLMProvider.OPENAI ? 'gpt-4o' : '')
+
+        // Keep track of both existing and new models
+        const existingModels = fullConfig.providers[provider]?.models || []
+        const newModels = config.models || []
+        const combinedModels = [...new Set([...existingModels, ...newModels])]
+
+        // Make sure the selected model is always in the models list
+        if (defaultModel && !combinedModels.includes(defaultModel)) {
+          combinedModels.push(defaultModel)
+          logger.info(`Added default model ${defaultModel} to models list`)
+        }
+
         fullConfig.providers[provider] = {
           ...(fullConfig.providers[provider] || {}),
           ...config,
           // Ensure these required fields are set for ProviderConfig
           apiKey: (fullConfig.providers[provider]?.apiKey || config.apiKey || '') as string,
-          defaultModel: (fullConfig.providers[provider]?.defaultModel ||
-            config.defaultModel ||
-            '') as string,
-          models: (fullConfig.providers[provider]?.models || config.models || []) as string[]
+          defaultModel: defaultModel as string,
+          models: combinedModels as string[]
         } as ProviderConfig
+
+        // Log the final provider config that will be saved
+        logger.debug(
+          `Final config for provider ${provider}:`,
+          JSON.stringify(fullConfig.providers[provider])
+        )
+
         saveLLMConfig(fullConfig)
 
         // Reinitialize the provider
         if (fullConfig.providers[provider]?.apiKey) {
+          logger.debug(`Reinitializing provider ${provider}`)
           llmService.initProvider(provider, fullConfig.providers[provider]!)
         }
 

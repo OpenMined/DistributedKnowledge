@@ -209,6 +209,16 @@
 
       <!-- Icon buttons -->
       <div class="flex flex-col gap-2">
+        <!-- AI Assistant icon -->
+        <button
+          class="flex items-center justify-center p-2.5 w-full border-none bg-transparent cursor-pointer text-foreground rounded-md hover:bg-accent"
+          on:click={handleAIAssistantClick}
+          aria-label="AI Assistant"
+          tabindex="0"
+        >
+          <Bot size={20} aria-hidden="true" />
+        </button>
+
         <!-- Documents icon -->
         <button
           class="flex items-center justify-center p-2.5 w-full border-none bg-transparent cursor-pointer text-foreground rounded-md hover:bg-accent"
@@ -227,26 +237,6 @@
           tabindex="0"
         >
           <AppWindow size={20} aria-hidden="true" />
-        </button>
-
-        <!-- APIs icon -->
-        <button
-          class="flex items-center justify-center p-2.5 w-full border-none bg-transparent cursor-pointer text-foreground rounded-md hover:bg-accent"
-          on:click={handleAPIsClick}
-          aria-label="APIs"
-          tabindex="0"
-        >
-          <Globe size={20} aria-hidden="true" />
-        </button>
-
-        <!-- Search Data icon -->
-        <button
-          class="flex items-center justify-center p-2.5 w-full border-none bg-transparent cursor-pointer text-foreground rounded-md hover:bg-accent"
-          on:click={handleSearchDataClick}
-          aria-label="Search Data"
-          tabindex="0"
-        >
-          <Search size={20} aria-hidden="true" />
         </button>
       </div>
     </div>
