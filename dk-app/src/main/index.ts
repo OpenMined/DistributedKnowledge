@@ -20,6 +20,8 @@ import { promisify } from 'util'
 import { chmod } from 'fs/promises'
 import https from 'https'
 import fs from 'fs'
+import os from 'os'
+import { getAppPaths } from './utils'
 
 // Variables to hold child process references
 let childProcess: ChildProcess | null = null
@@ -37,6 +39,20 @@ function getOSPlatform(): string {
     return 'linux'
   } else {
     logger.error(`Unsupported platform: ${platform}`)
+    return 'unsupported'
+  }
+}
+
+// Function to determine CPU architecture
+function getCPUArchitecture(): string {
+  const arch = process.arch
+
+  if (arch === 'x64') {
+    return 'amd64'
+  } else if (arch === 'arm64') {
+    return 'arm64'
+  } else {
+    logger.error(`Unsupported architecture: ${arch}`)
     return 'unsupported'
   }
 }
@@ -105,6 +121,115 @@ async function downloadDKBinary(platform: string, targetPath: string): Promise<b
   })
 }
 
+// Function to download the SyftBox binary
+async function downloadSyftBoxBinary(
+  os: string,
+  arch: string,
+  targetPath: string
+): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const targetDir = path.dirname(targetPath)
+
+    // Ensure directory exists
+    ensureDirectoryExists(targetPath)
+
+    const downloadUrl = `https://syftboxdev.openmined.org/releases/syftbox_client_${os}_${arch}.tar.gz`
+    logger.info(`Downloading SyftBox binary from ${downloadUrl} to ${targetPath}`)
+
+    // Prepare the tarball filename and path
+    const tarName = `syftbox_client_${os}_${arch}.tar.gz`
+    const tarPath = path.join(targetDir, tarName)
+
+    // Create write stream
+    const fileStream = fs.createWriteStream(tarPath)
+
+    // Download file
+    const request = https.get(downloadUrl, (response) => {
+      if (response.statusCode !== 200) {
+        logger.error(`Failed to download SyftBox binary: HTTP ${response.statusCode}`)
+        fileStream.close()
+        fs.unlink(tarPath, () => {})
+        resolve(false)
+        return
+      }
+
+      response.pipe(fileStream)
+
+      fileStream.on('finish', async () => {
+        fileStream.close()
+
+        try {
+          // Extract the tarball
+          logger.info(`Extracting SyftBox binary from ${tarPath} to ${targetDir}`)
+          const extractCommand = `tar -xzf "${tarPath}" -C "${targetDir}"`
+
+          // Use promisify to create a promise-based version of exec
+          const execPromise = promisify(exec)
+
+          await execPromise(extractCommand)
+
+          // The extraction creates a directory like syftbox_client_linux_amd64/
+          // with the binary inside it
+          const extractedDir = path.join(targetDir, `syftbox_client_${os}_${arch}`)
+          const extractedBinary = path.join(extractedDir, 'syftbox')
+
+          logger.info(`Looking for extracted binary at ${extractedBinary}`)
+
+          if (!existsSync(extractedBinary)) {
+            logger.error(`Extracted binary not found at expected path: ${extractedBinary}`)
+            resolve(false)
+            return
+          }
+
+          // Move the extracted binary to the target path
+          logger.info(`Moving binary from ${extractedBinary} to ${targetPath}`)
+
+          // If target already exists, remove it first
+          if (existsSync(targetPath)) {
+            fs.unlinkSync(targetPath)
+          }
+
+          // Copy the binary to its final destination
+          fs.copyFileSync(extractedBinary, targetPath)
+
+          // Make the binary executable
+          await chmod(targetPath, 0o755)
+
+          // Clean up the extracted directory and tarball
+          logger.info(`Cleaning up temporary files in ${extractedDir}`)
+          fs.unlinkSync(tarPath)
+
+          // Remove the entire extracted directory
+          const rmCommand = `rm -rf "${extractedDir}"`
+          await execPromise(rmCommand)
+
+          logger.info(
+            `Successfully downloaded and extracted SyftBox binary to ${targetPath} and made it executable`
+          )
+          resolve(true)
+        } catch (error) {
+          logger.error(`Failed to extract or make SyftBox binary executable: ${error}`)
+          resolve(false)
+        }
+      })
+    })
+
+    request.on('error', (error) => {
+      logger.error(`Error downloading SyftBox binary: ${error}`)
+      fileStream.close()
+      fs.unlink(tarPath, () => {})
+      resolve(false)
+    })
+
+    fileStream.on('error', (error) => {
+      logger.error(`Error writing SyftBox binary to disk: ${error}`)
+      fileStream.close()
+      fs.unlink(tarPath, () => {})
+      resolve(false)
+    })
+  })
+}
+
 // Function to check and download DK binary if needed
 async function ensureDKBinaryExists(dkPath: string): Promise<boolean> {
   // Check if binary exists
@@ -124,6 +249,31 @@ async function ensureDKBinaryExists(dkPath: string): Promise<boolean> {
 
   // Download binary
   return await downloadDKBinary(platform, dkPath)
+}
+
+// Function to check and download SyftBox binary if needed
+async function ensureSyftBoxBinaryExists(syftboxPath: string): Promise<boolean> {
+  // Check if binary exists
+  if (existsSync(syftboxPath)) {
+    logger.info(`SyftBox binary found at ${syftboxPath}`)
+    return true
+  }
+
+  logger.info(`SyftBox binary not found at ${syftboxPath}, downloading...`)
+
+  // Get current platform and architecture
+  const os = getOSPlatform()
+  const arch = getCPUArchitecture()
+
+  if (os === 'unsupported' || arch === 'unsupported') {
+    logger.error(
+      `Cannot download SyftBox binary for unsupported platform/architecture: ${os}/${arch}`
+    )
+    return false
+  }
+
+  // Download binary
+  return await downloadSyftBoxBinary(os, arch, syftboxPath)
 }
 
 // Function to start external processes
@@ -220,21 +370,96 @@ export async function startExternalProcesses(): Promise<void> {
       return
     }
 
-    const syftboxPath = '/home/ubuntu/.local/bin/syftbox'
+    // Determine the base directory for storing syftbox binary
+    const baseDir = app.getPath('userData')
+    const binDir = path.join(baseDir, 'bin')
 
-    // Verify the syftbox binary exists before attempting to start it
-    if (!existsSync(syftboxPath)) {
-      logger.error(`SyftBox binary not found at path: ${syftboxPath}`)
+    // Ensure bin directory exists
+    ensureDirectoryExists(path.join(binDir, 'dummy.txt'))
+
+    // Determine the path to the syftbox executable based on platform
+    let syftboxPath = ''
+    const osPlatform = getOSPlatform()
+
+    if (osPlatform === 'linux') {
+      // First check in our app's bin directory
+      syftboxPath = path.join(binDir, 'syftbox')
+
+      // Add snap-specific logging
+      if (process.env.SNAP) {
+        logger.info('Running in Snap environment, make sure interfaces are connected')
+      }
+    } else if (osPlatform === 'mac') {
+      // On macOS, try our app's bin directory first
+      syftboxPath = path.join(binDir, 'syftbox')
+    } else if (osPlatform === 'windows') {
+      // On Windows, use our app's bin directory with .exe extension
+      syftboxPath = path.join(binDir, 'syftbox.exe')
+    } else {
+      logger.error(`Unsupported platform: ${osPlatform}`)
+      return
+    }
+
+    logger.info(`Using syftbox path for ${osPlatform}: ${syftboxPath}`)
+
+    // Check if SyftBox binary exists and download if needed
+    const binaryExists = await ensureSyftBoxBinaryExists(syftboxPath)
+    if (!binaryExists) {
+      logger.error(
+        'SyftBox binary could not be found or downloaded. SyftBox process will not start.'
+      )
+
+      if (osPlatform === 'linux' && process.env.SNAP) {
+        logger.error(
+          'If running in Snap environment, make sure system-files interface is connected'
+        )
+        logger.error('Run: sudo snap connect dk:syftbox-exec-plug :system-files')
+      } else if (osPlatform === 'mac') {
+        logger.error('You may need to grant additional permissions to this application')
+      }
+
       return
     }
 
     logger.info(`Starting syftbox binary: ${syftboxPath}`)
 
-    // Spawn the syftbox process without arguments
-    syftboxProcess = spawn(syftboxPath, [], {
-      stdio: 'pipe',
-      detached: false
-    })
+    // Get the syftbox config path from the utility function
+    // that matches what's used in the onboarding process
+    const appPaths = getAppPaths()
+    const syftboxConfigPath = appPaths.syftboxConfig
+
+    // Ensure the syftbox config directory exists
+    const syftboxConfigDir = path.dirname(syftboxConfigPath)
+    if (!existsSync(syftboxConfigDir)) {
+      logger.info(`Creating syftbox config directory: ${syftboxConfigDir}`)
+      mkdirSync(syftboxConfigDir, { recursive: true })
+    }
+
+    // Log the config path we're using
+    logger.info(`Using syftbox config at: ${syftboxConfigPath}`)
+
+    // Spawn the syftbox process with config parameter
+    try {
+      // Ensure PATH includes common binary locations for all platforms
+      const commonPaths = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin'
+      const platformPaths =
+        process.platform === 'win32'
+          ? ';C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\Wbem'
+          : ''
+
+      syftboxProcess = spawn(syftboxPath, ['--config', syftboxConfigPath], {
+        stdio: 'pipe',
+        detached: false,
+        env: {
+          ...process.env,
+          // Ensure PATH is properly set for all platforms to find system binaries like 'uv'
+          PATH: `${process.env.PATH || ''}${platformPaths}:${commonPaths}`
+        }
+      })
+    } catch (error) {
+      logger.error(`Failed to spawn syftbox process: ${error}`)
+      return
+    }
 
     logger.info('Syftbox binary started with PID:', syftboxProcess.pid)
 

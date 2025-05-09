@@ -127,7 +127,9 @@
       return false
     }
 
-    if (!config.userID) {
+    // Simple validation for userId - just check if it exists
+    const userId = config.userID.trim()
+    if (!userId) {
       userIdError = 'User ID is required'
       return false
     }
@@ -136,7 +138,12 @@
   }
 
   function updateServerStepValidation(): void {
-    serverStepValid = validateServerStep()
+    try {
+      serverStepValid = validateServerStep()
+    } catch (error) {
+      console.error('Error in server step validation:', error)
+      serverStepValid = false
+    }
   }
 
   function validateServicesStep(): boolean {
@@ -198,25 +205,32 @@
 
   // Step navigation
   function nextStep() {
-    // Mark the current step as attempted
-    if (currentStep === 2) {
-      serverStepAttempted = true
-      updateServerStepValidation()
-      if (!serverStepValid) return
-    } else if (currentStep === 3) {
-      servicesStepAttempted = true
-      updateServicesStepValidation()
-      if (!servicesStepValid) return
-    } else if (currentStep === 4) {
-      llmStepAttempted = true
-      updateLLMStepValidation()
-      if (!llmStepValid) return
-    }
+    try {
+      // Mark the current step as attempted
+      if (currentStep === 2) {
+        serverStepAttempted = true
+        // Prevent UI freezing by validating the server step without complex animations
+        // Skip updateServerStepValidation() and directly validate
+        const isValid = validateServerStep()
+        serverStepValid = isValid
+        if (!isValid) return
+      } else if (currentStep === 3) {
+        servicesStepAttempted = true
+        updateServicesStepValidation()
+        if (!servicesStepValid) return
+      } else if (currentStep === 4) {
+        llmStepAttempted = true
+        updateLLMStepValidation()
+        if (!llmStepValid) return
+      }
 
-    // Update step in local state and backend
-    if (currentStep < totalSteps) {
-      currentStep++
-      window.api.onboarding.setStep(currentStep)
+      // Update step in local state and backend
+      if (currentStep < totalSteps) {
+        currentStep++
+        window.api.onboarding.setStep(currentStep)
+      }
+    } catch (error) {
+      console.error('Error in nextStep:', error)
     }
   }
 
@@ -466,7 +480,6 @@
   // Update validation state when relevant data changes
   $: {
     config.serverURL
-    config.userID
     updateServerStepValidation()
   }
 
@@ -609,7 +622,9 @@
 </header>
 
 <!-- Main onboarding container -->
-<div class="fixed inset-0 bg-background flex flex-col items-center justify-center p-4 z-50 pt-10">
+<div
+  class="fixed inset-0 bg-background flex flex-col items-center justify-center p-4 z-50 pt-10 overflow-auto custom-scrollbar"
+>
   <!-- Progress indicator -->
   <div class="w-full max-w-2xl mb-8">
     <div class="flex justify-between items-center px-4">
@@ -637,7 +652,7 @@
   </div>
 
   <!-- Step content -->
-  <div class="bg-card rounded-lg shadow-xl border border-border w-full max-w-2xl overflow-hidden">
+  <div class="bg-card rounded-lg shadow-xl border border-border w-full max-w-2xl flex flex-col">
     <!-- Step 1: Welcome -->
     {#if currentStep === 1}
       <div class="p-6 animate-[fadeIn_0.5s_ease-in-out]">
@@ -684,8 +699,9 @@
             <input
               id="userID"
               type="text"
-              bind:value={config.userID}
-              class="w-full px-3 py-2 rounded-md border border-border bg-background transition-colors hover:border-border focus:border-border"
+              value={config.userID}
+              on:input={(e) => (config.userID = e.target.value)}
+              class="w-full px-3 py-2 rounded-md border border-border bg-background hover:border-border focus:border-border"
               placeholder="your-unique-username"
             />
             {#if serverStepAttempted && userIdError}
@@ -1185,12 +1201,8 @@
           on:click={() => {
             // This will trigger the validation checks and error messages
             nextStep()
-            // If requirements not met, apply shake animation to button
-            if (
-              (currentStep === 2 && !serverStepValid) ||
-              (currentStep === 3 && !servicesStepValid) ||
-              (currentStep === 4 && !llmStepValid)
-            ) {
+            // Removed animation for server step to avoid UI freezing
+            if ((currentStep === 3 && !servicesStepValid) || (currentStep === 4 && !llmStepValid)) {
               const button = document.activeElement
               if (button) {
                 button.classList.add('animate-shake')
@@ -1264,6 +1276,25 @@
 
   :global(.animate-shake) {
     animation: shake 0.5s ease-in-out;
+  }
+
+  /* Custom scrollbar styling */
+  :global(.custom-scrollbar::-webkit-scrollbar) {
+    width: 8px;
+    height: 8px;
+  }
+
+  :global(.custom-scrollbar::-webkit-scrollbar-track) {
+    background-color: transparent;
+  }
+
+  :global(.custom-scrollbar::-webkit-scrollbar-thumb) {
+    background-color: var(--border);
+    border-radius: 4px;
+  }
+
+  :global(.custom-scrollbar::-webkit-scrollbar-thumb:hover) {
+    background-color: var(--muted-foreground);
   }
 
   /* Remove highlight/focus borders for inputs */
