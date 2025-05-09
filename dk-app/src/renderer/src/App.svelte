@@ -13,7 +13,6 @@
   import Toaster from './components/ui/Toaster.svelte'
   import { Search, FileText, AppWindow, Globe } from 'lucide-svelte'
   import { cn } from './lib/utils.ts'
-  let sidebarExpanded = false
   let currentView = 'welcome'
   let selectedUser = { id: 0, name: '', online: false }
   let selectedChannel = ''
@@ -33,10 +32,6 @@
   let isSearching = false
   let searchCategory = 'all' // 'all', 'documents', 'trackers', 'apis'
 
-  // Function to handle sidebar state changes
-  function handleSidebarChange(event: CustomEvent<boolean>): void {
-    sidebarExpanded = event.detail
-  }
 
   // Function to handle theme changes
   function handleThemeChange(event: CustomEvent<boolean>): void {
@@ -220,11 +215,6 @@
 
   // Initialize state
   onMount(async () => {
-    // Initialize sidebar state
-    const savedSidebarState = localStorage.getItem('sidebar-expanded')
-    if (savedSidebarState !== null) {
-      sidebarExpanded = savedSidebarState === 'true'
-    }
 
     // Initialize theme state
     const savedTheme = localStorage.getItem('dark-mode')
@@ -318,7 +308,6 @@
     <!-- Normal app UI (when config exists) -->
     <Titlebar />
     <Sidebar
-      on:sidebarChange={handleSidebarChange}
       on:userSelect={handleUserSelect}
       on:channelSelect={handleChannelSelect}
       on:aiAssistantSelect={handleAIAssistantSelect}
@@ -340,7 +329,7 @@
   <main
     class={cn(
       'pt-8 h-screen box-border transition-all duration-200 ease-in-out',
-      sidebarExpanded ? 'pl-[220px]' : 'pl-[50px]',
+      'pl-[50px]',
       showThreadSidebar ? 'pr-[300px]' : ''
     )}
   >
