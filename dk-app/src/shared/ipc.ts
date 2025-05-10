@@ -202,6 +202,13 @@ export interface LLMAPI {
   saveAIChatHistory: (messages: AIMessage[]) => Promise<boolean>
   getAIChatHistory: () => Promise<AIMessage[]>
   clearAIChatHistory: () => Promise<boolean>
+
+  // Slash command support
+  processCommand: (request: {
+    prompt: string
+    userId: string
+  }) => Promise<{ passthrough: boolean; payload: string }>
+  getCommands: () => Promise<{ name: string; summary: string }[]>
 }
 
 // Complete API interface for preload

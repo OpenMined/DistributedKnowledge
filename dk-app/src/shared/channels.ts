@@ -93,5 +93,7 @@ export enum LLMChannels {
   UpdateProviderConfig = 'llm:updateProviderConfig',
   SaveAIChatHistory = 'llm:saveAIChatHistory',
   GetAIChatHistory = 'llm:getAIChatHistory',
-  ClearAIChatHistory = 'llm:clearAIChatHistory'
+  ClearAIChatHistory = 'llm:clearAIChatHistory',
+  ProcessCommand = 'llm:processCommand',
+  GetCommands = 'llm:getCommands'
 }

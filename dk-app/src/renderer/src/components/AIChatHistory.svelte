@@ -1,7 +1,16 @@
 <script lang="ts">
   import { cn } from '@lib/utils'
   import { onMount, onDestroy, afterUpdate } from 'svelte'
-  import { Bot, User, ArrowRight, LoaderCircle, Copy, CheckCircle } from 'lucide-svelte'
+  import {
+    Bot,
+    User,
+    ArrowRight,
+    LoaderCircle,
+    Copy,
+    CheckCircle,
+    MoreVertical,
+    Trash2
+  } from 'lucide-svelte'
   import { formatMessageTimestamp } from '@shared/utils'
   import * as SharedTypes from '@shared/types'
   type AIMessage = SharedTypes.AIMessage
@@ -14,6 +23,17 @@
   import logger from '@lib/utils/logger'
   import { safeIpcCall } from '@lib/utils/errorHandler'
   import { AppError, ErrorType } from '@shared/errors'
+
+  // Import simple command system
+  import SimpleCommandPopup from './ui/SimpleCommandPopup.svelte'
+  import {
+    commandPopupVisible,
+    showCommandPopup,
+    hideCommandPopup,
+    executeCommand,
+    filterCommands
+  } from '@lib/commands'
+  import { clsx } from 'clsx'
 
   // Reference to the chat container for auto-scrolling
   let chatContainer: HTMLElement
@@ -177,6 +197,26 @@
     }
   }
 
+  // References for command functionality
+  let inputTextarea: HTMLTextAreaElement
+  let userId = crypto.randomUUID() // For command context
+
+  // Initialize commands function
+  async function initCommands() {
+    logger.debug('Initializing command system')
+    try {
+      // Use the command initializer to load server commands if available
+      await import('@lib/commands').then((commands) => {
+        if (commands.initializeCommands) {
+          return commands.initializeCommands()
+        }
+      })
+      logger.debug('Command system initialized')
+    } catch (error) {
+      logger.error('Failed to initialize commands:', error)
+    }
+  }
+
   onMount(async () => {
     try {
       // Load conversation history from main process using safe IPC call
@@ -214,6 +254,14 @@
       window.api.toast.show('Failed to initialize AI service. Some features may be unavailable.', {
         type: 'warning'
       })
+    }
+
+    // Load slash commands
+    try {
+      await initCommands()
+      logger.debug('Slash commands initialized')
+    } catch (error) {
+      logger.error('Failed to initialize slash commands:', error)
     }
 
     // Set up stream handlers
@@ -339,12 +387,158 @@
     }
   }
 
-  // Handle key press in the input field
-  function handleKeyPress(event: KeyboardEvent) {
+  // Simple command handlers for the new approach
+  function handleSimpleInputChange() {
+    // Show command popup if input starts with /
+    if (newMessageText.startsWith('/')) {
+      showCommandPopup()
+      logger.debug('Command mode activated. Text:', newMessageText)
+    } else {
+      hideCommandPopup()
+    }
+  }
+
+  function handleSimpleKeyPress(event: KeyboardEvent) {
+    // Handle Enter key to execute command or send message
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
-      sendMessage()
+
+      // Handle command if input starts with /
+      if (newMessageText.trim().startsWith('/')) {
+        handleSimpleCommandExecute()
+      } else {
+        sendMessage()
+      }
+      return
     }
+
+    // Handle Tab key for command autocompletion
+    if (event.key === 'Tab' && newMessageText.startsWith('/')) {
+      event.preventDefault()
+
+      // Import filterCommands directly from lib/commands
+      const filteredCmds = filterCommands(newMessageText)
+
+      // If there are suggestions available, use the first one
+      if (filteredCmds.length > 0) {
+        const suggestion = filteredCmds[0]
+        newMessageText = `/${suggestion.name} `
+
+        // Set cursor position after the command and space
+        setTimeout(() => {
+          if (inputTextarea) {
+            inputTextarea.focus()
+            inputTextarea.selectionStart = suggestion.name.length + 2 // +2 for / and space
+            inputTextarea.selectionEnd = suggestion.name.length + 2
+          }
+        }, 0)
+      }
+    }
+  }
+
+  function handleSimpleCommandSelect(cmd: { name: string }) {
+    newMessageText = `/${cmd.name} `
+
+    if (inputTextarea) {
+      inputTextarea.focus()
+
+      // Set cursor position after the command and space
+      setTimeout(() => {
+        if (inputTextarea) {
+          inputTextarea.selectionStart = cmd.name.length + 2 // +2 for / and space
+          inputTextarea.selectionEnd = cmd.name.length + 2
+        }
+      }, 0)
+    }
+  }
+
+  async function handleSimpleCommandExecute() {
+    const commandText = newMessageText.trim()
+    logger.debug('Executing command:', commandText)
+
+    // Add user message (the command) to chat
+    const userMessage: AIMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: commandText,
+      timestamp: new Date()
+    }
+
+    messages = [...messages, userMessage]
+
+    // Clear input field
+    newMessageText = ''
+    hideCommandPopup()
+
+    try {
+      // Show a loading indicator for the command execution
+      const placeholderMessage: AIMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'Processing command...',
+        timestamp: new Date(),
+        isLoading: true
+      }
+
+      messages = [...messages, placeholderMessage]
+
+      // Execute the command (could be local or server-side)
+      const result = await executeCommand(commandText)
+
+      // Replace placeholder with result
+      messages = messages.map((msg) => {
+        if (msg.id === placeholderMessage.id) {
+          return {
+            ...msg,
+            content: result,
+            isLoading: false
+          }
+        }
+        return msg
+      })
+
+      // Special case for /clear command
+      if (commandText.startsWith('/clear')) {
+        await clearChat()
+      }
+    } catch (error) {
+      // Handle error in command execution
+      logger.error('Command execution failed:', error)
+
+      // Add error message or update placeholder
+      const errorMsg = `Error executing command: ${error instanceof Error ? error.message : 'Unknown error'}`
+
+      // Check if we already have a placeholder to update
+      const hasPlaceholder = messages.some((msg) => msg.isLoading)
+
+      if (hasPlaceholder) {
+        // Update placeholder with error
+        messages = messages.map((msg) => {
+          if (msg.isLoading) {
+            return {
+              ...msg,
+              content: errorMsg,
+              isLoading: false
+            }
+          }
+          return msg
+        })
+      } else {
+        // Add new error message
+        messages = [
+          ...messages,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: errorMsg,
+            timestamp: new Date()
+          }
+        ]
+      }
+    }
+
+    // Save the conversation
+    await saveAIChatHistory(messages)
   }
 
   // Function to copy text to clipboard
@@ -372,6 +566,31 @@
 
   // Track copy button states (for showing copy/check icons)
   let copyState: Record<string, boolean> = {}
+
+  // Track dropdown menu state
+  let showDropdown = false
+
+  // Close dropdown when clicking outside
+  function handleClickOutside(event: MouseEvent) {
+    if (showDropdown) {
+      showDropdown = false
+    }
+  }
+
+  // Toggle dropdown menu visibility
+  function toggleDropdown(event: MouseEvent) {
+    event.stopPropagation() // Prevent event from bubbling up
+    showDropdown = !showDropdown
+  }
+
+  // Handle document clicks to close dropdown
+  onMount(() => {
+    document.addEventListener('click', handleClickOutside)
+  })
+
+  onDestroy(() => {
+    document.removeEventListener('click', handleClickOutside)
+  })
 
   // Clear the chat history
   async function clearChat() {
@@ -439,14 +658,36 @@
         </p>
       </div>
     </div>
-    <div>
+    <div class="relative">
       <button
-        class="text-xs text-muted-foreground hover:text-destructive transition-colors"
-        on:click={clearChat}
-        aria-label="Clear chat history"
+        class="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+        aria-label="Chat options"
+        on:click={toggleDropdown}
       >
-        Clear History
+        <MoreVertical size={16} />
       </button>
+
+      <!-- Dropdown menu -->
+      {#if showDropdown}
+        <div
+          class="absolute right-0 z-10 w-40 rounded-md shadow-lg bg-popover border border-border"
+          style="top: 2rem; right: 0;"
+          on:click|stopPropagation
+        >
+          <div class="py-1">
+            <button
+              class="flex items-center gap-2 w-full px-4 py-2 text-sm text-destructive hover:bg-muted/80 transition-colors"
+              on:click={() => {
+                showDropdown = false
+                clearChat()
+              }}
+            >
+              <Trash2 size={16} />
+              Clear History
+            </button>
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -458,7 +699,7 @@
       <div class="flex flex-col gap-1">
         <div
           class={cn(
-            'flex items-start gap-3 p-3 rounded-lg transition-colors',
+            'flex items-start gap-3 p-3 rounded-lg transition-colors group',
             message.role === 'assistant' ? 'hover:bg-muted/40' : 'hover:bg-muted/20'
           )}
         >
@@ -487,10 +728,10 @@
                 </span>
               </div>
 
-              <!-- Copy button for AI assistant messages only -->
+              <!-- Copy button for AI assistant messages only - visible on hover -->
               {#if message.role === 'assistant' && message.content && !message.isLoading}
                 <button
-                  class="text-muted-foreground hover:text-foreground transition-colors p-1"
+                  class="text-muted-foreground hover:text-foreground transition-colors p-1 opacity-0 group-hover:opacity-100"
                   on:click={() => copyToClipboard(message.content, message.id)}
                   aria-label="Copy message"
                   title="Copy message"
@@ -527,14 +768,25 @@
   </div>
 
   <div class="flex gap-2 p-4 border-t border-border bg-background">
-    <textarea
-      class="flex-1 px-3.5 py-2.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:border-primary resize-none min-h-[40px] max-h-[120px]"
-      placeholder="Message AI Assistant..."
-      bind:value={newMessageText}
-      on:keydown={handleKeyPress}
-      disabled={isWaitingForResponse || !activeProvider}
-      rows="1"
-    ></textarea>
+    <div class="flex-1 relative">
+      <textarea
+        bind:this={inputTextarea}
+        class="w-full px-3.5 py-2.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:border-primary resize-none min-h-[40px] max-h-[120px]"
+        placeholder="Message AI Assistant... (type / for commands)"
+        bind:value={newMessageText}
+        on:keydown={handleSimpleKeyPress}
+        on:input={handleSimpleInputChange}
+        disabled={isWaitingForResponse || !activeProvider}
+        rows="1"
+      ></textarea>
+
+      <!-- Simple Command Popup -->
+      <SimpleCommandPopup
+        inputText={newMessageText}
+        onSelectCommand={(cmd) => handleSimpleCommandSelect(cmd)}
+      />
+    </div>
+
     <button
       class={cn(
         'px-4 py-2.5 rounded-md border-none font-medium cursor-pointer flex items-center justify-center gap-2 min-w-[80px]',

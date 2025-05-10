@@ -94,5 +94,10 @@ export const llmAPI: LLMAPI = {
   saveAIChatHistory: (messages: AIMessage[]) =>
     ipcRenderer.invoke(LLMChannels.SaveAIChatHistory, messages),
   getAIChatHistory: () => ipcRenderer.invoke(LLMChannels.GetAIChatHistory),
-  clearAIChatHistory: () => ipcRenderer.invoke(LLMChannels.ClearAIChatHistory)
+  clearAIChatHistory: () => ipcRenderer.invoke(LLMChannels.ClearAIChatHistory),
+
+  // Slash command support
+  processCommand: (request: { prompt: string; userId: string }) =>
+    ipcRenderer.invoke(LLMChannels.ProcessCommand, request),
+  getCommands: () => ipcRenderer.invoke(LLMChannels.GetCommands)
 }

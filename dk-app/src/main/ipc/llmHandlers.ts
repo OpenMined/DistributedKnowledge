@@ -20,6 +20,8 @@ import {
 } from '@services/llm/aiChatService'
 import { wrapIpcHandler } from '@utils/ipcErrorHandler'
 import { AppError, ErrorType } from '@shared/errors'
+// Import slash command service
+import { processSlashCommand } from '../services/llm/slashCommandService'
 
 // Create a singleton instance of the LLM service
 const llmService = new LLMService()
@@ -92,11 +94,20 @@ export function registerLLMHandlers(): void {
 
   // Set active provider
   ipcMain.handle(LLMChannels.SetActiveProvider, async (_, provider: LLMProvider) => {
-    llmService.setActiveProvider(provider)
-
     // Update config
     const config = getLLMConfig()
     config.activeProvider = provider
+
+    // Set active provider
+    llmService.setActiveProvider(provider)
+
+    // Reinitialize provider with existing config
+    if (config.providers[provider]) {
+      logger.debug(`Reinitializing provider ${provider} after setting as active`)
+      llmService.initProvider(provider, config.providers[provider])
+    }
+
+    // Save config
     saveLLMConfig(config)
 
     return true
@@ -116,6 +127,49 @@ export function registerLLMHandlers(): void {
   ipcMain.handle(LLMChannels.SendMessage, async (_, request: ChatCompletionRequest) => {
     return await llmService.sendMessage(request)
   })
+
+  // Process slash command - new handler for slash commands
+  ipcMain.handle(
+    LLMChannels.ProcessCommand,
+    wrapIpcHandler(async (_, request: { prompt: string; userId: string }) => {
+      const { prompt, userId } = request
+      try {
+        return await processSlashCommand(prompt, userId)
+      } catch (error) {
+        logger.error('Error processing slash command:', error)
+        return {
+          passthrough: false,
+          payload: `Error processing command: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }
+      }
+    }, ErrorType.COMMAND_PROCESSOR)
+  )
+
+  // Get available commands - for command autocompletion
+  ipcMain.handle(
+    LLMChannels.GetCommands,
+    wrapIpcHandler(async () => {
+      // Get from command registry directly
+      // Prevent errors by providing fallback commands
+      try {
+        // Import directly from the module
+        const { commandRegistry } = await import('../services/llm/commandRegistry')
+        return commandRegistry.getAll().map((cmd) => ({
+          name: cmd.name,
+          summary: cmd.summary
+        }))
+      } catch (error) {
+        logger.error('Failed to import command registry:', error)
+        // Return basic commands as a fallback
+        return [
+          { name: 'help', summary: 'List available slash commands' },
+          { name: 'clear', summary: 'Clear the chat history' },
+          { name: 'version', summary: 'Show application version' },
+          { name: 'echo', summary: 'Echo a message back' }
+        ]
+      }
+    }, ErrorType.DATA_LOAD)
+  )
 
   // Stream message from LLM
   ipcMain.on(
