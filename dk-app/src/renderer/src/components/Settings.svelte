@@ -82,7 +82,7 @@
         config.baseUrl = 'http://localhost:11434'
       }
 
-      // Don't send empty API keys for non-Ollama providers
+      // Don't send empty API keys for providers that require them
       if (provider !== LLMProvider.OLLAMA && config.apiKey === '') {
         errorMessage = 'Please enter a valid API key'
         isSaving = false
@@ -173,8 +173,8 @@
       case LLMProvider.GEMINI:
         return {
           ...baseConfig,
-          defaultModel: 'gemini-1.5-pro',
-          models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro']
+          defaultModel: 'gemini-2.5-pro-preview',
+          models: ['gemini-2.5-pro-preview', 'gemini-2.5-flash-preview']
         }
       case LLMProvider.OLLAMA:
         return {
@@ -183,6 +183,25 @@
           baseUrl: 'http://localhost:11434',
           defaultModel: 'gemma3:4b',
           models: ['gemma3:4b', 'gemma:2b', 'qwen2.5:latest']
+        }
+      case LLMProvider.OPENROUTER:
+        return {
+          ...baseConfig,
+          baseUrl: 'https://openrouter.ai/api',
+          defaultModel: 'anthropic/claude-3-opus',
+          models: [
+            'anthropic/claude-3.7-sonnet',
+            'anthropic/claude-3.5-sonnet',
+            'anthropic/claude-3-opus',
+            'anthropic/claude-3-sonnet',
+            'anthropic/claude-3-haiku',
+            'openai/gpt-4o',
+            'openai/gpt-4.1',
+            'mistralai/mistral-large',
+            'google/gemini-2.5-pro-preview',
+            'google/gemini-2.5-flash-preview',
+            'meta/llama-3-70b'
+          ]
         }
       default:
         return {
@@ -357,14 +376,16 @@
                             class="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
                             placeholder={providerName === 'ollama'
                               ? 'Not required for Ollama'
-                              : '••••••••••••••••••••••••••••••'}
+                              : providerName === 'openrouter'
+                                ? 'Your OpenRouter API key'
+                                : '••••••••••••••••••••••••••••••'}
                             disabled={providerName === 'ollama'}
                             bind:value={providerConfig.apiKey}
                           />
                         </div>
 
-                        <!-- Base URL (only for Ollama) -->
-                        {#if providerName === 'ollama'}
+                        <!-- Base URL (for Ollama and OpenRouter) -->
+                        {#if providerName === 'ollama' || providerName === 'openrouter'}
                           <div class="space-y-2">
                             <label
                               for="{providerName}-base-url"

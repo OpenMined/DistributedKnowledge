@@ -51,8 +51,12 @@
         },
         [LLMProvider.ANTHROPIC]: {
           apiKey: '',
-          defaultModel: 'claude-3-opus-20240229',
-          models: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307']
+          defaultModel: 'claude-3-7-sonnet-latest',
+          models: [
+            'claude-3-7-sonnet-latest',
+            'claude-3-5-haiku-latest',
+            'claude-3-5-sonnet-latest'
+          ]
         },
         [LLMProvider.OPENAI]: {
           apiKey: '',
@@ -61,8 +65,26 @@
         },
         [LLMProvider.GEMINI]: {
           apiKey: '',
-          defaultModel: 'gemini-pro',
-          models: ['gemini-pro', 'gemini-pro-vision']
+          defaultModel: 'gemini-2.5-pro-preview',
+          models: ['gemini-2.5-pro-preview', 'gemini-2.5-flash-preview']
+        },
+        [LLMProvider.OPENROUTER]: {
+          apiKey: '',
+          baseUrl: 'https://openrouter.ai/api',
+          defaultModel: 'anthropic/claude-3-opus',
+          models: [
+            'anthropic/claude-3.7-sonnet',
+            'anthropic/claude-3.5-sonnet',
+            'anthropic/claude-3-opus',
+            'anthropic/claude-3-sonnet',
+            'anthropic/claude-3-haiku',
+            'openai/gpt-4o',
+            'openai/gpt-4.1',
+            'mistralai/mistral-large',
+            'google/gemini-2.5-pro-preview',
+            'google/gemini-2.5-flash-preview',
+            'meta/llama-3-70b'
+          ]
         }
       }
     }

@@ -20,14 +20,32 @@ export const defaultLLMConfig: LLMConfig = {
     },
     [LLMProvider.GEMINI]: {
       apiKey: '',
-      defaultModel: 'gemini-1.5-pro',
-      models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro']
+      defaultModel: 'gemini-2.5-pro-preview',
+      models: ['gemini-2.5-pro-preview', 'gemini-2.5-flash-preview']
     },
     [LLMProvider.OLLAMA]: {
       apiKey: '', // Not used for Ollama, but kept for consistency
       baseUrl: 'http://localhost:11434',
       defaultModel: 'gemma3:4b',
       models: ['gemma3:4b', 'gemma:2b', 'qwen2.5:latest']
+    },
+    [LLMProvider.OPENROUTER]: {
+      apiKey: '',
+      baseUrl: 'https://openrouter.ai/api',
+      defaultModel: 'anthropic/claude-3-opus',
+      models: [
+        'anthropic/claude-3.7-sonnet',
+        'anthropic/claude-3.5-sonnet',
+        'anthropic/claude-3-opus',
+        'anthropic/claude-3-sonnet',
+        'anthropic/claude-3-haiku',
+        'openai/gpt-4o',
+        'openai/gpt-4.1',
+        'mistralai/mistral-large',
+        'google/gemini-2.5-pro-preview',
+        'google/gemini-2.5-flash-preview',
+        'meta/llama-3-70b'
+      ]
     }
   }
 }

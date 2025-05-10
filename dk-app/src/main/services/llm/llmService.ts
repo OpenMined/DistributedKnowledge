@@ -6,7 +6,13 @@ import {
   ProviderConfig,
   StreamingChunk
 } from './types'
-import { AnthropicProvider, OpenAIProvider, GeminiProvider, OllamaProvider } from './providers'
+import {
+  AnthropicProvider,
+  OpenAIProvider,
+  GeminiProvider,
+  OllamaProvider,
+  OpenRouterProvider
+} from './providers'
 import { appConfig } from '../config'
 
 /**
@@ -56,6 +62,9 @@ export class LLMService {
       case LLMProvider.OLLAMA:
         this.providers.set(provider, new OllamaProvider(config))
         break
+      case LLMProvider.OPENROUTER:
+        this.providers.set(provider, new OpenRouterProvider(config))
+        break
       default:
         throw new Error(`Unsupported provider: ${provider}`)
     }
@@ -94,9 +103,11 @@ export class LLMService {
       case LLMProvider.OPENAI:
         return 'gpt-4o'
       case LLMProvider.GEMINI:
-        return 'gemini-1.5-pro'
+        return 'gemini-2.5-pro-preview'
       case LLMProvider.OLLAMA:
         return 'gemma3:4b'
+      case LLMProvider.OPENROUTER:
+        return 'anthropic/claude-3-opus'
       default:
         return ''
     }
@@ -112,9 +123,23 @@ export class LLMService {
       case LLMProvider.OPENAI:
         return ['gpt-4.1-nano', 'gpt-4.1-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini']
       case LLMProvider.GEMINI:
-        return ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro']
+        return ['gemini-2.5-pro-preview', 'gemini-2.5-flash-preview']
       case LLMProvider.OLLAMA:
         return ['gemma3:4b', 'gemma:2b', 'qwen2.5:latest']
+      case LLMProvider.OPENROUTER:
+        return [
+          'anthropic/claude-3.7-sonnet',
+          'anthropic/claude-3.5-sonnet',
+          'anthropic/claude-3-opus',
+          'anthropic/claude-3-sonnet',
+          'anthropic/claude-3-haiku',
+          'openai/gpt-4o',
+          'openai/gpt-4.1',
+          'mistralai/mistral-large',
+          'google/gemini-2.5-pro-preview',
+          'google/gemini-2.5-flash-preview',
+          'meta/llama-3-70b'
+        ]
       default:
         return []
     }
