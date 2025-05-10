@@ -19,14 +19,8 @@ export function createCommandContext(userId: string): CommandCtx {
  * Basic command handlers for fallback
  */
 const basicCommands = {
-  help: async () => {
-    return 'Available commands:\n• **/help** — List available slash commands\n• **/clear** — Clear the chat history\n• **/version** — Show application version\n• **/echo** — Echo a message back'
-  },
   clear: async () => {
     return 'Chat history cleared.'
-  },
-  version: async () => {
-    return 'Distributed Knowledge App v1.0.0'
   },
   echo: async (params: string) => {
     return `Echo: ${params || 'No message provided'}`
@@ -84,7 +78,7 @@ export async function processSlashCommand(
         logger.warn({ cmdName, userId }, 'Unknown slash command')
         return {
           passthrough: false,
-          payload: `Unknown command: /${cmdName}. Type /help to see available commands.`
+          payload: `Unknown command: /${cmdName}.`
         }
       }
     } catch (importError) {
@@ -98,7 +92,7 @@ export async function processSlashCommand(
         logger.warn({ cmdName, userId }, 'Unknown slash command')
         return {
           passthrough: false,
-          payload: `Unknown command: /${cmdName}. Type /help to see available commands.`
+          payload: `Unknown command: /${cmdName}.`
         }
       }
     }

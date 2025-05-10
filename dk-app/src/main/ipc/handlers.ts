@@ -16,6 +16,7 @@ import { registerAppHandlers } from './appHandlers'
 import { registerTrackerHandlers } from './trackerHandlers'
 import { registerTrackerMarketplaceHandlers } from './trackerMarketplaceHandlers'
 import { registerOnboardingHandlers } from './onboardingHandlers'
+import { registerMCPHandlers } from './mcpHandlers'
 import logger from '../../shared/logging'
 import { showToast } from '../utils'
 
@@ -43,6 +44,9 @@ export function setupIpcHandlers(): void {
 
   // Register Onboarding handlers
   registerOnboardingHandlers()
+
+  // Register MCP handlers
+  registerMCPHandlers()
 
   // IPC test
   ipcMain.on(Channels.Ping, () => logger.debug('pong'))

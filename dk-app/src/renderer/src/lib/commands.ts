@@ -16,9 +16,7 @@ export interface Command {
 
 // Basic commands - client side by default, mark server-side ones explicitly
 export const commands: Command[] = [
-  { name: 'help', description: 'List available commands' },
   { name: 'clear', description: 'Clear chat history' },
-  { name: 'version', description: 'Show application version' },
   { name: 'echo', description: 'Echo a message back' }
 ]
 
@@ -72,7 +70,7 @@ export async function executeCommand(commandText: string): Promise<string> {
 
     // If command not found
     if (!command) {
-      return `Unknown command: /${commandName}. Type /help to see available commands.`
+      return `Unknown command: /${commandName}.`
     }
 
     // If it's a server-side command, pass to server
@@ -101,20 +99,14 @@ export async function executeCommand(commandText: string): Promise<string> {
 
     // Client-side fallback implementation
     switch (commandName) {
-      case 'help':
-        return `Available commands:\n${commands.map((cmd) => `• **/${cmd.name}** — ${cmd.description}`).join('\n')}`
-
       case 'clear':
         return 'Chat history cleared.'
-
-      case 'version':
-        return 'Distributed Knowledge App v1.0.0'
 
       case 'echo':
         return `Echo: ${args || 'No message provided'}`
 
       default:
-        return `Command /${commandName} could not be executed. Type /help to see available commands.`
+        return `Command /${commandName} could not be executed.`
     }
   } catch (error) {
     logger.error('Error executing command:', error)

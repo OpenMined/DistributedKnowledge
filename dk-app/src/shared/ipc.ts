@@ -120,6 +120,15 @@ export interface TrackersAPI {
 export interface ConfigAPI {
   get: () => Promise<AppConfig>
   save: (config: Partial<AppConfig>) => Promise<boolean>
+  getMCPConfig: () => Promise<{
+    mcpServers: {
+      [key: string]: {
+        command: string
+        args: string[]
+      }
+    }
+  }>
+  saveMCPConfig: (config: Record<string, unknown>) => Promise<boolean>
 }
 
 // Onboarding IPC interface

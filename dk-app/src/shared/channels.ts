@@ -97,3 +97,8 @@ export enum LLMChannels {
   ProcessCommand = 'llm:processCommand',
   GetCommands = 'llm:getCommands'
 }
+
+export enum MCPChannels {
+  GetConfig = 'mcp:getConfig',
+  SaveConfig = 'mcp:saveConfig'
+}

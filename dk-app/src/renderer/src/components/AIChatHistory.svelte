@@ -9,7 +9,8 @@
     Copy,
     CheckCircle,
     MoreVertical,
-    Trash2
+    Trash2,
+    Server
   } from 'lucide-svelte'
   import { formatMessageTimestamp } from '@shared/utils'
   import * as SharedTypes from '@shared/types'
@@ -26,6 +27,7 @@
 
   // Import simple command system
   import SimpleCommandPopup from './ui/SimpleCommandPopup.svelte'
+  import MCPServersModal from './MCPServersModal.svelte'
   import {
     commandPopupVisible,
     showCommandPopup,
@@ -569,6 +571,7 @@
 
   // Track dropdown menu state
   let showDropdown = false
+  let showMCPModal = false
 
   // Close dropdown when clicking outside
   function handleClickOutside(event: MouseEvent) {
@@ -675,6 +678,19 @@
           on:click|stopPropagation
         >
           <div class="py-1">
+            <button
+              class="flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-muted/80 transition-colors"
+              on:click={() => {
+                showDropdown = false
+                showMCPModal = true
+              }}
+            >
+              <Server size={16} />
+              MCP Servers
+            </button>
+
+            <hr class="my-1 border-border" />
+
             <button
               class="flex items-center gap-2 w-full px-4 py-2 text-sm text-destructive hover:bg-muted/80 transition-colors"
               on:click={() => {
@@ -806,3 +822,6 @@
     </button>
   </div>
 </div>
+
+<!-- MCP Servers Modal -->
+<MCPServersModal bind:showModal={showMCPModal} on:close={() => (showMCPModal = false)} />
