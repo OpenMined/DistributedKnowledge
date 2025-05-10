@@ -1,8 +1,21 @@
 // Message types for LLM conversations
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
 }
+
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  }
+}
+
 
 export interface ChatCompletionRequest {
   messages: ChatMessage[]
@@ -56,6 +69,7 @@ export interface LLMProviderInterface {
     request: ChatCompletionRequest,
     onChunk: (chunk: StreamingChunk) => void,
     onComplete: (fullResponse: ChatCompletionResponse) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
+    requestId?: string
   ): Promise<void>
 }

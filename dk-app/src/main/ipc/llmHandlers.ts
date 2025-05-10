@@ -135,7 +135,9 @@ export function registerLLMHandlers(): void {
           // On error handler
           (error: Error) => {
             event.sender.send(LLMChannels.StreamError, requestId, error.message)
-          }
+          },
+          // Pass the requestId to streamMessage for logging
+          requestId
         )
       } catch (error) {
         event.sender.send(LLMChannels.StreamError, requestId, (error as Error).message)

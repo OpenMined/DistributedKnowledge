@@ -168,10 +168,11 @@ export class LLMService {
     request: ChatCompletionRequest,
     onChunk: (chunk: StreamingChunk) => void,
     onComplete: (fullResponse: ChatCompletionResponse) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
+    requestId?: string
   ): Promise<void> {
     const provider = this.getProviderInstance()
-    return provider.streamMessage(request, onChunk, onComplete, onError)
+    return provider.streamMessage(request, onChunk, onComplete, onError, requestId)
   }
 
   /**
