@@ -1,21 +1,20 @@
 // Message types for LLM conversations
 
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
-  tool_call_id?: string;
-  tool_calls?: ToolCall[];
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string
+  tool_call_id?: string
+  tool_calls?: ToolCall[]
 }
 
 export interface ToolCall {
-  id: string;
-  type: 'function';
+  id: string
+  type: 'function'
   function: {
-    name: string;
-    arguments: string;
+    name: string
+    arguments: string
   }
 }
-
 
 export interface ChatCompletionRequest {
   messages: ChatMessage[]
@@ -58,7 +57,8 @@ export enum LLMProvider {
   ANTHROPIC = 'anthropic',
   OPENAI = 'openai',
   OLLAMA = 'ollama',
-  GEMINI = 'gemini'
+  GEMINI = 'gemini',
+  OPENROUTER = 'openrouter'
 }
 
 export interface LLMProviderInterface {

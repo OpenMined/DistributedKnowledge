@@ -28,6 +28,11 @@ export enum ErrorType {
   DATA_SAVE = 'data_save',
   DATA_LOAD = 'data_load',
 
+  // Command processing errors
+  COMMAND_PROCESSOR = 'command_processor',
+  COMMAND_NOT_FOUND = 'command_not_found',
+  COMMAND_PARAM_ERROR = 'command_param_error',
+
   // Application errors
   APPLICATION = 'application',
   IPC = 'ipc'
