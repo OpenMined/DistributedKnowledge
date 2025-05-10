@@ -767,11 +767,11 @@
     {/each}
   </div>
 
-  <div class="flex gap-2 p-4 border-t border-border bg-background">
+  <div class="flex items-start gap-2 p-4 border-t border-border bg-background">
     <div class="flex-1 relative">
       <textarea
         bind:this={inputTextarea}
-        class="w-full px-3.5 py-2.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:border-primary resize-none min-h-[40px] max-h-[120px]"
+        class="block w-full px-3.5 py-2.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:border-primary resize-none min-h-[40px] max-h-[120px]"
         placeholder="Message AI Assistant... (type / for commands)"
         bind:value={newMessageText}
         on:keydown={handleSimpleKeyPress}
@@ -789,7 +789,7 @@
 
     <button
       class={cn(
-        'px-4 py-2.5 rounded-md border-none font-medium cursor-pointer flex items-center justify-center gap-2 min-w-[80px]',
+        'self-stretch px-4 rounded-md border-none font-medium cursor-pointer flex items-center justify-center gap-2 min-w-[80px]',
         isWaitingForResponse || !newMessageText.trim() || !activeProvider
           ? 'bg-muted text-muted-foreground cursor-not-allowed'
           : 'bg-primary text-primary-foreground hover:bg-primary/90'
