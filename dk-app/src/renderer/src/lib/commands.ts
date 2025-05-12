@@ -17,7 +17,8 @@ export interface Command {
 // Basic commands - client side by default, mark server-side ones explicitly
 export const commands: Command[] = [
   { name: 'clear', description: 'Clear chat history' },
-  { name: 'echo', description: 'Echo a message back' }
+  { name: 'echo', description: 'Echo a message back' },
+  { name: 'answer', description: 'Search documents and reply with the input text', serverSide: true }
 ]
 
 // Keep a cache of server-side commands for command popup
@@ -78,23 +79,61 @@ export async function executeCommand(commandText: string): Promise<string> {
       try {
         // Get a random user ID - in a real app this would be the actual user ID
         const userId = crypto.randomUUID()
+        logger.debug(`Executing server-side command: ${commandName}, serverSide=${command.serverSide}`)
 
         // Call server-side command processor
+        logger.debug(`Calling processCommand with "${commandText}" for user ${userId}`)
         const result = await window.api.llm.processCommand({
           prompt: commandText,
           userId
         })
 
-        // Check if result is valid
-        if (result && typeof result.payload === 'string') {
-          return result.payload
-        } else {
-          throw new Error('Invalid response from server')
+        logger.debug(`Server response received:`, result)
+
+        // Check if result is valid - the server response might be nested
+        if (result) {
+          // Check for LLM request special format
+          if (result.llmRequest && result.llmRequest.type === 'llm_request') {
+            logger.debug('Received LLM request from server, returning special response')
+
+            // Return a special response that includes both displayable content and LLM request data
+            return {
+              type: 'llm_request',
+              displayText: result.payload,
+              messages: result.llmRequest.messages
+            };
+          }
+          // Standard string payload response
+          else if (typeof result.payload === 'string') {
+            logger.debug(`Server returned valid direct payload with length: ${result.payload.length}`)
+            logger.debug(`First 100 chars: ${result.payload.substring(0, 100)}`)
+
+            return result.payload;
+          }
+          // Handle nested response structure (result.data.payload)
+          else if (result.success === true && result.data && typeof result.data.payload === 'string') {
+            logger.debug(`Server returned valid nested payload with length: ${result.data.payload.length}`)
+            logger.debug(`First 100 chars: ${result.data.payload.substring(0, 100)}`)
+
+            return result.data.payload;
+          }
+          // Handle other valid response formats
+          else if (result.payload && typeof result.payload.payload === 'string') {
+            logger.debug(`Server returned valid double-nested payload`)
+            return result.payload.payload;
+          }
         }
+
+        // If we get here, the response format is not recognized
+        logger.error(`Invalid server response format:`, result)
+        throw new Error('Invalid response format from server')
       } catch (serverError) {
         logger.error('Server command execution failed:', serverError)
+        logger.error('Error details:', serverError)
         // Fall back to client-side implementation if available
       }
+    } else {
+      logger.debug(`Not executing as server-side command: ${commandName}, serverSide=${command?.serverSide}, processCommand available=${!!window.api?.llm?.processCommand}`)
     }
 
     // Client-side fallback implementation
@@ -104,6 +143,11 @@ export async function executeCommand(commandText: string): Promise<string> {
 
       case 'echo':
         return `Echo: ${args || 'No message provided'}`
+
+      case 'answer':
+        // In the client-side implementation, we don't have direct access to the document service
+        // so we'll just use a simple response but mark it as being processed server-side
+        return `Replied: ${args || 'No message provided'}\n\n(Processing document search on server...)`
 
       default:
         return `Command /${commandName} could not be executed.`

@@ -10,7 +10,8 @@
     CheckCircle,
     MoreVertical,
     Trash2,
-    Server
+    Server,
+    FileText
   } from 'lucide-svelte'
   import { formatMessageTimestamp } from '@shared/utils'
   import * as SharedTypes from '@shared/types'
@@ -99,11 +100,21 @@
     streamRequestId: string,
     chunk: StreamingChunk
   ) {
-    if (streamRequestId !== requestId) return
+    logger.debug(`Stream chunk received for requestId: ${streamRequestId}, current requestId: ${requestId}`)
+
+    if (streamRequestId !== requestId) {
+      logger.debug('Ignoring chunk for different requestId')
+      return
+    }
+
+    logger.debug(`Processing stream chunk: ${JSON.stringify(chunk.delta)}`)
 
     // Find the placeholder message and update its content
+    let updatedMessage = false;
     messages = messages.map((msg) => {
       if (msg.isLoading && msg.role === 'assistant') {
+        updatedMessage = true;
+        logger.debug(`Updating message ${msg.id} with chunk content`)
         return {
           ...msg,
           content: msg.content + (chunk.delta.content || ''),
@@ -112,6 +123,10 @@
       }
       return msg
     })
+
+    if (!updatedMessage) {
+      logger.warn('No loading assistant message found to update with stream chunk')
+    }
   }
 
   function handleStreamComplete(
@@ -119,11 +134,21 @@
     streamRequestId: string,
     response: ChatCompletionResponse
   ) {
-    if (streamRequestId !== requestId) return
+    logger.debug(`Stream complete received for requestId: ${streamRequestId}, current requestId: ${requestId}`)
+
+    if (streamRequestId !== requestId) {
+      logger.debug('Ignoring completion for different requestId')
+      return
+    }
+
+    logger.debug('Stream complete, updating message state')
 
     // Remove the loading state from the assistant message
+    let updatedMessage = false;
     messages = messages.map((msg) => {
       if (msg.isLoading && msg.role === 'assistant') {
+        updatedMessage = true;
+        logger.debug(`Marking message ${msg.id} as complete`)
         return {
           ...msg,
           isLoading: false
@@ -132,9 +157,14 @@
       return msg
     })
 
+    if (!updatedMessage) {
+      logger.warn('No loading assistant message found to mark as complete')
+    }
+
     isWaitingForResponse = false
 
     // Save to database via IPC
+    logger.debug('Saving updated messages to history after stream completion')
     saveAIChatHistory(messages)
   }
 
@@ -143,13 +173,21 @@
     streamRequestId: string,
     error: string
   ) {
-    if (streamRequestId !== requestId) return
+    logger.debug(`Stream error received for requestId: ${streamRequestId}, current requestId: ${requestId}`)
+
+    if (streamRequestId !== requestId) {
+      logger.debug('Ignoring error for different requestId')
+      return
+    }
 
     logger.error('Error streaming message:', error)
 
     // Update the error message
+    let updatedMessage = false;
     messages = messages.map((msg) => {
       if (msg.isLoading && msg.role === 'assistant') {
+        updatedMessage = true;
+        logger.debug(`Updating message ${msg.id} with error: ${error}`)
         return {
           ...msg,
           content: `I'm sorry, I encountered an error: ${error}`,
@@ -159,9 +197,14 @@
       return msg
     })
 
+    if (!updatedMessage) {
+      logger.warn('No loading assistant message found to update with error')
+    }
+
     isWaitingForResponse = false
 
     // Still save to database for error tracking
+    logger.debug('Saving updated messages to history after stream error')
     saveAIChatHistory(messages)
   }
 
@@ -183,19 +226,35 @@
 
   // Setup streaming message handlers
   function setupStreamHandlers() {
+    logger.debug('Setting up stream handlers')
+    if (!window.api?.llm?.onStreamChunk) {
+      logger.error('Stream handlers not available on window.api.llm')
+      return
+    }
+
+    // Clean up any existing handlers first to prevent duplicates
+    cleanupStreamHandlers()
+
+    // Setup new handlers
     window.api.llm.onStreamChunk(handleStreamChunk)
     window.api.llm.onStreamComplete(handleStreamComplete)
     window.api.llm.onStreamError(handleStreamError)
+
+    logger.debug('Stream handlers set up successfully')
   }
 
   // Clean up event listeners
   function cleanupStreamHandlers() {
+    logger.debug('Cleaning up stream handlers')
     if (window.api?.llm?.removeStreamListeners) {
       window.api.llm.removeStreamListeners(
         handleStreamChunk,
         handleStreamComplete,
         handleStreamError
       )
+      logger.debug('Stream handlers cleaned up')
+    } else {
+      logger.warn('Cannot clean up stream handlers - removeStreamListeners not available')
     }
   }
 
@@ -485,19 +544,116 @@
       messages = [...messages, placeholderMessage]
 
       // Execute the command (could be local or server-side)
+      logger.debug(`Calling executeCommand with "${commandText}"`)
       const result = await executeCommand(commandText)
 
-      // Replace placeholder with result
-      messages = messages.map((msg) => {
-        if (msg.id === placeholderMessage.id) {
-          return {
-            ...msg,
-            content: result,
-            isLoading: false
+      // Check if this is a special LLM request result
+      if (result && typeof result === 'object' && result.type === 'llm_request') {
+        logger.debug('Received LLM request from command execution')
+
+        // Update the placeholder message with the display text
+        messages = messages.map((msg) => {
+          if (msg.id === placeholderMessage.id) {
+            logger.debug(`Found placeholder message, updating with LLM request display text`)
+            return {
+              ...msg,
+              content: result.displayText,
+              isLoading: true  // Keep loading while we start LLM request
+            }
           }
+          return msg
+        })
+
+        // Save the current messages state
+        await saveAIChatHistory(messages)
+
+        // Set waiting state for UI
+        isWaitingForResponse = true
+        logger.debug('Set isWaitingForResponse to true for LLM request')
+
+        try {
+          // Check if we have access to the LLM API
+          if (!window.api?.llm?.streamMessage) {
+            logger.error('LLM streaming API not available')
+            throw new Error('LLM streaming API not available')
+          }
+
+          // Check active provider and model
+          if (!activeProvider || !activeModel) {
+            logger.error('No LLM provider or model configured', { activeProvider, activeModel })
+            throw new Error('No AI provider or model configured. Please check your LLM settings.')
+          }
+
+          // Prepare the LLM request
+          const llmRequest: LLMTypes.ChatCompletionRequest = {
+            messages: result.messages,
+            model: activeModel,
+            stream: true
+          }
+
+          // Log the request details for debugging
+          logger.debug(`Preparing LLM request with model: ${activeModel}`, {
+            messageCount: result.messages.length,
+            firstMessageSample: result.messages[0]?.content?.substring(0, 50) + '...'
+          })
+
+          // Generate a unique request ID for this conversation
+          requestId = crypto.randomUUID()
+          logger.debug(`Generated new requestId: ${requestId}`)
+
+          // The isWaitingForResponse flag is already set
+
+          // Use the streaming API to get a response
+          logger.debug('Starting LLM request with messages from command')
+          window.api.llm.streamMessage(requestId, llmRequest)
+          logger.debug('LLM stream request sent successfully')
+
+          // The rest will be handled by the streaming handlers
+          return;
+        } catch (llmError) {
+          // Update the placeholder with an error message if the LLM request fails
+          logger.error('Error starting LLM request from command:', llmError)
+
+          messages = messages.map((msg) => {
+            if (msg.id === placeholderMessage.id) {
+              const errorMessage = llmError instanceof Error ? llmError.message : 'Unknown error';
+              logger.error(`Error details: ${errorMessage}`);
+              logger.debug(`Updating placeholder message ${msg.id} with error`)
+              return {
+                ...msg,
+                content: result.displayText + `\n\nError: Failed to start AI processing: ${errorMessage}\nPlease try again.`,
+                isLoading: false
+              }
+            }
+            return msg
+          })
+
+          // Reset waiting state
+          isWaitingForResponse = false;
         }
-        return msg
-      })
+      } else {
+        // Standard text result
+        logger.debug(`Command execution result received with length: ${result ? result.length : 0}`)
+        logger.debug(`First 100 chars: ${result ? result.substring(0, 100) : 'no result'}`)
+
+        if (result && typeof result === 'string' && result.includes('Related Documents:')) {
+          logger.debug('Result contains document references')
+        }
+
+        // Replace placeholder with result
+        logger.debug(`Updating placeholder message ${placeholderMessage.id} with result`)
+        messages = messages.map((msg) => {
+          if (msg.id === placeholderMessage.id) {
+            logger.debug(`Found placeholder message, updating content from "${msg.content}" to result`)
+            return {
+              ...msg,
+              content: result,
+              isLoading: false
+            }
+          }
+          return msg
+        })
+      }
 
       // Special case for /clear command
       if (commandText.startsWith('/clear')) {
@@ -540,6 +696,13 @@
     }
 
     // Save the conversation
+    logger.debug(`Saving chat history with ${messages.length} messages`)
+    // Log content of the last message
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1]
+      logger.debug(`Last message (id: ${lastMsg.id}, role: ${lastMsg.role}) content length: ${lastMsg.content.length}`)
+      logger.debug(`Last message first 100 chars: "${lastMsg.content.substring(0, 100)}"`)
+    }
     await saveAIChatHistory(messages)
   }
 
@@ -767,15 +930,122 @@
                 <span class="text-sm">Thinking...</span>
               </div>
             {:else}
-              <div class="mt-1 text-sm text-foreground whitespace-pre-wrap">
-                {message.content}
-                {#if message.isLoading}
-                  <LoaderCircle
-                    size={16}
-                    class="inline-block animate-spin ml-1 align-text-bottom"
-                  />
+              <!-- Check if this is a document result message -->
+              {#if message.content && message.content.includes('[DOCUMENT_RESULTS_START]') && message.content.includes('[DOCUMENT_RESULTS_END]')}
+                {@const textParts = message.content.split('[DOCUMENT_RESULTS_START]')}
+                {@const documentPart = message.content.substring(
+                  message.content.indexOf('[DOCUMENT_RESULTS_START]') + '[DOCUMENT_RESULTS_START]'.length,
+                  message.content.indexOf('[DOCUMENT_RESULTS_END]')
+                )}
+                {@const documents = (() => {
+                  try {
+                    return JSON.parse(documentPart);
+                  } catch (e) {
+                    console.error('Failed to parse document results', e);
+                    return [];
+                  }
+                })()}
+
+                <!-- Display the regular message content -->
+                <div class="mt-1 text-sm text-foreground whitespace-pre-wrap">
+                  {textParts[0]}
+                </div>
+
+                <!-- If we have document results, show document icon buttons -->
+                {#if documents && documents.length > 0}
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="text-xs text-muted-foreground mb-1 w-full">Related Documents:</span>
+                    {#each documents as doc}
+                      <button
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted hover:bg-muted/80 transition-colors text-xs border border-border"
+                        title={doc.title}
+                        on:click={() => {
+                          // Create a temporary modal or popup with document content
+                          const docModal = document.createElement('div');
+                          docModal.style.position = 'fixed';
+                          docModal.style.top = '0';
+                          docModal.style.left = '0';
+                          docModal.style.width = '100%';
+                          docModal.style.height = '100%';
+                          docModal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+                          docModal.style.zIndex = '9999';
+                          docModal.style.display = 'flex';
+                          docModal.style.justifyContent = 'center';
+                          docModal.style.alignItems = 'center';
+
+                          const content = document.createElement('div');
+                          content.style.maxWidth = '800px';
+                          content.style.maxHeight = '80vh';
+                          content.style.width = '80%';
+                          content.style.backgroundColor = 'white';
+                          content.style.borderRadius = '8px';
+                          content.style.padding = '20px';
+                          content.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                          content.style.overflow = 'auto';
+
+                          const header = document.createElement('div');
+                          header.style.display = 'flex';
+                          header.style.justifyContent = 'space-between';
+                          header.style.alignItems = 'center';
+                          header.style.marginBottom = '12px';
+                          header.style.paddingBottom = '8px';
+                          header.style.borderBottom = '1px solid #eee';
+
+                          const title = document.createElement('h3');
+                          title.textContent = doc.title;
+                          title.style.fontSize = '18px';
+                          title.style.fontWeight = 'bold';
+                          title.style.margin = '0';
+
+                          const closeBtn = document.createElement('button');
+                          closeBtn.textContent = 'Close';
+                          closeBtn.style.padding = '4px 8px';
+                          closeBtn.style.borderRadius = '4px';
+                          closeBtn.style.backgroundColor = '#eee';
+                          closeBtn.style.border = 'none';
+                          closeBtn.style.cursor = 'pointer';
+                          closeBtn.onclick = () => document.body.removeChild(docModal);
+
+                          header.appendChild(title);
+                          header.appendChild(closeBtn);
+
+                          const body = document.createElement('div');
+                          body.style.whiteSpace = 'pre-wrap';
+                          body.style.fontSize = '14px';
+                          body.textContent = doc.content;
+
+                          content.appendChild(header);
+                          content.appendChild(body);
+                          docModal.appendChild(content);
+
+                          // Close on background click
+                          docModal.onclick = (e) => {
+                            if (e.target === docModal) {
+                              document.body.removeChild(docModal);
+                            }
+                          };
+
+                          document.body.appendChild(docModal);
+                        }}
+                      >
+                        <FileText size={14} />
+                        {doc.title.length > 20 ? doc.title.substring(0, 20) + '...' : doc.title}
+                      </button>
+                    {/each}
+                  </div>
                 {/if}
-              </div>
+              {:else}
+                <!-- Regular message -->
+                <div class="mt-1 text-sm text-foreground whitespace-pre-wrap">
+                  {message.content}
+                  {#if message.isLoading}
+                    <LoaderCircle
+                      size={16}
+                      class="inline-block animate-spin ml-1 align-text-bottom"
+                    />
+                  {/if}
+                </div>
+              {/if}
             {/if}
           </div>
         </div>

@@ -165,7 +165,8 @@ export function registerLLMHandlers(): void {
           { name: 'help', summary: 'List available slash commands' },
           { name: 'clear', summary: 'Clear the chat history' },
           { name: 'version', summary: 'Show application version' },
-          { name: 'echo', summary: 'Echo a message back' }
+          { name: 'echo', summary: 'Echo a message back' },
+          { name: 'answer', summary: 'Search documents and reply with the input text' }
         ]
       }
     }, ErrorType.DATA_LOAD)
