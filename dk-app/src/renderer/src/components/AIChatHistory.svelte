@@ -29,6 +29,7 @@
   // Import simple command system
   import SimpleCommandPopup from './ui/SimpleCommandPopup.svelte'
   import MCPServersModal from './MCPServersModal.svelte'
+  import DocumentModal from './DocumentModal.svelte'
   import {
     commandPopupVisible,
     showCommandPopup,
@@ -732,9 +733,14 @@
   // Track copy button states (for showing copy/check icons)
   let copyState: Record<string, boolean> = {}
 
-  // Track dropdown menu state
+  // Track modal states
   let showDropdown = false
   let showMCPModal = false
+
+  // Document modal state
+  let showDocumentModal = false
+  let documentTitle = ''
+  let documentContent = ''
 
   // Close dropdown when clicking outside
   function handleClickOutside(event: MouseEvent) {
@@ -957,75 +963,13 @@
                     <span class="text-xs text-muted-foreground mb-1 w-full">Related Documents:</span>
                     {#each documents as doc}
                       <button
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted hover:bg-muted/80 transition-colors text-xs border border-border"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary transition-colors text-xs border border-primary/20"
                         title={doc.title}
                         on:click={() => {
-                          // Create a temporary modal or popup with document content
-                          const docModal = document.createElement('div');
-                          docModal.style.position = 'fixed';
-                          docModal.style.top = '0';
-                          docModal.style.left = '0';
-                          docModal.style.width = '100%';
-                          docModal.style.height = '100%';
-                          docModal.style.backgroundColor = 'rgba(0,0,0,0.7)';
-                          docModal.style.zIndex = '9999';
-                          docModal.style.display = 'flex';
-                          docModal.style.justifyContent = 'center';
-                          docModal.style.alignItems = 'center';
-
-                          const content = document.createElement('div');
-                          content.style.maxWidth = '800px';
-                          content.style.maxHeight = '80vh';
-                          content.style.width = '80%';
-                          content.style.backgroundColor = 'white';
-                          content.style.borderRadius = '8px';
-                          content.style.padding = '20px';
-                          content.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                          content.style.overflow = 'auto';
-
-                          const header = document.createElement('div');
-                          header.style.display = 'flex';
-                          header.style.justifyContent = 'space-between';
-                          header.style.alignItems = 'center';
-                          header.style.marginBottom = '12px';
-                          header.style.paddingBottom = '8px';
-                          header.style.borderBottom = '1px solid #eee';
-
-                          const title = document.createElement('h3');
-                          title.textContent = doc.title;
-                          title.style.fontSize = '18px';
-                          title.style.fontWeight = 'bold';
-                          title.style.margin = '0';
-
-                          const closeBtn = document.createElement('button');
-                          closeBtn.textContent = 'Close';
-                          closeBtn.style.padding = '4px 8px';
-                          closeBtn.style.borderRadius = '4px';
-                          closeBtn.style.backgroundColor = '#eee';
-                          closeBtn.style.border = 'none';
-                          closeBtn.style.cursor = 'pointer';
-                          closeBtn.onclick = () => document.body.removeChild(docModal);
-
-                          header.appendChild(title);
-                          header.appendChild(closeBtn);
-
-                          const body = document.createElement('div');
-                          body.style.whiteSpace = 'pre-wrap';
-                          body.style.fontSize = '14px';
-                          body.textContent = doc.content;
-
-                          content.appendChild(header);
-                          content.appendChild(body);
-                          docModal.appendChild(content);
-
-                          // Close on background click
-                          docModal.onclick = (e) => {
-                            if (e.target === docModal) {
-                              document.body.removeChild(docModal);
-                            }
-                          };
-
-                          document.body.appendChild(docModal);
+                          // Show the document in our custom modal
+                          documentTitle = doc.title;
+                          documentContent = doc.content;
+                          showDocumentModal = true;
                         }}
                       >
                         <FileText size={14} />
@@ -1095,3 +1039,11 @@
 
 <!-- MCP Servers Modal -->
 <MCPServersModal bind:showModal={showMCPModal} on:close={() => (showMCPModal = false)} />
+
+<!-- Document Modal -->
+<DocumentModal
+  bind:show={showDocumentModal}
+  title={documentTitle}
+  content={documentContent}
+  on:close={() => (showDocumentModal = false)}
+/>
