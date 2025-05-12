@@ -13,6 +13,9 @@ import (
 	"github.com/philippgille/chromem-go"
 	"net/http"
 	"os"
+	"os/user"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -62,6 +65,27 @@ type RegisterDocumentMessage struct {
 	Filename string            `json:"filename"`
 	Content  string            `json:"content"`
 	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+// ExpandHomePath replaces the tilde character (~) with the user's home directory
+// This is particularly important for Windows where ~ is not automatically expanded
+func ExpandHomePath(path string) (string, error) {
+	if !strings.HasPrefix(path, "~") {
+		return path, nil
+	}
+
+	usr, err := user.Current()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	// Replace only the leading ~ with the home directory
+	if len(path) > 1 && (path[1] == '/' || (runtime.GOOS == "windows" && path[1] == '\\')) {
+		// ~/something or ~\something on Windows
+		return filepath.Join(usr.HomeDir, path[2:]), nil
+	}
+	// ~ by itself
+	return usr.HomeDir, nil
 }
 
 func LoadOrCreateKeys(privateKeyPath, publicKeyPath string) (ed25519.PublicKey, ed25519.PrivateKey, error) {

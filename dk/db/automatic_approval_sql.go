@@ -13,8 +13,7 @@ func InsertRule(ctx context.Context, db *sql.DB, rule string) error {
 		`INSERT INTO automatic_approval_rules (rule) VALUES (?)`, rule)
 	if err != nil {
 		// UNIQUE constraint → give a cleaner error upstream
-		if sqliteErr, ok := err.(interface{ Error() string }); ok &&
-			strings.Contains(sqliteErr.Error(), "UNIQUE") {
+		if strings.Contains(err.Error(), "UNIQUE") {
 			return fmt.Errorf("rule already exists")
 		}
 		return fmt.Errorf("insert rule: %w", err)

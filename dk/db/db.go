@@ -3,20 +3,47 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 	_ "modernc.org/sqlite"
 )
 
 // Initialize opens a SQLite database connection and enables WAL mode.
 func Initialize(dbPath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	// Ensure the directory exists before opening the database
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create database directory: %v", err)
+	}
+
+	// Use a DSN with memory settings and timeout configurations
+	dsn := fmt.Sprintf("%s?_busy_timeout=5000&_journal_mode=DELETE&cache=shared", dbPath)
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
-	// Enable Write-Ahead Logging mode for better concurrency.
-	_, err = db.Exec("PRAGMA journal_mode=WAL;")
-	if err != nil {
-		return nil, fmt.Errorf("failed to set WAL mode: %v", err)
+
+	// Set pragmas for better performance and reliability
+	pragmas := []string{
+		"PRAGMA busy_timeout = 5000;",
+		"PRAGMA cache_size = 1000;",
+		"PRAGMA foreign_keys = ON;",
+		"PRAGMA synchronous = NORMAL;",
 	}
+
+	for _, pragma := range pragmas {
+		if _, err := db.Exec(pragma); err != nil {
+			return nil, fmt.Errorf("failed to set pragma (%s): %v", pragma, err)
+		}
+	}
+
+	// Set connection limits
+	db.SetMaxOpenConns(1) // SQLite only supports one writer at a time
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(time.Hour)
+
 	return db, nil
 }
 

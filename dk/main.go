@@ -30,16 +30,37 @@ func loadParameters() utils.Parameters {
 	params.RagSourcesFile = flag.String("rag_sources", "/path/to/rag_sources.jsonl", "Path to the JSONL file containing source data")
 	params.ServerURL = flag.String("server", "https://localhost:8080", "Address to the websocket server")
 	params.HTTPPort = flag.String("http_port", "8081", "Port for the HTTP server")
-	params.SyftboxConfig = flag.String("syftbox_config", "~/.syftbox", "Path to syftbox config file")
+	syftboxConfigPath := flag.String("syftbox_config", "~/.syftbox", "Path to syftbox config file")
+	params.SyftboxConfig = syftboxConfigPath
 
 	// New flag for projectPath (base directory).
 	projectPath := flag.String("project_path", "~/.config", "Base directory for project configuration")
 
 	flag.Parse()
 
-	// Generate the dependent file paths from the projectPath.
-	basePath := *projectPath
-	vectorDBPath := basePath + "/vector_db"
+	// Expand the home directory path if needed and generate dependent file paths
+	basePath, err := utils.ExpandHomePath(*projectPath)
+	if err != nil {
+		log.Printf("Warning: Failed to expand home directory in path %s: %v", *projectPath, err)
+		// Fall back to the original path if expansion fails
+		basePath = *projectPath
+	}
+
+	// Create the base directory if it doesn't exist
+	if err := os.MkdirAll(basePath, 0755); err != nil {
+		log.Printf("Warning: Failed to create base directory %s: %v", basePath, err)
+	}
+
+	// Expand SyftboxConfig path
+	expandedSyftboxConfig, err := utils.ExpandHomePath(*syftboxConfigPath)
+	if err != nil {
+		log.Printf("Warning: Failed to expand home directory in SyftboxConfig path %s: %v", *syftboxConfigPath, err)
+		// Fall back to the original path if expansion fails
+	} else {
+		params.SyftboxConfig = &expandedSyftboxConfig
+	}
+
+	vectorDBPath := filepath.Join(basePath, "vector_db")
 	modelConfigFile := filepath.Join(basePath, "model_config.json")
 	DBPath := filepath.Join(basePath, "app.db")
 
