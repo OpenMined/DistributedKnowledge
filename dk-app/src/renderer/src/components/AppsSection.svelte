@@ -60,7 +60,6 @@
       const iconPath = await window.api.apps.getAppIconPath(appId, appPath)
       return iconPath
     } catch (error) {
-      console.error(`Failed to load icon for app ${appId}:`, error)
       return null
     }
   }
@@ -111,7 +110,6 @@
         )
       }
     } catch (error) {
-      console.error('Failed to load app data:', error)
       errorMessage = 'Failed to load application data'
     } finally {
       loading = false
@@ -151,7 +149,7 @@
           apps = updatedApps
         }
       } catch (error) {
-        console.error('Failed to fetch app data:', error)
+        // Error handled in finally block
       }
     }, 3000)
 
@@ -193,10 +191,16 @@
             : `RAG is now ignoring documents from ${appName}`,
           duration: 4000
         })
+      } else if (!response.success) {
+        // Show error toast with the specific error message
+        toasts.add({
+          type: 'error',
+          title: 'Toggle Failed',
+          message: response.error || 'Failed to toggle app status. Please try again.',
+          duration: 4000
+        })
       }
     } catch (error) {
-      console.error('Failed to toggle app:', error)
-
       // Show error toast
       toasts.add({
         type: 'error',
@@ -239,7 +243,6 @@
       const result = await window.api.apps.uninstallAppTracker(id)
 
       if (result.success) {
-        console.log(`App uninstalled: ${result.message}`)
         // Close the dropdown and update local app state
         activeDropdownId = null
 
@@ -257,8 +260,6 @@
           duration: 4000
         })
       } else {
-        console.error(`Failed to uninstall app: ${result.message}`)
-
         // Show error toast instead of alert
         toasts.add({
           type: 'error',
@@ -268,9 +269,7 @@
         })
       }
     } catch (error) {
-      console.error('Failed to uninstall app:', error)
-
-      // Show error toast instead of alert
+      // Show error toast for the error
       toasts.add({
         type: 'error',
         title: 'Uninstall Failed',
@@ -356,7 +355,7 @@
 
       return true
     } catch (error) {
-      console.error('Failed to complete tracker installation:', error)
+      // Error completing tracker installation
 
       // Show error toast notification
       toasts.add({
@@ -407,9 +406,7 @@
         })
       }
     } catch (error) {
-      console.error('Failed to update app:', error)
-
-      // Show error toast
+      // Handle update failure
       toasts.add({
         type: 'error',
         title: 'Update Failed',
@@ -432,7 +429,6 @@
         }
       }
     } catch (error) {
-      console.error('Failed to update document count:', error)
       errorMessage = 'Failed to update document count'
     }
   }
@@ -466,7 +462,6 @@
 
         return true
       } else {
-        console.error('Failed to cleanup documents:', result.error || result.message)
         errorMessage = result.error || result.message || 'Failed to cleanup documents'
 
         // Show error toast notification using helper
@@ -478,7 +473,6 @@
         return false
       }
     } catch (error) {
-      console.error('Failed to cleanup documents:', error)
       errorMessage = 'Failed to cleanup documents'
 
       // Show error toast notification using helper

@@ -107,7 +107,7 @@ export class TrackerService {
       // Build tracker endpoint path
       const trackerEndpoint = '/tracker-apps'
 
-      serviceLogger.info(
+      serviceLogger.debug(
         `Checking tracker server at: ${isHttps ? 'https' : 'http'}://${hostname}:${port}${trackerEndpoint}`
       )
 
@@ -126,25 +126,28 @@ export class TrackerService {
       const req = requestModule.request(options, (res) => {
         if (res.statusCode === 200) {
           this.isTrackerServerAvailable = true
-          serviceLogger.info('Tracker server is available')
+          serviceLogger.debug('Tracker server is available')
           resolve(true)
         } else {
           this.isTrackerServerAvailable = false
-          serviceLogger.warn(`Tracker server returned status: ${res.statusCode}`)
+          serviceLogger.debug(`Tracker server returned status: ${res.statusCode}`)
           resolve(false)
         }
       })
 
       req.on('error', (error) => {
         this.isTrackerServerAvailable = false
-        serviceLogger.warn(`Tracker server is not available at ${hostname}:${port}:`, error.message)
+        serviceLogger.debug(
+          `Tracker server is not available at ${hostname}:${port}:`,
+          error.message
+        )
         resolve(false)
       })
 
       req.on('timeout', () => {
         req.destroy()
         this.isTrackerServerAvailable = false
-        serviceLogger.warn(`Tracker server connection at ${hostname}:${port} timed out`)
+        serviceLogger.debug(`Tracker server connection at ${hostname}:${port} timed out`)
         resolve(false)
       })
 
@@ -167,14 +170,14 @@ export class TrackerService {
 
     // Check tracker server availability
     await this.checkTrackerServerAvailability()
-    serviceLogger.info(
+    serviceLogger.debug(
       `Tracker server is ${this.isTrackerServerAvailable ? 'available' : 'not available'}`
     )
 
     // Set the apps base directory from syftbox config
     if (syftboxConfig && syftboxConfig.data_dir) {
       this.appsBaseDir = join(syftboxConfig.data_dir, 'apps')
-      serviceLogger.info(`Tracker scanning service configured to scan: ${this.appsBaseDir}`)
+      serviceLogger.debug(`Tracker scanning service configured to scan: ${this.appsBaseDir}`)
     } else {
       serviceLogger.error('SyftBox configuration not available. Cannot start tracker scanner.')
       return
@@ -192,7 +195,7 @@ export class TrackerService {
       })
     }, this.scanIntervalMs)
 
-    serviceLogger.info(`Tracker scanning service started with ${this.scanIntervalMs}ms interval`)
+    serviceLogger.debug(`Tracker scanning service started with ${this.scanIntervalMs}ms interval`)
   }
 
   public async scanTrackers(): Promise<void> {
@@ -205,7 +208,7 @@ export class TrackerService {
     if (this.scanIntervalId) {
       clearInterval(this.scanIntervalId)
       this.scanIntervalId = null
-      serviceLogger.info('Tracker scanning service stopped')
+      serviceLogger.debug('Tracker scanning service stopped')
     }
   }
 
@@ -215,7 +218,7 @@ export class TrackerService {
       try {
         await access(this.appsBaseDir, constants.R_OK)
       } catch (error) {
-        serviceLogger.info(
+        serviceLogger.debug(
           `Apps base directory ${this.appsBaseDir} does not exist or is not readable`
         )
         return
@@ -294,7 +297,7 @@ export class TrackerService {
 
   private async sendTrackerData(payload: TrackerPayload): Promise<void> {
     try {
-      serviceLogger.info(
+      serviceLogger.debug(
         `Sending tracker data for ${Object.keys(payload.trackers).length} trackers`
       )
 
@@ -304,7 +307,7 @@ export class TrackerService {
         }
       })
 
-      serviceLogger.info(`Tracker data sent successfully. Status: ${response.status}`)
+      serviceLogger.debug(`Tracker data sent successfully. Status: ${response.status}`)
     } catch (error) {
       serviceLogger.error('Failed to send tracker data:', error)
       throw error
@@ -374,7 +377,7 @@ export class TrackerService {
         }
       }
 
-      serviceLogger.info(
+      serviceLogger.debug(
         `Updated tracker ID mapping with ${this.trackerIdToFolderMap.size} entries`
       )
     } catch (error) {
@@ -423,7 +426,7 @@ export class TrackerService {
         // Just use the first folder we find as a fallback
         if (folders.length > 0) {
           folderName = folders[0]
-          serviceLogger.warn(
+          serviceLogger.debug(
             `Couldn't find folder for tracker ID ${trackerId}, using first available folder: ${folderName}`
           )
         } else {
@@ -535,7 +538,7 @@ export class TrackerService {
         // Just use the first folder we find as a fallback
         if (folders.length > 0) {
           folderName = folders[0]
-          serviceLogger.warn(
+          serviceLogger.debug(
             `Couldn't find folder for tracker ID ${trackerId}, using first available folder: ${folderName}`
           )
         } else {
@@ -630,7 +633,7 @@ export class TrackerService {
         // Just use the first folder we find as a fallback
         if (folders.length > 0) {
           folderName = folders[0]
-          serviceLogger.warn(
+          serviceLogger.debug(
             `Couldn't find folder for tracker ID ${trackerId}, using first available folder: ${folderName}`
           )
         } else {
@@ -695,7 +698,7 @@ export class TrackerService {
         }
       }
 
-      serviceLogger.info(`Starting download and installation for tracker ID: "${trackerId}"`)
+      serviceLogger.debug(`Starting download and installation for tracker ID: "${trackerId}"`)
 
       // 2. Ensure SyftBox is configured
       if (!syftboxConfig || !syftboxConfig.data_dir) {
@@ -713,12 +716,12 @@ export class TrackerService {
       // 4. Create apps directory if it doesn't exist
       if (!existsSync(appsDir)) {
         await mkdir(appsDir, { recursive: true })
-        serviceLogger.info(`Created apps directory: ${appsDir}`)
+        serviceLogger.debug(`Created apps directory: ${appsDir}`)
       }
 
       // 5. Download the zip file
       try {
-        serviceLogger.info(`Downloading tracker ${trackerId} from server...`)
+        serviceLogger.debug(`Downloading tracker ${trackerId} from server...`)
 
         // Create parent directory for the zip file if needed
         const zipDir = dirname(zipPath)
@@ -734,7 +737,7 @@ export class TrackerService {
 
         // Build the download URL using the server URL from config
         const downloadUrl = `${isHttps ? 'https' : 'http'}://${hostname}:${port}/tracker-folder/${trackerId}`
-        serviceLogger.info(`Download URL: ${downloadUrl}`)
+        serviceLogger.debug(`Download URL: ${downloadUrl}`)
 
         // Create a write stream to save the zip file
         const fileWriter = createWriteStream(zipPath)
@@ -765,7 +768,7 @@ export class TrackerService {
           // Pipe the response data to the file write stream
           await pipeline(response.data, fileWriter)
 
-          serviceLogger.info(`Tracker zip downloaded to ${zipPath}`)
+          serviceLogger.debug(`Tracker zip downloaded to ${zipPath}`)
         } catch (axiosError) {
           if (axios.isAxiosError(axiosError)) {
             if (axiosError.code === 'ECONNREFUSED') {
@@ -793,7 +796,7 @@ export class TrackerService {
 
       // 6. Extract the zip file
       try {
-        serviceLogger.info(`Extracting tracker ${trackerId} to ${appsDir}...`)
+        serviceLogger.debug(`Extracting tracker ${trackerId} to ${appsDir}...`)
 
         // Ensure the zip file exists and is readable
         if (!existsSync(zipPath)) {
@@ -806,7 +809,7 @@ export class TrackerService {
         // Extract the zip file to the apps directory
         await pipeline(fileReader, unzipper.Extract({ path: appsDir }))
 
-        serviceLogger.info(`Tracker extracted successfully to ${appsDir}`)
+        serviceLogger.debug(`Tracker extracted successfully to ${appsDir}`)
 
         // Validate that the extraction succeeded by checking if files were created
         const trackerDir = join(appsDir, trackerId)
@@ -844,10 +847,10 @@ export class TrackerService {
       try {
         if (zipPath && existsSync(zipPath)) {
           await unlink(zipPath)
-          serviceLogger.info(`Deleted temporary zip file: ${zipPath}`)
+          serviceLogger.debug(`Deleted temporary zip file: ${zipPath}`)
         }
       } catch (cleanupError) {
-        serviceLogger.warn(`Failed to delete temporary zip file ${zipPath}:`, cleanupError)
+        serviceLogger.debug(`Failed to delete temporary zip file ${zipPath}:`, cleanupError)
         // We don't fail the whole operation just because cleanup failed
       }
     }
@@ -898,7 +901,7 @@ export class TrackerService {
         // Just use the first folder we find as a fallback
         if (folders.length > 0) {
           folderName = folders[0]
-          serviceLogger.warn(
+          serviceLogger.debug(
             `Couldn't find folder for tracker ID ${trackerId}, using first available folder: ${folderName}`
           )
         } else {

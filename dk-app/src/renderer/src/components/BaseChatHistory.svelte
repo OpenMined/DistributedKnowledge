@@ -2,7 +2,7 @@
   import { createEventDispatcher, onMount, afterUpdate } from 'svelte'
   import { cn } from '../lib/utils'
   import { Reply, PaperclipIcon, Send, Bot, ArrowDown, MoreVertical, Copy } from 'lucide-svelte'
-  import { formatMessageTimestamp } from '../../../shared/utils'
+  import { formatMessageTimestamp, formatFileSize } from '../lib/utils/format'
 
   // Event dispatcher
   const dispatch = createEventDispatcher()
@@ -77,14 +77,7 @@
     }
   }
 
-  // Function to format file size for display
-  export function formatFileSize(bytes?: number): string {
-    if (bytes === undefined) return 'Unknown size'
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-  }
+  // formatFileSize is now imported from utils/format.ts
 
   // Handle message thread opening
   function handleThreadAction(message: EnhancedMessage) {

@@ -22,27 +22,27 @@ import { mkdirSync, existsSync, writeFileSync } from 'fs'
  */
 export function registerOnboardingHandlers(): void {
   // Log handler initialization
-  logger.info('Initializing onboarding handlers')
+  logger.debug('Initializing onboarding handlers')
 
   // Get onboarding status
   ipcMain.handle(Channels.GetOnboardingStatus, () => {
     try {
-      logger.info('HANDLER: GetOnboardingStatus called')
+      logger.debug('HANDLER: GetOnboardingStatus called')
       const status = getOnboardingStatus()
 
       // Check if config file exists - this is the most critical check
       const configPath = getConfigFilePath()
-      logger.info(`HANDLER: Checking config file at path: ${configPath}`)
+      logger.debug(`HANDLER: Checking config file at path: ${configPath}`)
 
       // Explicitly check existence of config file without depending on other logic
       const configExists = existsSync(configPath)
-      logger.info(`HANDLER: Config file exists: ${configExists}`)
+      logger.debug(`HANDLER: Config file exists: ${configExists}`)
 
       // If config file exists, ensure onboarding is not shown
       if (configExists) {
         status.isFirstRun = false
         status.completed = true
-        logger.info(
+        logger.debug(
           'HANDLER: Config file found, setting onboarding status to isFirstRun=false, completed=true'
         )
       } else {
@@ -53,12 +53,12 @@ export function registerOnboardingHandlers(): void {
         // Persist these values for consistency across the app
         setOnboardingFirstRun(true)
 
-        logger.info(
+        logger.debug(
           'HANDLER: *** CONFIG FILE NOT FOUND *** Forcing onboarding with isFirstRun=true, completed=false'
         )
 
         // Log an extra diagnostic line
-        logger.info('HANDLER: App should show onboarding wizard since configExists=false')
+        logger.debug('HANDLER: App should show onboarding wizard since configExists=false')
       }
 
       // Construct the response with explicit configExists flag
@@ -68,7 +68,7 @@ export function registerOnboardingHandlers(): void {
         configExists // Critical flag for renderer
       }
 
-      logger.info(`HANDLER: Sending response to renderer: ${JSON.stringify(response)}`)
+      logger.debug(`HANDLER: Sending response to renderer: ${JSON.stringify(response)}`)
 
       return response
     } catch (error) {
@@ -103,8 +103,26 @@ export function registerOnboardingHandlers(): void {
   // Complete onboarding
   ipcMain.handle(Channels.CompleteOnboarding, () => {
     try {
-      logger.info('Completing onboarding process...')
+      logger.debug('Completing onboarding process...')
       completeOnboarding()
+
+      // Reload configuration from disk to ensure all components have updated values
+      try {
+        // Use dynamic import with the already imported loadConfig function
+        import('../services/config')
+          .then((configModule) => {
+            configModule.loadConfig()
+            logger.debug(
+              'Config reloaded after onboarding completion with dk_api:',
+              configModule.appConfig.dk_api
+            )
+          })
+          .catch((configError) => {
+            logger.error('Failed to reload config after onboarding completion:', configError)
+          })
+      } catch (configError) {
+        logger.error('Failed to reload config after onboarding completion:', configError)
+      }
 
       // Start background processes when onboarding is completed
       try {
@@ -116,11 +134,11 @@ export function registerOnboardingHandlers(): void {
           import('../services/documentService').then((module) => module.documentService)
         ])
           .then(([startExternalProcesses, loadSyftboxConfig, trackerService, documentService]) => {
-            logger.info('Onboarding completed - reinitializing services')
+            logger.debug('Onboarding completed - reinitializing services')
 
             // First reload SyftBox configuration and verify it worked
             const configLoaded = loadSyftboxConfig()
-            logger.info(
+            logger.debug(
               `SyftBox configuration ${configLoaded ? 'successfully loaded' : 'failed to load'}`
             )
 
@@ -128,13 +146,13 @@ export function registerOnboardingHandlers(): void {
             if (configLoaded) {
               // Then start external processes
               startExternalProcesses()
-              logger.info('External processes started')
+              logger.debug('External processes started')
             } else {
               logger.error('External processes not started due to missing SyftBox configuration')
             }
 
             // Stop existing services before restarting
-            logger.info('Stopping background services before restart')
+            logger.debug('Stopping background services before restart')
 
             // Stop tracker service if running
             if (trackerService.stopTrackerScan) {
@@ -149,12 +167,12 @@ export function registerOnboardingHandlers(): void {
             // Increased delay to ensure clean restart and full config loading
             setTimeout(() => {
               if (configLoaded) {
-                logger.info('Starting background services with new configuration')
+                logger.debug('Starting background services with new configuration')
 
                 // Start tracker service
                 if (trackerService.startTrackerScan) {
                   trackerService.startTrackerScan()
-                  logger.info('Tracker service started successfully with new configuration')
+                  logger.debug('Tracker service started successfully with new configuration')
                 } else {
                   logger.error('Unable to start tracker service - method not found')
                 }
@@ -162,7 +180,7 @@ export function registerOnboardingHandlers(): void {
                 // Start document data service
                 if (documentService.startDocumentDataFetch) {
                   documentService.startDocumentDataFetch()
-                  logger.info('Document data service started successfully with new configuration')
+                  logger.debug('Document data service started successfully with new configuration')
                 } else {
                   logger.error('Unable to start document data service - method not found')
                 }
@@ -208,38 +226,38 @@ export function registerOnboardingHandlers(): void {
 
       // Get platform-specific paths
       const appPaths = getAppPaths()
-      const defaultSyftboxConfigPath = appPaths.syftboxConfig
+      const defaultSyftboxConfigPath = appPaths.syftboxConfig || ''
       const syftboxDir = dirname(defaultSyftboxConfigPath)
 
       // Check if SyftBox is configured
       if (!existsSync(syftboxDir)) {
-        logger.warn(
+        logger.debug(
           `SyftBox config directory does not exist: ${syftboxDir}. SyftBox features will not work.`
         )
       } else if (!existsSync(defaultSyftboxConfigPath)) {
-        logger.warn(
+        logger.debug(
           `SyftBox config file does not exist: ${defaultSyftboxConfigPath}. SyftBox features will not work.`
         )
       } else {
-        logger.info(`Found existing SyftBox config at: ${defaultSyftboxConfigPath}`)
+        logger.debug(`Found existing SyftBox config at: ${defaultSyftboxConfigPath}`)
       }
 
       // Get platform-specific paths
-      const projectPath = appPaths.dataDir
-      const dkPath = appPaths.dkBinary
+      const projectPath = appPaths.dataDir || ''
+      const dkPath = appPaths.dkBinary || ''
 
       // Create project directories if they don't exist
       try {
         // Create config directory
-        if (!existsSync(appPaths.configDir)) {
+        if (appPaths.configDir && !existsSync(appPaths.configDir)) {
           mkdirSync(appPaths.configDir, { recursive: true })
-          logger.info(`Created config directory: ${appPaths.configDir}`)
+          logger.debug(`Created config directory: ${appPaths.configDir}`)
         }
 
         // Create project_path directory
         if (!existsSync(projectPath)) {
           mkdirSync(projectPath, { recursive: true })
-          logger.info(`Created project data directory: ${projectPath}`)
+          logger.debug(`Created project data directory: ${projectPath}`)
 
           // Create model_config.json based on selected LLM provider
           try {
@@ -273,7 +291,7 @@ export function registerOnboardingHandlers(): void {
 
             // Write the config file
             writeFileSync(modelConfigPath, JSON.stringify(modelConfig, null, 2))
-            logger.info(
+            logger.debug(
               `Created model_config.json with ${modelConfig.provider} provider configuration`
             )
           } catch (configError) {
@@ -285,7 +303,7 @@ export function registerOnboardingHandlers(): void {
         const dkDir = dirname(dkPath)
         if (!existsSync(dkDir)) {
           mkdirSync(dkDir, { recursive: true })
-          logger.info(`Created DK binary directory: ${dkDir}`)
+          logger.debug(`Created DK binary directory: ${dkDir}`)
         }
       } catch (dirError) {
         logger.error(`Failed to create project directories: ${dirError}`)
@@ -304,7 +322,9 @@ export function registerOnboardingHandlers(): void {
           dk: dkPath,
           project_path: projectPath,
           http_port: '4232'
-        }
+        },
+        // Explicitly set dk_api to ensure it's available immediately after onboarding
+        dk_api: 'http://localhost:4232'
       }
 
       // Add auth keys if provided
@@ -347,7 +367,36 @@ export function registerOnboardingHandlers(): void {
       }
 
       // Save the config
+      logger.debug('Saving onboarding config with dk_api explicitly set:', {
+        serverURL: appConfig.serverURL,
+        dk_api: appConfig.dk_api,
+        userID: appConfig.userID,
+        hasPrivateKey: !!appConfig.private_key,
+        hasPublicKey: !!appConfig.public_key
+      })
+
       const saved = saveConfig(appConfig)
+
+      if (saved) {
+        // Log successful config save
+        logger.info('Onboarding config saved successfully with dk_api set to:', appConfig.dk_api)
+
+        // Use the already imported loadConfig function
+        try {
+          // loadConfig is already imported at the top of the file
+          import('../services/config')
+            .then((configModule) => {
+              configModule.loadConfig()
+              logger.debug('Config reloaded after onboarding save')
+            })
+            .catch((reloadError) => {
+              logger.error('Failed to reload config after onboarding save:', reloadError)
+            })
+        } catch (reloadError) {
+          logger.error('Failed to reload config after onboarding save:', reloadError)
+        }
+      }
+
       return {
         success: saved
       }
@@ -374,7 +423,7 @@ export function registerOnboardingHandlers(): void {
       // Create key directory and write the keys to files
       await loadOrCreateKeys(privateKeyPath, publicKeyPath)
 
-      logger.info('Authentication keys generated successfully')
+      logger.debug('Authentication keys generated successfully')
 
       return {
         success: true,
@@ -395,10 +444,10 @@ export function registerOnboardingHandlers(): void {
   // Pull the nomic-embed-text model for Ollama
   ipcMain.handle(Channels.PullNomicEmbedModel, async () => {
     try {
-      logger.info('Starting to pull nomic-embed-text model for Ollama')
+      logger.debug('Starting to pull nomic-embed-text model for Ollama')
 
       // First, log what we're about to do
-      logger.info('Attempting to pull nomic-embed-text model - checking API first')
+      logger.debug('Attempting to pull nomic-embed-text model - checking API first')
 
       // Try to ping Ollama API to confirm it's running
       const pingResponse = await fetch('http://localhost:11434/api/tags').catch((err) => {
@@ -412,7 +461,7 @@ export function registerOnboardingHandlers(): void {
       }
 
       // Attempt to pull the model using Ollama API
-      logger.info('Initiating model pull request to Ollama API...')
+      logger.debug('Initiating model pull request to Ollama API...')
       const response = await fetch('http://localhost:11434/api/pull', {
         method: 'POST',
         headers: {
@@ -432,7 +481,7 @@ export function registerOnboardingHandlers(): void {
         }
       }
 
-      logger.info('Successfully started pulling nomic-embed-text model')
+      logger.debug('Successfully started pulling nomic-embed-text model')
       return {
         success: true,
         message: 'Started pulling nomic-embed-text model. This may take a few minutes to complete.'
@@ -465,7 +514,7 @@ export function registerOnboardingHandlers(): void {
         clearTimeout(timeoutId)
 
         ollamaInstalled = response?.ok === true
-        logger.info(
+        logger.debug(
           `Ollama service check: ${ollamaInstalled ? 'Running' : 'Not Running/Not Installed'}`
         )
 
@@ -474,17 +523,17 @@ export function registerOnboardingHandlers(): void {
           try {
             const data = await response.json()
             // Log the structure of the data for debugging
-            logger.info(`Ollama API response structure: ${JSON.stringify(Object.keys(data))}`)
+            logger.debug(`Ollama API response structure: ${JSON.stringify(Object.keys(data))}`)
 
             // Be flexible about where the models might be in the response
             const modelsList = data.models || data.tags || data.objects || []
 
             // Log what we found
-            logger.info(`Found models list with ${modelsList.length} entries`)
+            logger.debug(`Found models list with ${modelsList.length} entries`)
 
             if (modelsList.length > 0) {
               // Check for nomic-embed-text model in the list
-              logger.info(
+              logger.debug(
                 `Available Ollama models: ${JSON.stringify(modelsList.map((m: any) => m.name || m))}`
               )
 
@@ -494,7 +543,7 @@ export function registerOnboardingHandlers(): void {
                 const modelName = model.name || model.toString()
 
                 // Log for debugging
-                logger.info(`Checking model: ${modelName}`)
+                logger.debug(`Checking model: ${modelName}`)
 
                 // Check if it contains 'nomic-embed-text' in any form
                 return (
@@ -505,40 +554,40 @@ export function registerOnboardingHandlers(): void {
               })
 
               // Always log the result
-              logger.info(`nomic-embed-text model detection result: ${nomicEmbedModelInstalled}`)
-              logger.info(
+              logger.debug(`nomic-embed-text model detection result: ${nomicEmbedModelInstalled}`)
+              logger.debug(
                 `nomic-embed-text model check: ${nomicEmbedModelInstalled ? 'Installed' : 'Not Installed'}`
               )
             }
           } catch (modelError) {
-            logger.warn('Failed to check nomic-embed-text model:', modelError)
+            logger.debug('Failed to check nomic-embed-text model:', modelError)
           }
         }
       } catch (error) {
-        logger.warn('Failed to check Ollama installation:', error)
+        logger.debug('Failed to check Ollama installation:', error)
       }
 
       // Check if Syftbox is installed by checking if config.json exists
       let syftboxInstalled = false
       try {
         const appPaths = getAppPaths()
-        const syftboxConfigPath = appPaths.syftboxConfig
+        const syftboxConfigPath = appPaths.syftboxConfig || ''
 
         // Check if the path exists
-        const exists = existsSync(syftboxConfigPath)
-        logger.info(
+        const exists = syftboxConfigPath ? existsSync(syftboxConfigPath) : false
+        logger.debug(
           `SyftBox config check: ${syftboxConfigPath} - ${exists ? 'Exists' : 'Not Found'}`
         )
 
         syftboxInstalled = exists
 
         if (syftboxInstalled) {
-          logger.info('Syftbox installation verified: config.json found')
+          logger.debug('Syftbox installation verified: config.json found')
         } else {
-          logger.warn(`Syftbox installation not detected: ${syftboxConfigPath} not found`)
+          logger.debug(`Syftbox installation not detected: ${syftboxConfigPath} not found`)
         }
       } catch (error) {
-        logger.warn('Failed to check Syftbox installation:', error)
+        logger.debug('Failed to check Syftbox installation:', error)
         logger.error('Error details:', error)
       }
 

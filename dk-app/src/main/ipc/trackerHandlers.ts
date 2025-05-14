@@ -16,7 +16,7 @@ export function registerTrackerHandlers(): void {
   // Handler to manually trigger a tracker scan
   ipcMain.handle(Channels.TriggerTrackerScan, async () => {
     try {
-      logger.info('Manual tracker scan triggered via IPC')
+      logger.debug('Manual tracker scan triggered via IPC')
       await trackerService.scanTrackers()
       return { success: true, message: 'Tracker scan completed successfully' }
     } catch (error) {
@@ -37,11 +37,11 @@ export function registerTrackerHandlers(): void {
       const shouldStartTracker = isConfigExists && !onboardingStatus.isFirstRun
 
       if (shouldStartTracker) {
-        logger.info('Starting tracker scanning service - config exists and onboarding is complete')
+        logger.debug('Starting tracker scanning service - config exists and onboarding is complete')
         trackerService.startTrackerScan()
         return { success: true, message: 'Tracker scanning service started' }
       } else {
-        logger.warn('Cannot start tracker service - config missing or onboarding incomplete')
+        logger.debug('Cannot start tracker service - config missing or onboarding incomplete')
         return {
           success: false,
           message: 'Tracker service not started - configuration not complete',
@@ -85,7 +85,7 @@ export function registerTrackerHandlers(): void {
   ipcMain.handle(Channels.GetAppFolders, async () => {
     try {
       const folders = await getAvailableAppFolders()
-      logger.info(`Retrieved ${folders.length} app folders`)
+      logger.debug(`Retrieved ${folders.length} app folders`)
       return { success: true, folders }
     } catch (error) {
       logger.error('Failed to get app folders:', error)
@@ -97,7 +97,7 @@ export function registerTrackerHandlers(): void {
   // Handler to get templates for a specific tracker
   ipcMain.handle(Channels.GetTrackerTemplates, async (_, trackerId: string) => {
     try {
-      logger.info(`Getting templates for tracker with ID: ${trackerId}`)
+      logger.debug(`Getting templates for tracker with ID: ${trackerId}`)
 
       const appFolders = await getAvailableAppFolders()
 
@@ -108,9 +108,9 @@ export function registerTrackerHandlers(): void {
 
       if (result.success) {
         const templateCount = result.templates ? Object.keys(result.templates).length : 0
-        logger.info(`Successfully fetched ${templateCount} templates for tracker ID: ${trackerId}`)
+        logger.debug(`Successfully fetched ${templateCount} templates for tracker ID: ${trackerId}`)
       } else {
-        logger.warn(`Failed to get templates: ${result.error}`)
+        logger.debug(`Failed to get templates: ${result.error}`)
       }
 
       return result
@@ -128,7 +128,7 @@ export function registerTrackerHandlers(): void {
   // Handler to get datasets for a specific tracker
   ipcMain.handle(Channels.GetTrackerDatasets, async (_, trackerId: string) => {
     try {
-      logger.info(`Getting datasets for tracker with ID: ${trackerId}`)
+      logger.debug(`Getting datasets for tracker with ID: ${trackerId}`)
 
       const appFolders = await getAvailableAppFolders()
 
@@ -139,9 +139,9 @@ export function registerTrackerHandlers(): void {
 
       if (result.success) {
         const datasetCount = result.datasets ? Object.keys(result.datasets).length : 0
-        logger.info(`Successfully fetched ${datasetCount} datasets for tracker ID: ${trackerId}`)
+        logger.debug(`Successfully fetched ${datasetCount} datasets for tracker ID: ${trackerId}`)
       } else {
-        logger.warn(`Failed to get datasets: ${result.error}`)
+        logger.debug(`Failed to get datasets: ${result.error}`)
       }
 
       return result
@@ -159,7 +159,7 @@ export function registerTrackerHandlers(): void {
   // Handler to get source files for a specific app/tracker
   ipcMain.handle(Channels.GetAppSourceFiles, async (_, trackerId: string) => {
     try {
-      logger.info(`Getting source files for app/tracker with ID: ${trackerId}`)
+      logger.debug(`Getting source files for app/tracker with ID: ${trackerId}`)
 
       // Force update of the tracker ID mapping to make sure we have fresh data
       await trackerService.updateTrackerIdMapping()
@@ -168,11 +168,11 @@ export function registerTrackerHandlers(): void {
 
       if (result.success) {
         const fileCount = result.files ? result.files.length : 0
-        logger.info(
+        logger.debug(
           `Successfully fetched ${fileCount} top-level file entries for app ID: ${trackerId}`
         )
       } else {
-        logger.warn(`Failed to get source files: ${result.error}`)
+        logger.debug(`Failed to get source files: ${result.error}`)
       }
 
       return result
@@ -190,15 +190,15 @@ export function registerTrackerHandlers(): void {
   // Handler to get file content for a specific app/tracker
   ipcMain.handle(Channels.GetAppFileContent, async (_, trackerId: string, filePath: string) => {
     try {
-      logger.info(`Getting file content for "${filePath}" in app/tracker: ${trackerId}`)
+      logger.debug(`Getting file content for "${filePath}" in app/tracker: ${trackerId}`)
 
       const result = await trackerService.getAppFileContent(trackerId, filePath)
 
       if (result.success) {
         const contentLength = result.content ? result.content.length : 0
-        logger.info(`Successfully fetched content (${contentLength} bytes) for file: ${filePath}`)
+        logger.debug(`Successfully fetched content (${contentLength} bytes) for file: ${filePath}`)
       } else {
-        logger.warn(`Failed to get file content: ${result.error}`)
+        logger.debug(`Failed to get file content: ${result.error}`)
       }
 
       return result
@@ -216,7 +216,7 @@ export function registerTrackerHandlers(): void {
   // Handler to get the form.json file from a tracker folder
   ipcMain.handle(Channels.GetTrackerForm, async (_, trackerId: string) => {
     try {
-      logger.info(`Getting form.json for tracker with ID: ${trackerId}`)
+      logger.debug(`Getting form.json for tracker with ID: ${trackerId}`)
 
       if (!trackerId) {
         return {
@@ -232,7 +232,7 @@ export function registerTrackerHandlers(): void {
       const folderMatch = appFolders.find((folder) => folder === trackerId)
 
       if (!folderMatch) {
-        logger.warn(`No matching folder found for tracker ID: ${trackerId}`)
+        logger.debug(`No matching folder found for tracker ID: ${trackerId}`)
         return {
           success: false,
           error: 'No matching tracker folder found'
@@ -249,20 +249,20 @@ export function registerTrackerHandlers(): void {
       const trackerDir = pathResolve(join(syftboxConfig.data_dir, 'apps', folderMatch))
       const formPath = join(trackerDir, 'form.json')
 
-      logger.info(`Looking for form.json at: ${formPath}`)
+      logger.debug(`Looking for form.json at: ${formPath}`)
 
       if (fs.existsSync(formPath)) {
         const formContent = fs.readFileSync(formPath, 'utf8')
         const formData = JSON.parse(formContent)
 
-        logger.info(`Successfully loaded form for tracker ${folderMatch}`)
+        logger.debug(`Successfully loaded form for tracker ${folderMatch}`)
 
         return {
           success: true,
           form: formData
         }
       } else {
-        logger.warn(`No form.json found for tracker ${folderMatch} at ${formPath}`)
+        logger.debug(`No form.json found for tracker ${folderMatch} at ${formPath}`)
 
         return {
           success: false,
@@ -283,7 +283,7 @@ export function registerTrackerHandlers(): void {
   // Handler to get the current tracker configuration
   ipcMain.handle(Channels.GetTrackerConfig, async (_, trackerId: string) => {
     try {
-      logger.info(`Getting config for tracker with ID: ${trackerId}`)
+      logger.debug(`Getting config for tracker with ID: ${trackerId}`)
 
       if (!trackerId) {
         return {
@@ -299,7 +299,7 @@ export function registerTrackerHandlers(): void {
       const folderMatch = appFolders.find((folder) => folder === trackerId)
 
       if (!folderMatch) {
-        logger.warn(`No matching folder found for tracker ID: ${trackerId}`)
+        logger.debug(`No matching folder found for tracker ID: ${trackerId}`)
         return {
           success: false,
           error: 'No matching tracker folder found'
@@ -316,20 +316,20 @@ export function registerTrackerHandlers(): void {
       const trackerDir = pathResolve(join(syftboxConfig.data_dir, 'apps', folderMatch))
       const configPath = join(trackerDir, 'config.json')
 
-      logger.info(`Looking for config.json at: ${configPath}`)
+      logger.debug(`Looking for config.json at: ${configPath}`)
 
       if (fs.existsSync(configPath)) {
         const configContent = fs.readFileSync(configPath, 'utf8')
         const configData = JSON.parse(configContent)
 
-        logger.info(`Successfully loaded config for tracker ${folderMatch}`)
+        logger.debug(`Successfully loaded config for tracker ${folderMatch}`)
 
         return {
           success: true,
           config: configData
         }
       } else {
-        logger.warn(`No config.json found for tracker ${folderMatch} at ${configPath}`)
+        logger.debug(`No config.json found for tracker ${folderMatch} at ${configPath}`)
 
         // If no config.json exists yet, return an empty config
         return {
@@ -353,7 +353,7 @@ export function registerTrackerHandlers(): void {
     Channels.SaveTrackerConfig,
     async (_, trackerId: string, configData: Record<string, any>) => {
       try {
-        logger.info(`Saving config for tracker with ID: ${trackerId}`)
+        logger.debug(`Saving config for tracker with ID: ${trackerId}`)
 
         if (!trackerId) {
           return {
@@ -364,13 +364,13 @@ export function registerTrackerHandlers(): void {
 
         // Get available app folders to map trackerId to folder name
         const appFolders = await getAvailableAppFolders()
-        logger.info(`Available app folders: ${JSON.stringify(appFolders)}`)
+        logger.debug(`Available app folders: ${JSON.stringify(appFolders)}`)
 
         // Find matching folder for this trackerId or use first available
         const folderMatch = appFolders.find((folder) => folder === trackerId)
 
         if (!folderMatch) {
-          logger.warn(`No matching folder found for tracker ID: ${trackerId}`)
+          logger.debug(`No matching folder found for tracker ID: ${trackerId}`)
           return {
             success: false,
             error: 'No matching tracker folder found'
@@ -399,7 +399,7 @@ export function registerTrackerHandlers(): void {
         // Write the updated config to the file
         fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf8')
 
-        logger.info(`Successfully saved config for tracker ${folderMatch}`)
+        logger.debug(`Successfully saved config for tracker ${folderMatch}`)
 
         return {
           success: true,
@@ -420,7 +420,7 @@ export function registerTrackerHandlers(): void {
   // Handler to get the app-level config.json
   ipcMain.handle(Channels.GetAppConfig, async () => {
     try {
-      logger.info('Getting app-level config.json')
+      logger.debug('Getting app-level config.json')
 
       // Determine the app's main config file location
       const configPath = getConfigFilePath()
@@ -428,7 +428,7 @@ export function registerTrackerHandlers(): void {
       // For backward compatibility, also check the old location
       const defaultConfigPath = pathResolve(appDir, 'config.json')
 
-      logger.info(`Looking for config.json at: ${configPath} or ${defaultConfigPath}`)
+      logger.debug(`Looking for config.json at: ${configPath} or ${defaultConfigPath}`)
 
       let configData = {}
 
@@ -436,15 +436,15 @@ export function registerTrackerHandlers(): void {
       if (fs.existsSync(configPath)) {
         const configContent = fs.readFileSync(configPath, 'utf8')
         configData = JSON.parse(configContent)
-        logger.info('Successfully loaded config.json from user data directory')
+        logger.debug('Successfully loaded config.json from user data directory')
       }
       // If not found, try to read from the app directory
       else if (fs.existsSync(defaultConfigPath)) {
         const configContent = fs.readFileSync(defaultConfigPath, 'utf8')
         configData = JSON.parse(configContent)
-        logger.info('Successfully loaded config.json from app directory')
+        logger.debug('Successfully loaded config.json from app directory')
       } else {
-        logger.warn('No config.json found in user data or app directory')
+        logger.debug('No config.json found in user data or app directory')
       }
 
       return {
@@ -465,10 +465,10 @@ export function registerTrackerHandlers(): void {
   // Handler to update the app-level config.json with form values
   ipcMain.handle(Channels.UpdateAppConfig, async (_, formValues: Record<string, unknown>) => {
     try {
-      logger.info('Updating app-level config.json with form values')
+      logger.debug('Updating app-level config.json with form values')
 
       if (!formValues || Object.keys(formValues).length === 0) {
-        logger.warn('No form values provided to update app config')
+        logger.debug('No form values provided to update app config')
         return {
           success: false,
           error: 'No form values provided'
@@ -490,18 +490,18 @@ export function registerTrackerHandlers(): void {
         targetConfigPath = configPath
         const configContent = fs.readFileSync(configPath, 'utf8')
         currentConfig = JSON.parse(configContent)
-        logger.info('Using config.json from user data directory')
+        logger.debug('Using config.json from user data directory')
       }
       // If not found, try to update the app directory config
       else if (fs.existsSync(defaultConfigPath)) {
         targetConfigPath = defaultConfigPath
         const configContent = fs.readFileSync(defaultConfigPath, 'utf8')
         currentConfig = JSON.parse(configContent)
-        logger.info('Using config.json from app directory')
+        logger.debug('Using config.json from app directory')
       } else {
         // If no config exists, create one in the user data directory
         targetConfigPath = configPath
-        logger.info('No existing config.json found, will create new one in user data directory')
+        logger.debug('No existing config.json found, will create new one in user data directory')
 
         // Ensure the directory exists
         const configDir = pathResolve(app.getPath('userData'), '../dk')
@@ -521,7 +521,7 @@ export function registerTrackerHandlers(): void {
       // Write the updated config to the file
       fs.writeFileSync(targetConfigPath, JSON.stringify(updatedConfig, null, 2), 'utf8')
 
-      logger.info(`Successfully updated app config at ${targetConfigPath}`)
+      logger.debug(`Successfully updated app config at ${targetConfigPath}`)
 
       return {
         success: true,
@@ -543,10 +543,10 @@ export function registerTrackerHandlers(): void {
     Channels.UploadTrackerFile,
     async (_, trackerId: string, filePath: string, variableId: string) => {
       try {
-        logger.info(`Uploading file for tracker with ID: ${trackerId}, variable: ${variableId}`)
+        logger.debug(`Uploading file for tracker with ID: ${trackerId}, variable: ${variableId}`)
 
         if (!trackerId || !filePath || !variableId) {
-          logger.warn('Missing required parameters for file upload')
+          logger.debug('Missing required parameters for file upload')
           return {
             success: false,
             error: 'Missing required parameters'
@@ -555,13 +555,13 @@ export function registerTrackerHandlers(): void {
 
         // Get available app folders to map trackerId to folder name
         const appFolders = await getAvailableAppFolders()
-        logger.info(`Available app folders: ${JSON.stringify(appFolders)}`)
+        logger.debug(`Available app folders: ${JSON.stringify(appFolders)}`)
 
         // Find matching folder for this trackerId
         const folderMatch = appFolders.find((folder) => folder === trackerId)
 
         if (!folderMatch) {
-          logger.warn(`No matching folder found for tracker ID: ${trackerId}`)
+          logger.debug(`No matching folder found for tracker ID: ${trackerId}`)
           return {
             success: false,
             error: 'No matching tracker folder found'
@@ -589,7 +589,7 @@ export function registerTrackerHandlers(): void {
           // Fallback to app directory if syftboxConfig is not available
           const appDir = app.getAppPath()
           filesDir = pathResolve(appDir, 'files')
-          logger.warn('syftboxConfig.data_dir not available, using app directory for file storage')
+          logger.debug('syftboxConfig.data_dir not available, using app directory for file storage')
         }
 
         // Create files directory if it doesn't exist
@@ -605,7 +605,7 @@ export function registerTrackerHandlers(): void {
 
         // Copy the file to the destination
         fs.copyFileSync(filePath, destinationPath)
-        logger.info(`Successfully copied file to: ${destinationPath}`)
+        logger.debug(`Successfully copied file to: ${destinationPath}`)
 
         // Create a path for storing in config
         let relativePath
@@ -654,7 +654,7 @@ export function registerTrackerHandlers(): void {
 
         // Write the updated config to the file
         fs.writeFileSync(targetConfigPath, JSON.stringify(updatedConfig, null, 2), 'utf8')
-        logger.info(`Updated config at ${targetConfigPath} with file path ${relativePath}`)
+        logger.debug(`Updated config at ${targetConfigPath} with file path ${relativePath}`)
 
         return {
           success: true,
@@ -678,7 +678,7 @@ export function registerTrackerHandlers(): void {
     Channels.ShowFileDialog,
     async (event, trackerId: string, variableId: string, options?: { extensions?: string[] }) => {
       try {
-        logger.info(
+        logger.debug(
           `Opening file dialog for tracker with ID: ${trackerId}, variable: ${variableId}`
         )
 
@@ -781,7 +781,7 @@ export function registerTrackerHandlers(): void {
         const result = await dialog.showOpenDialog(sourceWindow, dialogOptions)
 
         if (result.canceled || result.filePaths.length === 0) {
-          logger.info('File dialog canceled or no file selected')
+          logger.debug('File dialog canceled or no file selected')
           return {
             success: false,
             canceled: true
@@ -789,7 +789,7 @@ export function registerTrackerHandlers(): void {
         }
 
         const selectedFilePath = result.filePaths[0]
-        logger.info(`File selected: ${selectedFilePath}`)
+        logger.debug(`File selected: ${selectedFilePath}`)
 
         // Now process the selected file directly (using folderName instead of trackerId)
         // Note: we're now using the dataPath directly rather than looking it up from trackerId
@@ -808,10 +808,10 @@ export function registerTrackerHandlers(): void {
   // Helper function to upload a file
   async function uploadFile(trackerId: string, filePath: string, variableId: string) {
     try {
-      logger.info(`Uploading file for tracker with ID: ${trackerId}, variable: ${variableId}`)
+      logger.debug(`Uploading file for tracker with ID: ${trackerId}, variable: ${variableId}`)
 
       if (!trackerId || !filePath || !variableId) {
-        logger.warn('Missing required parameters for file upload')
+        logger.debug('Missing required parameters for file upload')
         return {
           success: false,
           error: 'Missing required parameters'
@@ -825,7 +825,7 @@ export function registerTrackerHandlers(): void {
       const folderMatch = appFolders.find((folder) => folder === trackerId)
 
       if (!folderMatch) {
-        logger.warn(`No matching folder found for tracker ID: ${trackerId}`)
+        logger.debug(`No matching folder found for tracker ID: ${trackerId}`)
         return {
           success: false,
           error: 'No matching tracker folder found'
@@ -853,7 +853,7 @@ export function registerTrackerHandlers(): void {
         // Fallback to app directory if syftboxConfig is not available
         const appDir = app.getAppPath()
         filesDir = pathResolve(appDir, 'files')
-        logger.warn('syftboxConfig.data_dir not available, using app directory for file storage')
+        logger.debug('syftboxConfig.data_dir not available, using app directory for file storage')
       }
 
       // Create files directory if it doesn't exist
@@ -869,7 +869,7 @@ export function registerTrackerHandlers(): void {
 
       // Copy the file to the destination
       fs.copyFileSync(filePath, destinationPath)
-      logger.info(`Successfully copied file to: ${destinationPath}`)
+      logger.debug(`Successfully copied file to: ${destinationPath}`)
 
       // Create a path for storing in config
       let relativePath
@@ -918,7 +918,7 @@ export function registerTrackerHandlers(): void {
 
       // Write the updated config to the file
       fs.writeFileSync(targetConfigPath, JSON.stringify(updatedConfig, null, 2), 'utf8')
-      logger.info(`Updated config at ${targetConfigPath} with file path ${relativePath}`)
+      logger.debug(`Updated config at ${targetConfigPath} with file path ${relativePath}`)
 
       return {
         success: true,

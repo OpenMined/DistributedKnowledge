@@ -23,6 +23,87 @@ export const mockSidebarData = {
   channels: [{ id: 'general', name: 'general' }] as Channel[]
 }
 
+// API Management mock data
+export const mockApiManagement = {
+  // Active APIs
+  activeApis: [
+    {
+      id: 'api-1',
+      name: 'Weather API',
+      description: 'Real-time weather data for global locations',
+      users: [
+        { id: 'user-1', name: 'Alex Smith', avatar: 'AS' },
+        { id: 'user-2', name: 'Jamie Lee', avatar: 'JL' },
+        { id: 'user-3', name: 'Morgan Chen', avatar: 'MC' }
+      ],
+      documents: [
+        { id: 'doc-1', name: 'Weather_schema.json', type: 'JSON' },
+        { id: 'doc-2', name: 'Location_format.md', type: 'MD' }
+      ],
+      policy: {
+        rateLimit: '100 calls/min',
+        dailyQuota: '10,000 calls'
+      },
+      active: true
+    },
+    {
+      id: 'api-2',
+      name: 'News API',
+      description: 'Latest news articles from worldwide sources',
+      users: [
+        { id: 'user-1', name: 'Alex Smith', avatar: 'AS' },
+        { id: 'user-4', name: 'Taylor Wong', avatar: 'TW' }
+      ],
+      documents: [
+        { id: 'doc-3', name: 'NEWS_catalog.json', type: 'JSON' },
+        { id: 'doc-4', name: 'Source_list.csv', type: 'CSV' }
+      ],
+      policy: {
+        rateLimit: '50 calls/min',
+        dailyQuota: '5,000 calls'
+      },
+      active: true
+    }
+  ],
+
+  // Pending API requests
+  pendingRequests: [
+    {
+      id: 'req-1',
+      apiName: 'Financial Data API',
+      description: 'Stock market and financial indicators data',
+      user: { id: 'user-3', name: 'Morgan Chen', avatar: 'MC' },
+      submittedDate: '2025-04-28',
+      documents: [{ id: 'doc-5', name: 'Financial_indicators.json', type: 'JSON' }],
+      requiredTrackers: [{ id: 'tracker-1', name: 'Market Analytics' }]
+    },
+    {
+      id: 'req-2',
+      apiName: 'Translation API',
+      description: 'Real-time text translation for 100+ languages',
+      user: { id: 'user-4', name: 'Taylor Wong', avatar: 'TW' },
+      submittedDate: '2025-05-01',
+      documents: [],
+      requiredTrackers: []
+    }
+  ],
+
+  // Denied API requests
+  deniedRequests: [
+    {
+      id: 'req-3',
+      apiName: 'Social Media API',
+      description: 'Social media integration and posting',
+      user: { id: 'user-2', name: 'Jamie Lee', avatar: 'JL' },
+      submittedDate: '2025-04-15',
+      deniedDate: '2025-04-17',
+      denialReason: 'Security policy violation: excessive permissions requested',
+      documents: [{ id: 'doc-6', name: 'Social_permissions.json', type: 'JSON' }],
+      requiredTrackers: [{ id: 'tracker-2', name: 'Social Connector' }]
+    }
+  ]
+}
+
 // Direct messages by user
 export const mockMessages: Record<number, ChatMessage[]> = {
   1: [

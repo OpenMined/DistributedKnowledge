@@ -23,7 +23,7 @@ import { app } from 'electron'
  * Initialize all services in the correct order to avoid circular dependencies
  */
 export function initializeServices(): void {
-  logger.info('Initializing all services...')
+  logger.debug('Initializing all services...')
 
   // 1. First load configuration
   loadConfig()
@@ -48,7 +48,7 @@ export function initializeServices(): void {
 
   // 5. Start tracker scanning and document data services if configuration is complete
   if (shouldStartServices) {
-    logger.info('Configuration exists and onboarding completed - starting background services')
+    logger.debug('Configuration exists and onboarding completed - starting background services')
 
     // Start tracker scanning service
     trackerService.startTrackerScan()
@@ -56,10 +56,10 @@ export function initializeServices(): void {
     // Start document data fetching service
     documentService.startDocumentDataFetch()
   } else {
-    logger.info(
+    logger.debug(
       'Configuration not set up or onboarding not completed - background services will not start'
     )
   }
 
-  logger.info('All services initialized')
+  logger.debug('All services initialized')
 }

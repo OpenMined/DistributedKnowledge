@@ -21,7 +21,7 @@ import { chmod } from 'fs/promises'
 import https from 'https'
 import fs from 'fs'
 import os from 'os'
-import { getAppPaths } from './utils'
+import { getAppPaths } from './getAppPaths'
 
 // Variables to hold child process references
 let childProcess: ChildProcess | null = null
@@ -61,7 +61,7 @@ function getCPUArchitecture(): string {
 function ensureDirectoryExists(filePath: string): void {
   const directory = dirname(filePath)
   if (!existsSync(directory)) {
-    logger.info(`Creating directory: ${directory}`)
+    logger.debug(`Creating directory: ${directory}`)
     mkdirSync(directory, { recursive: true })
   }
 }
@@ -73,7 +73,7 @@ async function downloadDKBinary(platform: string, targetPath: string): Promise<b
     ensureDirectoryExists(targetPath)
 
     const downloadUrl = `https://distributedknowledge.org/download/${platform}`
-    logger.info(`Downloading DK binary from ${downloadUrl} to ${targetPath}`)
+    logger.debug(`Downloading DK binary from ${downloadUrl} to ${targetPath}`)
 
     // Create write stream
     const fileStream = fs.createWriteStream(targetPath)
@@ -96,7 +96,7 @@ async function downloadDKBinary(platform: string, targetPath: string): Promise<b
         try {
           // Make binary executable
           await chmod(targetPath, 0o755)
-          logger.info(`Successfully downloaded DK binary to ${targetPath} and made it executable`)
+          logger.debug(`Successfully downloaded DK binary to ${targetPath} and made it executable`)
           resolve(true)
         } catch (error) {
           logger.error(`Failed to make DK binary executable: ${error}`)
@@ -134,7 +134,7 @@ async function downloadSyftBoxBinary(
     ensureDirectoryExists(targetPath)
 
     const downloadUrl = `https://syftboxdev.openmined.org/releases/syftbox_client_${os}_${arch}.tar.gz`
-    logger.info(`Downloading SyftBox binary from ${downloadUrl} to ${targetPath}`)
+    logger.debug(`Downloading SyftBox binary from ${downloadUrl} to ${targetPath}`)
 
     // Prepare the tarball filename and path
     const tarName = `syftbox_client_${os}_${arch}.tar.gz`
@@ -160,7 +160,7 @@ async function downloadSyftBoxBinary(
 
         try {
           // Extract the tarball
-          logger.info(`Extracting SyftBox binary from ${tarPath} to ${targetDir}`)
+          logger.debug(`Extracting SyftBox binary from ${tarPath} to ${targetDir}`)
           const extractCommand = `tar -xzf "${tarPath}" -C "${targetDir}"`
 
           // Use promisify to create a promise-based version of exec
@@ -173,7 +173,7 @@ async function downloadSyftBoxBinary(
           const extractedDir = path.join(targetDir, `syftbox_client_${os}_${arch}`)
           const extractedBinary = path.join(extractedDir, 'syftbox')
 
-          logger.info(`Looking for extracted binary at ${extractedBinary}`)
+          logger.debug(`Looking for extracted binary at ${extractedBinary}`)
 
           if (!existsSync(extractedBinary)) {
             logger.error(`Extracted binary not found at expected path: ${extractedBinary}`)
@@ -182,7 +182,7 @@ async function downloadSyftBoxBinary(
           }
 
           // Move the extracted binary to the target path
-          logger.info(`Moving binary from ${extractedBinary} to ${targetPath}`)
+          logger.debug(`Moving binary from ${extractedBinary} to ${targetPath}`)
 
           // If target already exists, remove it first
           if (existsSync(targetPath)) {
@@ -196,14 +196,14 @@ async function downloadSyftBoxBinary(
           await chmod(targetPath, 0o755)
 
           // Clean up the extracted directory and tarball
-          logger.info(`Cleaning up temporary files in ${extractedDir}`)
+          logger.debug(`Cleaning up temporary files in ${extractedDir}`)
           fs.unlinkSync(tarPath)
 
           // Remove the entire extracted directory
           const rmCommand = `rm -rf "${extractedDir}"`
           await execPromise(rmCommand)
 
-          logger.info(
+          logger.debug(
             `Successfully downloaded and extracted SyftBox binary to ${targetPath} and made it executable`
           )
           resolve(true)
@@ -234,11 +234,11 @@ async function downloadSyftBoxBinary(
 async function ensureDKBinaryExists(dkPath: string): Promise<boolean> {
   // Check if binary exists
   if (existsSync(dkPath)) {
-    logger.info(`DK binary found at ${dkPath}`)
+    logger.debug(`DK binary found at ${dkPath}`)
     return true
   }
 
-  logger.info(`DK binary not found at ${dkPath}, downloading...`)
+  logger.debug(`DK binary not found at ${dkPath}, downloading...`)
 
   // Get current platform
   const platform = getOSPlatform()
@@ -255,11 +255,11 @@ async function ensureDKBinaryExists(dkPath: string): Promise<boolean> {
 async function ensureSyftBoxBinaryExists(syftboxPath: string): Promise<boolean> {
   // Check if binary exists
   if (existsSync(syftboxPath)) {
-    logger.info(`SyftBox binary found at ${syftboxPath}`)
+    logger.debug(`SyftBox binary found at ${syftboxPath}`)
     return true
   }
 
-  logger.info(`SyftBox binary not found at ${syftboxPath}, downloading...`)
+  logger.debug(`SyftBox binary not found at ${syftboxPath}, downloading...`)
 
   // Get current platform and architecture
   const os = getOSPlatform()
@@ -329,7 +329,7 @@ export async function startExternalProcesses(): Promise<void> {
         args.push('-syftbox_config', syftboxConfigPath)
       }
 
-      logger.info(`Starting DK binary: ${dkPath} with args:`, args)
+      logger.debug(`Starting DK binary: ${dkPath} with args:`, args)
 
       // Spawn the process
       childProcess = spawn(dkPath, args, {
@@ -337,10 +337,10 @@ export async function startExternalProcesses(): Promise<void> {
         detached: false
       })
 
-      logger.info('DK binary started with PID:', childProcess.pid)
+      logger.debug('DK binary started with PID:', childProcess.pid)
 
       childProcess.stdout?.on('data', (data) => {
-        logger.info(`DK binary stdout: ${data}`)
+        logger.debug(`DK binary stdout: ${data}`)
       })
 
       childProcess.stderr?.on('data', (data) => {
@@ -353,14 +353,14 @@ export async function startExternalProcesses(): Promise<void> {
       })
 
       childProcess.on('close', (code) => {
-        logger.info(`DK binary exited with code ${code}`)
+        logger.debug(`DK binary exited with code ${code}`)
         childProcess = null
       })
     } catch (error) {
       logger.error('Failed to spawn DK binary:', error)
     }
   } else {
-    logger.warn('No dk_config found, DK binary not started')
+    logger.debug('No dk_config found, DK binary not started')
   }
 
   // Start the syftbox executable
@@ -387,7 +387,7 @@ export async function startExternalProcesses(): Promise<void> {
 
       // Add snap-specific logging
       if (process.env.SNAP) {
-        logger.info('Running in Snap environment, make sure interfaces are connected')
+        logger.debug('Running in Snap environment, make sure interfaces are connected')
       }
     } else if (osPlatform === 'mac') {
       // On macOS, try our app's bin directory first
@@ -400,7 +400,7 @@ export async function startExternalProcesses(): Promise<void> {
       return
     }
 
-    logger.info(`Using syftbox path for ${osPlatform}: ${syftboxPath}`)
+    logger.debug(`Using syftbox path for ${osPlatform}: ${syftboxPath}`)
 
     // Check if SyftBox binary exists and download if needed
     const binaryExists = await ensureSyftBoxBinaryExists(syftboxPath)
@@ -429,14 +429,14 @@ export async function startExternalProcesses(): Promise<void> {
     const syftboxConfigPath = appPaths.syftboxConfig
 
     // Ensure the syftbox config directory exists
-    const syftboxConfigDir = path.dirname(syftboxConfigPath)
+    const syftboxConfigDir = path.dirname(syftboxConfigPath || '')
     if (!existsSync(syftboxConfigDir)) {
-      logger.info(`Creating syftbox config directory: ${syftboxConfigDir}`)
+      logger.debug(`Creating syftbox config directory: ${syftboxConfigDir}`)
       mkdirSync(syftboxConfigDir, { recursive: true })
     }
 
     // Log the config path we're using
-    logger.info(`Using syftbox config at: ${syftboxConfigPath}`)
+    logger.debug(`Using syftbox config at: ${syftboxConfigPath || 'undefined'}`)
 
     // Spawn the syftbox process with config parameter
     try {
@@ -454,11 +454,11 @@ export async function startExternalProcesses(): Promise<void> {
       const newPath = `${process.env.PATH || ''}${platformPaths}:${commonPaths}:${userLocalBin}`
 
       // Log the updated PATH for debugging
-      logger.info(`User home directory resolved to: ${userHomeDir}`)
-      logger.info(`Adding user's local bin to PATH: ${userLocalBin}`)
-      logger.info(`Full PATH environment variable: ${newPath}`)
+      logger.debug(`User home directory resolved to: ${userHomeDir}`)
+      logger.debug(`Adding user's local bin to PATH: ${userLocalBin}`)
+      logger.debug(`Full PATH environment variable: ${newPath}`)
 
-      syftboxProcess = spawn(syftboxPath, ['--config', syftboxConfigPath], {
+      syftboxProcess = spawn(syftboxPath, ['--config', syftboxConfigPath || ''], {
         stdio: 'pipe',
         detached: false,
         env: {
@@ -473,32 +473,34 @@ export async function startExternalProcesses(): Promise<void> {
       return
     }
 
-    logger.info('Syftbox binary started with PID:', syftboxProcess.pid)
+    if (syftboxProcess) {
+      logger.debug('Syftbox binary started with PID:', syftboxProcess.pid)
 
-    syftboxProcess.stdout?.on('data', (data) => {
-      logger.info(`Syftbox binary stdout: ${data}`)
-    })
+      syftboxProcess.stdout?.on('data', (data) => {
+        logger.debug(`Syftbox binary stdout: ${data}`)
+      })
 
-    syftboxProcess.stderr?.on('data', (data) => {
-      logger.error(`Syftbox binary stderr: ${data}`)
-    })
+      syftboxProcess.stderr?.on('data', (data) => {
+        logger.error(`Syftbox binary stderr: ${data}`)
+      })
 
-    syftboxProcess.on('error', (error) => {
-      logger.error(`Failed to start syftbox binary: ${error}`)
-      syftboxProcess = null
-    })
+      syftboxProcess.on('error', (error) => {
+        logger.error(`Failed to start syftbox binary: ${error}`)
+        syftboxProcess = null
+      })
 
-    syftboxProcess.on('close', (code) => {
-      logger.info(`Syftbox binary exited with code ${code}`)
-      syftboxProcess = null
-    })
+      syftboxProcess.on('close', (code) => {
+        logger.debug(`Syftbox binary exited with code ${code}`)
+        syftboxProcess = null
+      })
+    }
   } catch (error) {
     logger.error('Failed to spawn syftbox binary:', error)
   }
 }
 
 // Initialize all services in the correct order
-logger.info('Application starting up...')
+logger.debug('Application starting up...')
 
 // Check if config.json exists before initializing services
 const configPath = getConfigFilePath()
@@ -512,7 +514,7 @@ if (configExists) {
 
     // Check if it has the default or empty userID
     if (!configData.userID || configData.userID === 'default-user' || configData.userID === '') {
-      logger.info(
+      logger.debug(
         `Found config with invalid/default userID "${configData.userID}" - removing this file`
       )
 
@@ -522,14 +524,14 @@ if (configExists) {
       // Update existence flag
       configExists = false
 
-      logger.info(`Removed invalid config file. App will now show onboarding.`)
+      logger.debug(`Removed invalid config file. App will now show onboarding.`)
     }
   } catch (error) {
     logger.error(`Error checking config validity:`, error)
   }
 }
 
-logger.info(`Valid config file exists at ${configPath}: ${configExists}`)
+logger.debug(`Valid config file exists at ${configPath}: ${configExists}`)
 
 // Initialize services
 initializeServices()
@@ -546,13 +548,13 @@ if (!configExists) {
   onboardingStatus.completed = false
 
   // Make sure these changes persist in memory across the entire process
-  logger.info('Config file not found, forcing onboarding wizard')
-  logger.info(
+  logger.debug('Config file not found, forcing onboarding wizard')
+  logger.debug(
     `Updated onboarding status: isFirstRun=${onboardingStatus.isFirstRun}, completed=${onboardingStatus.completed}`
   )
 
   // Log a clear marker for debugging
-  logger.info('ONBOARDING SHOULD BE DISPLAYED - NO CONFIG FILE EXISTS')
+  logger.debug('ONBOARDING SHOULD BE DISPLAYED - NO CONFIG FILE EXISTS')
 }
 
 // This method will be called when Electron has finished
@@ -580,7 +582,7 @@ app.whenReady().then(async () => {
 
   // Create main window
   const mainWindow = createMainWindow()
-  logger.info('Main window created')
+  logger.debug('Main window created')
 
   // Start the external programs only if config exists and onboarding is completed
   // Only start external processes when:
@@ -590,7 +592,7 @@ app.whenReady().then(async () => {
   const isValidConfig = configExists && appConfig.userID && appConfig.userID !== 'default-user'
   const shouldStartProcesses = isValidConfig && !onboardingStatus.isFirstRun
 
-  logger.info(
+  logger.debug(
     `Config exists: ${configExists}, Onboarding needed: ${onboardingStatus.isFirstRun}, Completed: ${onboardingStatus.completed}`
   )
 
@@ -600,7 +602,9 @@ app.whenReady().then(async () => {
       logger.error('Failed to start external processes:', error)
     })
   } else {
-    logger.info('Config not set up or onboarding not completed. External processes will not start.')
+    logger.debug(
+      'Config not set up or onboarding not completed. External processes will not start.'
+    )
   }
 
   app.on('activate', function () {
@@ -624,11 +628,11 @@ app.on('window-all-closed', () => {
 
 // Close the database and perform cleanup when quitting
 app.on('will-quit', () => {
-  logger.info('Application shutting down, cleaning up resources')
+  logger.debug('Application shutting down, cleaning up resources')
 
   // Terminate the DK process if it exists
   if (childProcess && childProcess.pid) {
-    logger.info('Terminating DK binary with PID:', childProcess.pid)
+    logger.debug('Terminating DK binary with PID:', childProcess.pid)
 
     // Kill process and all of its children
     try {
@@ -647,7 +651,7 @@ app.on('will-quit', () => {
 
   // Terminate the syftbox process if it exists
   if (syftboxProcess && syftboxProcess.pid) {
-    logger.info('Terminating syftbox binary with PID:', syftboxProcess.pid)
+    logger.debug('Terminating syftbox binary with PID:', syftboxProcess.pid)
 
     // Kill process and all of its children
     try {

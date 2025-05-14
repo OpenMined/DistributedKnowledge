@@ -32,6 +32,10 @@ export interface CommandPopupItem {
 export interface CommandProcessResult {
   passthrough: boolean
   payload: string
+  llmRequest?: {
+    type: string
+    messages: any[]
+  }
 }
 
 // Command registry interface

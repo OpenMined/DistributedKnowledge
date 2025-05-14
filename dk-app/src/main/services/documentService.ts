@@ -33,7 +33,7 @@ export class DocumentService {
   constructor() {
     // Initialize with empty values
     this.documentStats = { count: 0 }
-    serviceLogger.info('Document service initialized')
+    serviceLogger.debug('Document service initialized')
   }
 
   /**
@@ -48,7 +48,7 @@ export class DocumentService {
     // Update the RAG server URL
     this.updateRagServerUrl()
 
-    serviceLogger.info(`Starting document data fetch service with ${this.intervalMs}ms interval`)
+    serviceLogger.debug(`Starting document data fetch service with ${this.intervalMs}ms interval`)
 
     // Perform an initial fetch immediately
     this.fetchDocumentData().catch((error) => {
@@ -62,7 +62,7 @@ export class DocumentService {
       })
     }, this.intervalMs)
 
-    serviceLogger.info('Document data fetch service started')
+    serviceLogger.debug('Document data fetch service started')
   }
 
   /**
@@ -72,7 +72,7 @@ export class DocumentService {
     if (this.intervalId) {
       clearInterval(this.intervalId)
       this.intervalId = null
-      serviceLogger.info('Document data fetch service stopped')
+      serviceLogger.debug('Document data fetch service stopped')
     }
   }
 
@@ -80,17 +80,15 @@ export class DocumentService {
    * Update the RAG server URL from application config
    */
   private updateRagServerUrl(): void {
-    // Check for dk_api first as it's the primary endpoint used in the original implementation
+    // Use dk_api as the primary endpoint
     if (appConfig.dk_api) {
       this.ragServerBaseUrl = appConfig.dk_api
     } else {
-      // Fallback to a default URL
-      // TS error fix: Add rag_server_url to AppConfig type or use a type assertion
-      const ragServerUrl = (appConfig as any).rag_server_url
-      this.ragServerBaseUrl =
-        (ragServerUrl ? ragServerUrl.replace(/\/rag$/, '') : '') || 'http://localhost:4232'
+      // Fallback to a default URL if dk_api is not set
+      this.ragServerBaseUrl = 'http://localhost:4232'
+      serviceLogger.debug('No dk_api configured. Using default URL: http://localhost:4232')
     }
-    serviceLogger.info(`RAG server URL set to: ${this.ragServerBaseUrl}`)
+    serviceLogger.debug(`RAG server URL set to: ${this.ragServerBaseUrl}`)
   }
 
   /**
@@ -123,10 +121,11 @@ export class DocumentService {
         this.lastRefreshTime = new Date()
         serviceLogger.debug(`Updated document count: ${this.documentStats.count}`)
       } else {
-        serviceLogger.warn('Invalid response from RAG server count endpoint')
+        serviceLogger.debug('Invalid response from RAG server count endpoint')
         this.documentStats.error = 'Invalid response from RAG server'
       }
     } catch (error) {
+      serviceLogger.debug(`\n\n\n ERROR: ${error}\n\n\n`)
       // Type guard for axios errors
       if (axios.isAxiosError(error)) {
         if (error.response) {
@@ -165,33 +164,43 @@ export class DocumentService {
    */
   private async checkServerAvailability(): Promise<boolean> {
     try {
+      serviceLogger.debug(`Checking RAG server availability at: ${this.ragServerBaseUrl}`)
+
       // Check if server is available by making a simple request to rag/count
       // This avoids adding a new health endpoint requirement
+      serviceLogger.debug(`Making test request to ${this.ragServerBaseUrl}/rag/count`)
+
       const response = await axios.get(`${this.ragServerBaseUrl}/rag/count`, {
         timeout: 2000
       })
 
       this.isServerAvailable = response.status === 200
+      serviceLogger.debug(`RAG server is ${this.isServerAvailable ? 'available' : 'not available'}`)
       return this.isServerAvailable
     } catch (error) {
       this.isServerAvailable = false
+
       if (axios.isAxiosError(error) && error.response) {
         // The request was made and the server responded with a status code that falls out of the range of 2xx
-        serviceLogger.warn(
+        serviceLogger.debug(
           `RAG server at ${this.ragServerBaseUrl} returned status ${error.response.status}`
         )
       } else if (axios.isAxiosError(error) && error.request) {
         // The request was made but no response was received
-        serviceLogger.warn(
+        serviceLogger.debug(
           `RAG server at ${this.ragServerBaseUrl} did not respond (connection refused or timeout)`
         )
       } else {
         // Something happened in setting up the request
         const errorMessage = error instanceof Error ? error.message : String(error)
-        serviceLogger.warn(
+        serviceLogger.debug(
           `Error connecting to RAG server at ${this.ragServerBaseUrl}: ${errorMessage}`
         )
       }
+
+      // Set the specific error message we're looking for
+      this.documentStats.error = 'RAG server is not available'
+
       return false
     }
   }
@@ -230,7 +239,7 @@ export class DocumentService {
       let response
       // For empty query, get all active documents
       if (!query.trim()) {
-        serviceLogger.info(`Getting all active documents`)
+        serviceLogger.debug(`Getting all active documents`)
 
         // Simple GET request without any parameters - match original URL structure
         response = await axios.get(`${this.ragServerBaseUrl}/rag/active/true`, {
@@ -238,7 +247,7 @@ export class DocumentService {
         })
       } else {
         // Normal search with query
-        serviceLogger.info(
+        serviceLogger.debug(
           `Searching RAG documents with query: "${query}", numResults: ${numResults}`
         )
 
@@ -296,7 +305,7 @@ export class DocumentService {
         }
       }
 
-      serviceLogger.info(`Deleting document with filename: "${filename}"`)
+      serviceLogger.debug(`Deleting document with filename: "${filename}"`)
 
       // Send DELETE request to the RAG server with the filename as a query parameter
       const response = await axios.delete(`${this.ragServerBaseUrl}/rag`, {
@@ -312,7 +321,7 @@ export class DocumentService {
           serviceLogger.error('Failed to update document count after deletion:', error)
         })
 
-        serviceLogger.info(`Successfully deleted document: ${filename}`)
+        serviceLogger.debug(`Successfully deleted document: ${filename}`)
         return {
           success: true,
           message: 'Document deleted successfully'
@@ -361,7 +370,7 @@ export class DocumentService {
         // Clear the search cache
         this.lastSearchResults.clear()
 
-        serviceLogger.info('Successfully cleaned up all documents')
+        serviceLogger.debug('Successfully cleaned up all documents')
         return {
           success: true,
           message: 'All documents have been successfully removed.'

@@ -14,8 +14,8 @@ const logger = createServiceLogger('mcpHandlers')
 function getMCPConfigFilePath(): string {
   const appPaths = getAppPaths()
   // MCP config is stored at the base path (not configDir)
-  const mcpConfigPath = path.join(appPaths.basePath, 'mcpconfig.json')
-  logger.info(`Using MCP config path: ${mcpConfigPath}`)
+  const mcpConfigPath = path.join(appPaths.basePath || '', 'mcpconfig.json')
+  logger.debug(`Using MCP config path: ${mcpConfigPath}`)
   return mcpConfigPath
 }
 
@@ -24,12 +24,12 @@ function getMCPConfigFilePath(): string {
  */
 function loadMCPConfig() {
   const configPath = getMCPConfigFilePath()
-  logger.info(`Loading MCP configuration from ${configPath}`)
+  logger.debug(`Loading MCP configuration from ${configPath}`)
 
   try {
     // Check if the config file exists
     if (!fs.existsSync(configPath)) {
-      logger.warn(`MCP config file not found at ${configPath}`)
+      logger.debug(`MCP config file not found at ${configPath}`)
 
       // Return default configuration with empty servers
       return {
@@ -41,7 +41,7 @@ function loadMCPConfig() {
     const configFile = fs.readFileSync(configPath, 'utf8')
     const configData = JSON.parse(configFile)
 
-    logger.info(`Loaded MCP configuration from ${configPath}`)
+    logger.debug(`Loaded MCP configuration from ${configPath}`)
     return configData
   } catch (error) {
     logger.error(`Failed to load MCP config file ${configPath}:`, error)
@@ -74,7 +74,7 @@ function saveMCPConfig(config: any): boolean {
 
     // Write the config to disk
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
-    logger.info(`MCP Configuration saved to ${configPath}`)
+    logger.debug(`MCP Configuration saved to ${configPath}`)
 
     return true
   } catch (error) {
@@ -88,7 +88,7 @@ function saveMCPConfig(config: any): boolean {
  */
 export function registerMCPHandlers(): void {
   // Log handler initialization
-  logger.info('Initializing MCP configuration handlers')
+  logger.debug('Initializing MCP configuration handlers')
 
   // Get MCP configuration
   ipcMain.handle(MCPChannels.GetConfig, () => {

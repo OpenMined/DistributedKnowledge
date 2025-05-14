@@ -820,8 +820,8 @@ export class OpenAIProvider implements LLMProviderInterface {
                       const rebuiltArgs =
                         '{' +
                         pairs
-                          .map((pair) => {
-                            const [key, value] = pair.split(':').map((p) => p.trim())
+                          .map((pair: string) => {
+                            const [key, value] = pair.split(':').map((p: string) => p.trim())
 
                             // Ensure key is quoted
                             const formattedKey =

@@ -34,6 +34,7 @@ export enum Channels {
   GetAppTrackers = 'get-app-trackers',
   ToggleAppTracker = 'toggle-app-tracker',
   GetDocumentCount = 'get-document-count',
+  GetDocuments = 'get-documents',
   CleanupDocuments = 'cleanup-documents',
   InstallAppTracker = 'install-app-tracker',
   UpdateAppTracker = 'update-app-tracker',
@@ -41,6 +42,10 @@ export enum Channels {
   GetAppIconPath = 'get-app-icon-path',
   SearchRAGDocuments = 'search-rag-documents',
   DeleteDocument = 'delete-document',
+  GetApiManagement = 'get-api-management',
+  UpdateApiStatus = 'update-api-status',
+  ApproveApiRequest = 'approve-api-request',
+  DenyApiRequest = 'deny-api-request',
 
   // Tracker Scanning
   TriggerTrackerScan = 'trigger-tracker-scan',

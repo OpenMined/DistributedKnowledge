@@ -238,6 +238,16 @@
         >
           <AppWindow size={20} aria-hidden="true" />
         </button>
+
+        <!-- APIs icon -->
+        <button
+          class="flex items-center justify-center p-2.5 w-full border-none bg-transparent cursor-pointer text-foreground rounded-md hover:bg-accent"
+          on:click={handleAPIsClick}
+          aria-label="APIs"
+          tabindex="0"
+        >
+          <Globe size={20} aria-hidden="true" />
+        </button>
       </div>
     </div>
 

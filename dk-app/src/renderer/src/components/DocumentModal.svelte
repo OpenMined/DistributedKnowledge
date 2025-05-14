@@ -1,61 +1,61 @@
 <script>
-  import { createEventDispatcher, onMount } from 'svelte';
-  import { X, Copy, CheckCircle } from 'lucide-svelte';
-  import { cn } from '@lib/utils';
-  import { marked } from 'marked';
+  import { createEventDispatcher, onMount } from 'svelte'
+  import { X, Copy, CheckCircle } from 'lucide-svelte'
+  import { cn } from '@lib/utils'
+  import { marked } from 'marked'
 
-  export let title = '';
-  export let content = '';
-  export let show = false;
+  export let title = ''
+  export let content = ''
+  export let show = false
 
-  const dispatch = createEventDispatcher();
+  const dispatch = createEventDispatcher()
 
   // For Markdown rendering
-  let renderedContent = '';
+  let renderedContent = ''
 
   // For copy functionality
-  let copied = false;
+  let copied = false
 
   // Render markdown content using marked library
   $: if (content) {
     try {
-      renderedContent = marked(content);
-    } catch(e) {
-      console.error('Error parsing markdown:', e);
-      renderedContent = `<pre>${content}</pre>`;
+      renderedContent = marked(content)
+    } catch (e) {
+      console.error('Error parsing markdown:', e)
+      renderedContent = `<pre>${content}</pre>`
     }
   }
 
   function copyContent() {
     navigator.clipboard.writeText(content).then(() => {
-      copied = true;
-      setTimeout(() => (copied = false), 2000);
-    });
+      copied = true
+      setTimeout(() => (copied = false), 2000)
+    })
   }
 
   function close() {
-    show = false;
-    dispatch('close');
+    show = false
+    dispatch('close')
   }
 
   // Close modal when clicking outside
   function handleBackdropClick(e) {
     if (e.target === e.currentTarget) {
-      close();
+      close()
     }
   }
 
   // Close on Escape key
   function handleKeydown(e) {
     if (e.key === 'Escape' && show) {
-      close();
+      close()
     }
   }
 
   // Apply styling to the generated markdown
   onMount(() => {
     // Add any markdown-specific styling setup if needed
-  });
+  })
 </script>
 
 <svelte:window on:keydown={handleKeydown} />

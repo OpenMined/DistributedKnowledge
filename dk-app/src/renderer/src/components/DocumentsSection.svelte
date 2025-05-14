@@ -33,13 +33,22 @@
       errorMessage = ''
 
       // Get document count from backend
+      console.log('Calling getDocumentCount() to check RAG server status...')
       const docCountResponse = await window.api.apps.getDocumentCount()
+      console.log('DEBUG - Document count response:', JSON.stringify(docCountResponse, null, 2))
+
       if (docCountResponse.success && docCountResponse.stats) {
         documentCount = docCountResponse.stats.count
+        console.log(`Document count: ${documentCount}`)
+
         // Store error message if it exists
         if (docCountResponse.stats.error) {
+          console.log(`ERROR MESSAGE FROM SERVER: "${docCountResponse.stats.error}"`)
+          console.log('Full error context:', docCountResponse)
           errorMessage = docCountResponse.stats.error
         }
+      } else {
+        console.log('Document count response unsuccessful or missing stats:', docCountResponse)
       }
     } catch (error) {
       console.error('Failed to load document data:', error)
@@ -145,17 +154,37 @@
   // Update document count directly
   async function refreshDocumentCount() {
     try {
+      console.log('Refreshing document count - calling getDocumentCount()...')
       const docCountResponse = await window.api.apps.getDocumentCount()
+      console.log(
+        'DEBUG - RefreshDocumentCount response:',
+        JSON.stringify(docCountResponse, null, 2)
+      )
+
       if (docCountResponse.success && docCountResponse.stats) {
         documentCount = docCountResponse.stats.count
+        console.log(`Updated document count: ${documentCount}`)
+
         if (docCountResponse.stats.error) {
+          console.log(`REFRESH ERROR FROM SERVER: "${docCountResponse.stats.error}"`)
           errorMessage = docCountResponse.stats.error
+
+          // Look for specific RAG server not available message
+          if (docCountResponse.stats.error.includes('RAG server is not available')) {
+            console.log('RAG SERVER NOT AVAILABLE ERROR DETECTED!')
+            console.log('Full response context:', docCountResponse)
+          }
         } else {
+          // Clear error when server responds with no error
+          console.log('No error in response, clearing error message')
           errorMessage = ''
         }
+      } else {
+        console.error('Invalid document count response:', docCountResponse)
       }
     } catch (error) {
       console.error('Failed to update document count:', error)
+      console.error('Error details:', error)
       errorMessage = 'Failed to update document count'
     }
   }

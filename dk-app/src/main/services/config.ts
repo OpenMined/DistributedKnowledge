@@ -32,7 +32,7 @@ export function getConfigFilePath(): string {
 
   // Use platform-independent location from our utility function
   const appPaths = getAppPaths()
-  return appPaths.configFile
+  return appPaths.configFile || join(app.getPath('userData'), 'config.json')
 }
 
 // Onboarding status tracking - default values will be updated in loadConfig()
@@ -155,14 +155,14 @@ export function loadConfig(): void {
     // Check if the config file exists
     if (!existsSync(configPath)) {
       // If it doesn't exist, use default configuration but DON'T CREATE an empty config file
-      logger.warn(`Config file not found at ${configPath}`)
+      logger.debug(`Config file not found at ${configPath}`)
       logger.debug('Using default configuration:', { config: appConfig })
 
       // Explicitly set first run status when config doesn't exist - this is CRITICAL
       onboardingStatus.isFirstRun = true
       onboardingStatus.completed = false
 
-      logger.info(
+      logger.debug(
         `Config file doesn't exist - setting first run status: isFirstRun=${onboardingStatus.isFirstRun}, Completed=${onboardingStatus.completed}`
       )
       return
@@ -198,7 +198,7 @@ export function loadConfig(): void {
       logger.debug(`Setting dk_api to ${appConfig.dk_api} based on dk_config.http_port`)
     }
 
-    logger.info(`Loaded configuration from ${configPath}`)
+    logger.debug(`Loaded configuration from ${configPath}`)
     logger.debug('Configuration details:', { config: appConfig })
 
     // If syftbox_config path is specified, log it
@@ -210,7 +210,7 @@ export function loadConfig(): void {
     onboardingStatus.isFirstRun = false
     onboardingStatus.completed = true
 
-    logger.info(
+    logger.debug(
       `Config file exists - setting first run status: isFirstRun=${onboardingStatus.isFirstRun}, Completed=${onboardingStatus.completed}`
     )
   } catch (error) {
@@ -230,7 +230,7 @@ export function loadConfig(): void {
     onboardingStatus.isFirstRun = true
     onboardingStatus.completed = false
 
-    logger.info(
+    logger.debug(
       `Error reading config - setting first run status: isFirstRun=${onboardingStatus.isFirstRun}, Completed=${onboardingStatus.completed}`
     )
   }
@@ -248,7 +248,7 @@ export function getOnboardingStatus(): OnboardingStatus {
  */
 export function setOnboardingFirstRun(isFirstRun: boolean): void {
   onboardingStatus.isFirstRun = isFirstRun
-  logger.info(`Manually setting onboarding first run status to: ${isFirstRun}`)
+  logger.debug(`Manually setting onboarding first run status to: ${isFirstRun}`)
 }
 
 /**
@@ -269,7 +269,7 @@ export function setOnboardingStep(step: number): boolean {
 export function completeOnboarding(): void {
   onboardingStatus.completed = true
   onboardingStatus.currentStep = onboardingStatus.totalSteps
-  logger.info('Onboarding marked as complete')
+  logger.debug('Onboarding marked as complete')
 }
 
 /**
@@ -282,7 +282,7 @@ export function saveConfig(config: Partial<AppConfig>): boolean {
 
     // If not from onboarding, and config.json doesn't exist yet, prevent saving
     if (!isFromOnboarding && !existsSync(getConfigFilePath())) {
-      logger.warn('Prevented saving default configuration before onboarding completion')
+      logger.debug('Prevented saving default configuration before onboarding completion')
       return false
     }
 
@@ -291,12 +291,12 @@ export function saveConfig(config: Partial<AppConfig>): boolean {
 
     // Extra validation to NEVER save configurations with default or empty values
     if (!appConfig.userID || appConfig.userID === 'default-user' || appConfig.userID === '') {
-      logger.warn('Cannot save config: Invalid or default userID detected')
+      logger.debug('Cannot save config: Invalid or default userID detected')
       return false
     }
 
     if (!appConfig.serverURL) {
-      logger.warn('Cannot save config: Missing serverURL')
+      logger.debug('Cannot save config: Missing serverURL')
       return false
     }
 
@@ -309,16 +309,16 @@ export function saveConfig(config: Partial<AppConfig>): boolean {
       mkdirSync(configDir, { recursive: true })
     }
 
-    logger.info(`Saving configuration to ${configPath} with userID=${appConfig.userID}`)
+    logger.debug(`Saving configuration to ${configPath} with userID=${appConfig.userID}`)
 
     // Write the config to disk
     writeFileSync(configPath, JSON.stringify(appConfig, null, 2), 'utf8')
-    logger.info(`Configuration saved to ${configPath}`)
+    logger.debug(`Configuration saved to ${configPath}`)
 
     // Update onboarding status since a valid config now exists
     onboardingStatus.isFirstRun = false
     onboardingStatus.completed = true
-    logger.info('Config saved - updating onboarding status: isFirstRun=false, completed=true')
+    logger.debug('Config saved - updating onboarding status: isFirstRun=false, completed=true')
 
     return true
   } catch (error) {

@@ -63,6 +63,8 @@ export interface ChannelAPI {
     text: string,
     attachments?: FileAttachment[]
   ) => Promise<boolean>
+  receive: (channel: string, listener: (event: any, ...args: any[]) => void) => void
+  removeAllListeners: (channel: string) => void
 }
 
 // Sidebar IPC interface
@@ -71,18 +73,131 @@ export interface SidebarAPI {
   getChannels: () => Promise<string[]>
 }
 
+// API Management related interfaces
+export interface ApiUser {
+  id: string
+  name: string
+  avatar: string
+}
+
+export interface ApiDocument {
+  id: string
+  name: string
+  type: string
+}
+
+export interface ApiPolicy {
+  rateLimit: string
+  dailyQuota: string
+}
+
+export interface ApiData {
+  id: string
+  name: string
+  description: string
+  users: ApiUser[]
+  documents: ApiDocument[]
+  policy: ApiPolicy
+  active: boolean
+}
+
+export interface ApiRequest {
+  id: string
+  apiName: string
+  description: string
+  user: ApiUser
+  submittedDate: string
+  documents: ApiDocument[]
+  requiredTrackers: { id: string; name: string }[]
+  deniedDate?: string
+  denialReason?: string
+}
+
+export interface ApiManagement {
+  activeApis: ApiData[]
+  pendingRequests: ApiRequest[]
+  deniedRequests: ApiRequest[]
+}
+
 // Apps IPC interface
+// Policy interfaces
+export interface PolicyRule {
+  type: string
+  limit: number
+  period?: string
+  action: string
+}
+
+export interface Policy {
+  id: string
+  name: string
+  type: string
+  rules: PolicyRule[]
+}
+
 export interface AppsAPI {
   getAppTrackers: () => Promise<AppTracker[]>
-  toggleAppTracker: (id: number) => Promise<boolean>
+  toggleAppTracker: (id: string) => Promise<{ success: boolean; appTracker?: AppTracker }>
   getDocumentCount: () => Promise<DocumentStats>
+  getDocuments: () => Promise<{ success: boolean; data: ApiDocument[] }>
   cleanupDocuments: () => Promise<boolean>
   installAppTracker: (metadata: Record<string, unknown>) => Promise<boolean>
-  updateAppTracker: (id: number) => Promise<boolean>
-  uninstallAppTracker: (id: number) => Promise<boolean>
+  updateAppTracker: (id: string) => Promise<boolean>
+  uninstallAppTracker: (id: string) => Promise<boolean>
   getAppIconPath: (appId: string, appPath?: string) => Promise<string>
   searchRAGDocuments: (params: { query: string; numResults: number }) => Promise<RAGDocument[]>
   deleteDocument: (filename: string) => Promise<{ success: boolean; message: string }>
+  getApiManagement: () => Promise<{ success: boolean; data: ApiManagement }>
+  updateApiStatus: (params: {
+    id: string
+    active: boolean
+  }) => Promise<{ success: boolean; message: string }>
+  approveApiRequest: (requestId: string) => Promise<{ success: boolean; message: string }>
+  denyApiRequest: (params: {
+    requestId: string
+    reason?: string
+  }) => Promise<{ success: boolean; message: string }>
+  getPolicies: (params?: {
+    type?: string
+    active?: boolean
+  }) => Promise<{ success: boolean; data: { policies: Policy[] } }>
+  getPolicy: (id: string) => Promise<{ success: boolean; data: Policy }>
+  getAPIsByPolicy: (
+    policyId: string,
+    params?: { limit?: number; offset?: number; sort?: string; order?: string }
+  ) => Promise<{
+    success: boolean
+    data: { total: number; limit: number; offset: number; apis: ApiData[] }
+  }>
+  createPolicy: (policy: {
+    name: string
+    description: string
+    type: string
+    rules?: PolicyRule[]
+  }) => Promise<{ success: boolean; data?: Policy; message?: string }>
+  updatePolicy: (
+    id: string,
+    updates: { name?: string; description?: string; isActive?: boolean; rules?: PolicyRule[] }
+  ) => Promise<{ success: boolean; data?: Policy; message?: string }>
+  deletePolicy: (id: string) => Promise<{ success: boolean; message?: string }>
+  changeAPIPolicy: (
+    apiId: string,
+    params: {
+      policyId: string
+      effectiveImmediately: boolean
+      scheduledDate?: Date
+      changeReason: string
+    }
+  ) => Promise<{ success: boolean; message: string }>
+  createApi: (apiData: {
+    name: string
+    description: string
+    policyId: string
+    documentIds: string[]
+    externalUsers: { userId: string; accessLevel: string }[]
+    isActive: boolean
+  }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>
+  deleteApi: (id: string) => Promise<{ success: boolean; message: string }>
 }
 
 // Tracker form field
@@ -217,6 +332,12 @@ export interface LLMAPI {
     prompt: string
     userId: string
   }) => Promise<{ passthrough: boolean; payload: string }>
+  // User mention support
+  processMentions: (request: { prompt: string; userId: string }) => Promise<{ payload: string }>
+  // Fetch answers for a query string
+  fetchAnswers: (request: {
+    query: string
+  }) => Promise<{ query: string; answers: Record<string, string> }>
   getCommands: () => Promise<{ name: string; summary: string }[]>
 }
 

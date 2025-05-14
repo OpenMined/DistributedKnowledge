@@ -23,5 +23,11 @@ export const channelAPI: ChannelAPI = {
       messageId,
       text,
       attachments
-    })
+    }),
+  receive: (channel: string, listener: (event: any, ...args: any[]) => void) => {
+    ipcRenderer.on(channel, listener)
+  },
+  removeAllListeners: (channel: string) => {
+    ipcRenderer.removeAllListeners(channel)
+  }
 }

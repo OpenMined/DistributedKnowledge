@@ -1,5 +1,7 @@
 import { ipcMain } from 'electron'
 import { LLMService } from '@services/llm'
+import { httpRequest, getApiBaseUrl } from '../utils/http'
+import { URL } from 'url'
 import * as LLMTypes from '@shared/llmTypes'
 // Alias types for easier use
 type LLMProvider = LLMTypes.LLMProvider
@@ -20,8 +22,9 @@ import {
 } from '@services/llm/aiChatService'
 import { wrapIpcHandler } from '@utils/ipcErrorHandler'
 import { AppError, ErrorType } from '@shared/errors'
-// Import slash command service
+// Import slash command and mention processing services
 import { processSlashCommand } from '../services/llm/slashCommandService'
+import { processMentions } from '../services/llm/mentionService'
 
 // Create a singleton instance of the LLM service
 const llmService = new LLMService()
@@ -50,7 +53,7 @@ function initLLMService(): void {
           logger.debug(`Initializing provider ${providerName} with config:`, typedConfig)
           llmService.initProvider(providerName as LLMProvider, typedConfig)
         } else {
-          logger.warn(`Skipping provider ${providerName} due to missing or invalid API key`)
+          logger.debug(`Skipping provider ${providerName} due to missing or invalid API key`)
         }
       }
     } catch (err) {
@@ -60,12 +63,14 @@ function initLLMService(): void {
 
   // Set active provider if it's been initialized
   if (llmService.getAvailableProviders().includes(config.activeProvider as LLMProvider)) {
-    logger.info(`Setting active provider to ${config.activeProvider}`)
+    logger.debug(`Setting active provider to ${config.activeProvider}`)
     llmService.setActiveProvider(config.activeProvider as LLMProvider)
   } else if (llmService.getAvailableProviders().length > 0) {
     // If the configured active provider isn't available, use the first available one
     const firstProvider = llmService.getAvailableProviders()[0]
-    logger.warn(`Configured active provider not available. Using first available: ${firstProvider}`)
+    logger.debug(
+      `Configured active provider not available. Using first available: ${firstProvider}`
+    )
     llmService.setActiveProvider(firstProvider)
 
     // Update the config
@@ -73,8 +78,8 @@ function initLLMService(): void {
     saveLLMConfig(config)
   }
 
-  logger.info('Available providers after initialization:', llmService.getAvailableProviders())
-  logger.info('Active provider after initialization:', llmService.getActiveProvider())
+  logger.debug('Available providers after initialization:', llmService.getAvailableProviders())
+  logger.debug('Active provider after initialization:', llmService.getActiveProvider())
 }
 
 // Register IPC handlers
@@ -145,6 +150,76 @@ export function registerLLMHandlers(): void {
     }, ErrorType.COMMAND_PROCESSOR)
   )
 
+  // Process user mentions - handler for user mentions like @User
+  ipcMain.handle(
+    LLMChannels.ProcessMentions,
+    wrapIpcHandler(async (_, request: { prompt: string; userId: string }) => {
+      const { prompt, userId } = request
+      logger.info(`[MENTIONS_IPC] RECEIVED mention processing request from renderer`)
+      logger.info(`[MENTIONS_IPC] Prompt: "${prompt}", UserId: "${userId}"`)
+
+      try {
+        logger.info(`[MENTIONS_IPC] Calling processMentions function...`)
+        const startTime = Date.now()
+        const result = await processMentions(prompt, userId)
+        const elapsedTime = Date.now() - startTime
+
+        logger.info(`[MENTIONS_IPC] processMentions completed in ${elapsedTime}ms`)
+        logger.info(
+          `[MENTIONS_IPC] Result type: ${typeof result}, Value: ${JSON.stringify(result)}`
+        )
+
+        // Ensure we always return a proper formatted result
+        if (!result) {
+          logger.info(`[MENTIONS_IPC] Result is null or undefined, using default success message`)
+          return { payload: 'Mention processed successfully' }
+        } else if (typeof result === 'string') {
+          logger.info(`[MENTIONS_IPC] Result is string: "${result}"`)
+          return { payload: result }
+        } else if (typeof result === 'object') {
+          if (result.payload !== undefined) {
+            logger.info(`[MENTIONS_IPC] Result has payload property: "${result.payload}"`)
+            return { payload: result.payload }
+          } else {
+            logger.info(
+              `[MENTIONS_IPC] Result is object without payload: ${JSON.stringify(result)}`
+            )
+            // Try to find any string property we can use
+            const resultObj = result as Record<string, any>
+            for (const key in resultObj) {
+              if (typeof resultObj[key] === 'string') {
+                logger.info(
+                  `[MENTIONS_IPC] Using property "${key}" as payload: "${resultObj[key]}"`
+                )
+                return { payload: resultObj[key] }
+              }
+            }
+            logger.info(
+              `[MENTIONS_IPC] No suitable string property found, using default success message`
+            )
+            return { payload: 'Mention processed successfully' }
+          }
+        }
+
+        logger.info(`[MENTIONS_IPC] Using default fallback success message`)
+        // Default fallback
+        return { payload: 'Mention processed successfully' }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        logger.error(`[MENTIONS_IPC] ERROR: ${errorMessage}`)
+        logger.error(
+          `[MENTIONS_IPC] Error stack: ${error instanceof Error ? error.stack : 'No stack trace'}`
+        )
+
+        return {
+          payload: `Error processing mentions: ${errorMessage}`
+        }
+      } finally {
+        logger.info(`[MENTIONS_IPC] Request processing complete`)
+      }
+    }, ErrorType.COMMAND_PROCESSOR)
+  )
+
   // Get available commands - for command autocompletion
   ipcMain.handle(
     LLMChannels.GetCommands,
@@ -166,7 +241,7 @@ export function registerLLMHandlers(): void {
           { name: 'clear', summary: 'Clear the chat history' },
           { name: 'version', summary: 'Show application version' },
           { name: 'echo', summary: 'Echo a message back' },
-          { name: 'answer', summary: 'Search documents and reply with the input text' }
+          { name: 'rag', summary: 'Search documents and reply with the input text' }
         ]
       }
     }, ErrorType.DATA_LOAD)
@@ -227,7 +302,7 @@ export function registerLLMHandlers(): void {
         const defaultModel =
           config.defaultModel ||
           fullConfig.providers[provider]?.defaultModel ||
-          (provider === LLMProvider.OPENAI ? 'gpt-4o' : '')
+          (provider === 'openai' ? 'gpt-4o' : '')
 
         // Keep track of both existing and new models
         const existingModels = fullConfig.providers[provider]?.models || []
@@ -237,7 +312,7 @@ export function registerLLMHandlers(): void {
         // Make sure the selected model is always in the models list
         if (defaultModel && !combinedModels.includes(defaultModel)) {
           combinedModels.push(defaultModel)
-          logger.info(`Added default model ${defaultModel} to models list`)
+          logger.debug(`Added default model ${defaultModel} to models list`)
         }
 
         fullConfig.providers[provider] = {
@@ -299,5 +374,53 @@ export function registerLLMHandlers(): void {
       }
       return success
     }, ErrorType.DATA_SAVE)
+  )
+
+  // Fetch answers from the server - this allows bypassing CSP restrictions
+  ipcMain.handle(
+    LLMChannels.FetchAnswers,
+    wrapIpcHandler(async (_, request: { query: string }) => {
+      const { query } = request
+      logger.info(`[ANSWERS_IPC] Received request to fetch answers for query: "${query}"`)
+
+      try {
+        // Get API base URL from configuration
+        const apiBaseUrl = getApiBaseUrl()
+
+        if (!apiBaseUrl) {
+          logger.error('[ANSWERS_IPC] API base URL not configured')
+          throw new Error('API base URL not configured')
+        }
+
+        // Create endpoint URL
+        const endpoint = `${apiBaseUrl}/answers`
+        logger.info(`[ANSWERS_IPC] Endpoint URL: ${endpoint}`)
+
+        // Send the request using POST method with JSON body
+        logger.info(`[ANSWERS_IPC] Sending POST request with query: "${query}"`)
+        const response = await httpRequest(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({ query })
+        })
+
+        logger.info(`[ANSWERS_IPC] Response received - Status: ${response.status}`)
+        logger.info(`[ANSWERS_IPC] Response data: ${JSON.stringify(response.data)}`)
+
+        return response.data
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error(`[ANSWERS_IPC] Failed to fetch answers: ${errorMessage}`)
+
+        if (error instanceof Error && error.stack) {
+          logger.error(`[ANSWERS_IPC] Error stack: ${error.stack}`)
+        }
+
+        throw new AppError(`Failed to fetch answers: ${errorMessage}`, ErrorType.NETWORK)
+      }
+    }, ErrorType.NETWORK)
   )
 }

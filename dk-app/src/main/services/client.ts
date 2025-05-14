@@ -619,7 +619,6 @@ export class Client {
   async getUserActiveStatus(): Promise<UserStatusResponse> {
     // Build the endpoint URL
     const endpoint = `${this.serverURL}/active-users`
-    console.log(`Fetching active users from: ${endpoint}`)
 
     try {
       // Create AbortController for timeout
@@ -639,8 +638,6 @@ export class Client {
       // Clear the timeout
       clearTimeout(timeoutId)
 
-      console.log(`Response status: ${response.status}`)
-
       if (!response.ok) {
         const bodyText = await response.text()
         console.error(`Failed response body: ${bodyText}`)
@@ -654,7 +651,6 @@ export class Client {
       try {
         // Parse the JSON response directly
         const userStatus = await response.json()
-        console.log('User status response:', userStatus)
 
         // Validate and sanitize the response
         if (!userStatus || typeof userStatus !== 'object') {

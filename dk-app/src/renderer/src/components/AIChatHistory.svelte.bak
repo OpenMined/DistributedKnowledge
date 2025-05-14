@@ -39,7 +39,7 @@
     filterCommands
   } from '@lib/commands'
   import { clsx } from 'clsx'
-
+  
   // User mention system
   let userMentionPopupVisible = false
   let selectedUserIndex = 0
@@ -106,9 +106,7 @@
     streamRequestId: string,
     chunk: StreamingChunk
   ) {
-    logger.debug(
-      `Stream chunk received for requestId: ${streamRequestId}, current requestId: ${requestId}`
-    )
+    logger.debug(`Stream chunk received for requestId: ${streamRequestId}, current requestId: ${requestId}`)
 
     if (streamRequestId !== requestId) {
       logger.debug('Ignoring chunk for different requestId')
@@ -118,10 +116,10 @@
     logger.debug(`Processing stream chunk: ${JSON.stringify(chunk.delta)}`)
 
     // Find the placeholder message and update its content
-    let updatedMessage = false
+    let updatedMessage = false;
     messages = messages.map((msg) => {
       if (msg.isLoading && msg.role === 'assistant') {
-        updatedMessage = true
+        updatedMessage = true;
         logger.debug(`Updating message ${msg.id} with chunk content`)
         return {
           ...msg,
@@ -142,9 +140,7 @@
     streamRequestId: string,
     response: ChatCompletionResponse
   ) {
-    logger.debug(
-      `Stream complete received for requestId: ${streamRequestId}, current requestId: ${requestId}`
-    )
+    logger.debug(`Stream complete received for requestId: ${streamRequestId}, current requestId: ${requestId}`)
 
     if (streamRequestId !== requestId) {
       logger.debug('Ignoring completion for different requestId')
@@ -154,10 +150,10 @@
     logger.debug('Stream complete, updating message state')
 
     // Remove the loading state from the assistant message
-    let updatedMessage = false
+    let updatedMessage = false;
     messages = messages.map((msg) => {
       if (msg.isLoading && msg.role === 'assistant') {
-        updatedMessage = true
+        updatedMessage = true;
         logger.debug(`Marking message ${msg.id} as complete`)
         return {
           ...msg,
@@ -183,9 +179,7 @@
     streamRequestId: string,
     error: string
   ) {
-    logger.debug(
-      `Stream error received for requestId: ${streamRequestId}, current requestId: ${requestId}`
-    )
+    logger.debug(`Stream error received for requestId: ${streamRequestId}, current requestId: ${requestId}`)
 
     if (streamRequestId !== requestId) {
       logger.debug('Ignoring error for different requestId')
@@ -195,10 +189,10 @@
     logger.error('Error streaming message:', error)
 
     // Update the error message
-    let updatedMessage = false
+    let updatedMessage = false;
     messages = messages.map((msg) => {
       if (msg.isLoading && msg.role === 'assistant') {
-        updatedMessage = true
+        updatedMessage = true;
         logger.debug(`Updating message ${msg.id} with error: ${error}`)
         return {
           ...msg,
@@ -273,17 +267,17 @@
   // References for command functionality
   let inputTextarea: HTMLTextAreaElement
   let userId = crypto.randomUUID() // For command context
-
+  
   // Users data from API
   let users = []
-
+  
   // Load users from API
   async function loadUsers() {
     try {
       // The actual API is window.api.sidebar.getUsers()
       logger.debug('Loading users from sidebar API...')
       const userList = await window.api.sidebar.getUsers()
-
+      
       if (userList && Array.isArray(userList) && userList.length > 0) {
         users = userList
         logger.debug('Successfully loaded users:', users)
@@ -305,7 +299,7 @@
         { id: '3', name: 'Charlie', online: true, status: 'online' }
       ]
     }
-
+    
     // Always log the current state of users after loading
     logger.debug('Current users array:', users)
     return users
@@ -373,7 +367,7 @@
     } catch (error) {
       logger.error('Failed to initialize slash commands:', error)
     }
-
+    
     // Load users for @ mentions
     try {
       await loadUsers()
@@ -412,394 +406,383 @@
       return
     }
 
-    const userInput = newMessageText.trim()
-
+    const userInput = newMessageText.trim();
+    
     // 1. Check for '@' mentions
     if (userInput.includes('@')) {
-      logger.debug('Message contains user mentions, processing:', userInput)
+      logger.debug('Message contains user mentions, processing:', userInput);
       try {
         // Process the mentions via IPC
         const mentionResult = await window.api.llm.processMentions({
           prompt: userInput,
           userId: userId
-        })
-
+        });
+        
         // Extended debug logging to see exact structure
-        logger.debug('Mention processing result:', JSON.stringify(mentionResult))
-        console.log('Raw mentionResult:', mentionResult)
-
+        logger.debug('Mention processing result:', JSON.stringify(mentionResult));
+        console.log('Raw mentionResult:', mentionResult);
+        
         // Add user message to chat
         const userMessage: AIMessage = {
           id: crypto.randomUUID(),
           role: 'user',
           content: userInput,
           timestamp: new Date()
-        }
-        messages = [...messages, userMessage]
-
+        };
+        messages = [...messages, userMessage];
+        
         // Extract mentioned users from the input to count how many were queried
-        const mentionRegex = /@(\w+)/g
-        const mentionMatches = userInput.match(mentionRegex) || []
-        const mentionedUsers = mentionMatches.map((match) => match.substring(1)) // Remove @ symbol
-        const uniqueMentionedUsers = [...new Set(mentionedUsers)] // Remove duplicates
-        const queriedCount = uniqueMentionedUsers.length
-
+        const mentionRegex = /@(\w+)/g;
+        const mentionMatches = userInput.match(mentionRegex) || [];
+        const mentionedUsers = mentionMatches.map(match => match.substring(1)); // Remove @ symbol
+        const uniqueMentionedUsers = [...new Set(mentionedUsers)]; // Remove duplicates
+        const queriedCount = uniqueMentionedUsers.length;
+        
         // Initialize responseMetadata for tracking responses
         const responseMetadata = {
           answeredCount: 0,
           queriedCount: queriedCount,
           isProcessing: true
-        }
-
+        };
+        
         // Create initial response message with processing indicator
-        const responseMessageId = crypto.randomUUID()
+        const responseMessageId = crypto.randomUUID();
         const initialResponseMessage: AIMessage = {
           id: responseMessageId,
           role: 'assistant',
-          content: 'Processing mentions...',
+          content: "Processing mentions...",
           timestamp: new Date(),
           isLoading: true,
           responseMetadata: responseMetadata // Add metadata for tracking
-        }
-        messages = [...messages, initialResponseMessage]
-
-        // Function to fetch answers from the server using IPC to avoid CSP issues
+        };
+        messages = [...messages, initialResponseMessage];
+        
+        // Function to fetch answers from the server
         const fetchAnswers = async () => {
           try {
-            // Use the IPC bridge to bypass CSP restrictions
-            console.log(`[MENTIONS_FETCH] Using IPC bridge to fetch answers`)
-            console.log(`[MENTIONS_FETCH] Original query: "${userInput}"`)
-            console.log(`[MENTIONS_FETCH] Timestamp: ${new Date().toISOString()}`)
-
-            // Prepare request with exact query string
-            const request = {
+            // Use POST with JSON body to ensure exact query matching
+            const fetchUrl = `http://localhost:4232/answers`;
+            
+            // Prepare request with JSON body containing the exact query
+            const requestBody = {
               query: userInput // Exact query string without any encoding or modification
-            }
-
-            console.log(`=========== ANSWER REQUEST DEBUG ===========`)
-            console.log(`Using IPC bridge to avoid CSP restrictions`)
-            console.log(`Query: "${userInput}"`)
-            console.log(`=========== END DEBUG INFO ===========`)
-
-            // Use the IPC bridge instead of direct fetch
-            console.log(`[MENTIONS_FETCH] Calling window.api.llm.fetchAnswers`)
-            const startTime = Date.now()
-            const data = await window.api.llm.fetchAnswers(request)
-            const fetchTime = Date.now() - startTime
-
-            console.log(`[MENTIONS_FETCH] Response received in ${fetchTime}ms`)
-            console.log(`[MENTIONS_FETCH] Response data:`, data)
-
-            if (data) {
-              console.log(`[MENTIONS_FETCH] Successfully received response via IPC`)
-              console.log(
-                `[MENTIONS_FETCH] Received ${data.answers ? Object.keys(data.answers).length : 0} answers`
-              )
-
-              // Log the first few answers if available
-              if (data.answers && Object.keys(data.answers).length > 0) {
-                console.log(`[MENTIONS_FETCH] Sample answers:`)
-                Object.entries(data.answers)
-                  .slice(0, 3)
-                  .forEach(([user, answer]) => {
-                    console.log(
-                      `[MENTIONS_FETCH] - @${user}: ${typeof answer === 'string' ? answer.substring(0, 50) : 'Non-string answer'}...`
-                    )
-                  })
-              } else {
-                console.log(`[MENTIONS_FETCH] No answers found in the response`)
-                // Debug query string comparison issue
-                console.log(`[MENTIONS_FETCH] Query comparison check:`)
-                console.log(`[MENTIONS_FETCH] - Query sent: "${userInput}"`)
-                console.log(
-                  `[MENTIONS_FETCH] - Query from response: "${data.query || 'not provided'}"`
-                )
+            };
+            
+            // Enhanced logging for debugging
+            console.log(`[MENTIONS_FETCH] Requesting answers via POST to: ${fetchUrl}`);
+            console.log(`[MENTIONS_FETCH] Original query: "${userInput}"`);
+            console.log(`[MENTIONS_FETCH] Request body: ${JSON.stringify(requestBody)}`);
+            console.log(`[MENTIONS_FETCH] Timestamp: ${new Date().toISOString()}`);
+            
+            // Fetch options for POST request with JSON body
+            const requestOptions = {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify(requestBody)
+            };
+            
+            console.log(`=========== ANSWER REQUEST DEBUG ===========`);
+            console.log(`Request URL: ${fetchUrl}`);
+            console.log(`Request method: POST`);
+            console.log(`Request body: ${JSON.stringify(requestBody)}`);
+            console.log(`=========== END DEBUG INFO ===========`);
+            
+            console.log(`[MENTIONS_FETCH] Sending POST request to ${fetchUrl}`);
+            const startTime = Date.now();
+            const response = await fetch(fetchUrl, requestOptions);
+            const fetchTime = Date.now() - startTime;
+            
+            console.log(`[MENTIONS_FETCH] Response received in ${fetchTime}ms`);
+            console.log(`[MENTIONS_FETCH] Response status: ${response.status} ${response.statusText}`);
+            
+            if (response.ok) {
+              const contentType = response.headers.get('Content-Type');
+              console.log(`[MENTIONS_FETCH] Response Content-Type: ${contentType}`);
+              
+              // Log the raw response text first
+              const responseText = await response.text();
+              console.log(`[MENTIONS_FETCH] Raw response: ${responseText.substring(0, 500)}${responseText.length > 500 ? '...' : ''}`);
+              
+              // Try to parse JSON
+              let data;
+              try {
+                data = JSON.parse(responseText);
+                console.log(`[MENTIONS_FETCH] Successfully parsed JSON response`);
+                console.log(`[MENTIONS_FETCH] Received ${data.answers ? Object.keys(data.answers).length : 0} answers`);
+                
+                // Log the first few answers if available
+                if (data.answers && Object.keys(data.answers).length > 0) {
+                  console.log(`[MENTIONS_FETCH] Sample answers:`);
+                  Object.entries(data.answers).slice(0, 3).forEach(([user, answer]) => {
+                    console.log(`[MENTIONS_FETCH] - @${user}: ${typeof answer === 'string' ? answer.substring(0, 50) : 'Non-string answer'}...`);
+                  });
+                } else {
+                  console.log(`[MENTIONS_FETCH] No answers found in the response`);
+                  // Debug query string comparison issue
+                  console.log(`[MENTIONS_FETCH] Query comparison check:`);
+                  console.log(`[MENTIONS_FETCH] - Query sent: "${userInput}"`);
+                  console.log(`[MENTIONS_FETCH] - Query from response: "${data.query || 'not provided'}"`);
+                }
+              } catch (parseError) {
+                console.error(`[MENTIONS_FETCH] Failed to parse JSON: ${parseError.message}`);
+                return null;
               }
-
-              return data
+              
+              return data;
             } else {
-              console.error(`[MENTIONS_FETCH] Received empty response from IPC channel`)
-              return null
+              console.error(`[MENTIONS_FETCH] Request failed with status ${response.status}`);
+              const errorText = await response.text();
+              console.error(`[MENTIONS_FETCH] Error response: ${errorText}`);
+              logger.error('Failed to fetch answers:', errorText);
+              return null;
             }
           } catch (error) {
-            console.error(`[MENTIONS_FETCH] IPC error: ${error.message}`)
-            console.error(`[MENTIONS_FETCH] Error stack: ${error.stack || 'No stack trace'}`)
-            logger.error('Error fetching answers via IPC:', error)
-            return null
+            console.error(`[MENTIONS_FETCH] Network or other error: ${error.message}`);
+            console.error(`[MENTIONS_FETCH] Error stack: ${error.stack || 'No stack trace'}`);
+            logger.error('Error fetching answers:', error);
+            return null;
           }
-        }
-
+        };
+        
         // Set up periodic checking for responses
-        let processingTime = 0
-        const checkInterval = 1000 // 1 second
-        const maxProcessingTime = 10000 // 10 seconds
-
+        let processingTime = 0;
+        const checkInterval = 1000; // 1 second
+        const maxProcessingTime = 10000; // 10 seconds
+        
         // Function to update the processing animation
         const updateProcessingMessage = (newText: string, metadata: any) => {
-          messages = messages.map((msg) => {
+          messages = messages.map(msg => {
             if (msg.id === responseMessageId) {
               return {
                 ...msg,
                 content: newText,
                 responseMetadata: metadata
-              }
+              };
             }
-            return msg
-          })
-        }
-
+            return msg;
+          });
+        };
+        
         // Start the processing animation with periodic checks
         const processingInterval = setInterval(async () => {
-          processingTime += checkInterval
-
-          console.log(
-            `[MENTIONS_POLL] Polling for answers (attempt #${processingTime / checkInterval})`
-          )
-          console.log(`[MENTIONS_POLL] Total processing time: ${processingTime}ms`)
-          console.log(`[MENTIONS_POLL] Max processing time: ${maxProcessingTime}ms`)
-
+          processingTime += checkInterval;
+          
+          console.log(`[MENTIONS_POLL] Polling for answers (attempt #${processingTime / checkInterval})`);
+          console.log(`[MENTIONS_POLL] Total processing time: ${processingTime}ms`);
+          console.log(`[MENTIONS_POLL] Max processing time: ${maxProcessingTime}ms`);
+          
           // Fetch current answers - use the EXACT query string without modification
           // The database expects the exact string that was sent in the remote message
-          console.log(`[MENTIONS_POLL] Calling fetchAnswers()`)
-          const answersData = await fetchAnswers()
-          console.log(
-            `[MENTIONS_POLL] fetchAnswers() returned: ${answersData ? 'Data object' : 'null'}`
-          )
-
+          console.log(`[MENTIONS_POLL] Calling fetchAnswers()`);
+          const answersData = await fetchAnswers();
+          console.log(`[MENTIONS_POLL] fetchAnswers() returned: ${answersData ? 'Data object' : 'null'}`);
+          
           if (answersData && answersData.answers) {
             // Update the number of answers received
-            const currentAnswers = Object.keys(answersData.answers).length
-            responseMetadata.answeredCount = currentAnswers
-
-            console.log(`[MENTIONS_POLL] Found ${currentAnswers}/${queriedCount} answers`)
-            console.log(
-              `[MENTIONS_POLL] Answering users: ${Object.keys(answersData.answers).join(', ')}`
-            )
-            console.log(`[MENTIONS_POLL] Query used: "${answersData.query || 'not provided'}"`)
-
+            const currentAnswers = Object.keys(answersData.answers).length;
+            responseMetadata.answeredCount = currentAnswers;
+            
+            console.log(`[MENTIONS_POLL] Found ${currentAnswers}/${queriedCount} answers`);
+            console.log(`[MENTIONS_POLL] Answering users: ${Object.keys(answersData.answers).join(', ')}`);
+            console.log(`[MENTIONS_POLL] Query used: "${answersData.query || 'not provided'}"`);
+            
             // Update message with current status
-            const processingDots = '.'.repeat((processingTime / 1000) % 4)
-            const statusText = `Processing mentions${processingDots}`
-            updateProcessingMessage(statusText, responseMetadata)
-            console.log(`[MENTIONS_POLL] Updated processing message: "${statusText}"`)
-
+            const processingDots = ".".repeat((processingTime / 1000) % 4);
+            const statusText = `Processing mentions${processingDots}`;
+            updateProcessingMessage(statusText, responseMetadata);
+            console.log(`[MENTIONS_POLL] Updated processing message: "${statusText}"`);
+            
             // If all users have answered or time is up, finish processing
             if (currentAnswers >= queriedCount || processingTime >= maxProcessingTime) {
-              console.log(
-                `[MENTIONS_POLL] Completing response: ${currentAnswers >= queriedCount ? 'All users answered' : 'Processing timeout reached'}`
-              )
-              console.log(`[MENTIONS_POLL] Final answers count: ${currentAnswers}/${queriedCount}`)
-              clearInterval(processingInterval)
-
+              console.log(`[MENTIONS_POLL] Completing response: ${currentAnswers >= queriedCount ? 'All users answered' : 'Processing timeout reached'}`);
+              console.log(`[MENTIONS_POLL] Final answers count: ${currentAnswers}/${queriedCount}`);
+              clearInterval(processingInterval);
+              
               // Get final response text with all possible fallbacks
-              let responseText = ''
-
+              let responseText = "";
+              
               // Format the answers into a readable response
               if (currentAnswers > 0) {
-                console.log(`[MENTIONS_POLL] Formatting ${currentAnswers} answers for display`)
-
-                // Check if there's an AI-generated summary
-                if (answersData.summary) {
-                  console.log(`[MENTIONS_POLL] Found AI-generated summary`)
-                  responseText = `${answersData.summary}\n\n`
-                  responseText += 'Individual responses:\n\n'
-                } else {
-                  responseText = 'Responses received:\n\n'
-                }
-
+                console.log(`[MENTIONS_POLL] Formatting ${currentAnswers} answers for display`);
+                responseText = "Responses received:\n\n";
                 Object.entries(answersData.answers).forEach(([user, answer]) => {
-                  console.log(
-                    `[MENTIONS_POLL] Adding answer from @${user}: ${typeof answer === 'string' ? answer.substring(0, 50) : 'Non-string answer'}...`
-                  )
-                  responseText += `@${user}: ${answer}\n\n`
-                })
+                  console.log(`[MENTIONS_POLL] Adding answer from @${user}: ${typeof answer === 'string' ? answer.substring(0, 50) : 'Non-string answer'}...`);
+                  responseText += `@${user}: ${answer}\n\n`;
+                });
               } else {
-                console.log(
-                  `[MENTIONS_POLL] No answers received, falling back to original mentionResult`
-                )
+                console.log(`[MENTIONS_POLL] No answers received, falling back to original mentionResult`);
                 // No answers received, use the original mentionResult
-
+                
                 // Check for the wrapped response structure (from wrapIpcHandler)
                 if (mentionResult && typeof mentionResult === 'object') {
                   if (mentionResult.success === true && mentionResult.data !== undefined) {
                     // Success response from IPC handler - unwrap the data
-                    logger.debug('Found wrapped success response, unwrapping data')
-
+                    logger.debug('Found wrapped success response, unwrapping data');
+                    
                     // The data property contains our actual result
-                    const unwrappedResult = mentionResult.data
-
+                    const unwrappedResult = mentionResult.data;
+                    
                     if (typeof unwrappedResult === 'string') {
                       // Direct string result
-                      responseText = unwrappedResult
-                      logger.debug('Unwrapped result is string:', responseText)
+                      responseText = unwrappedResult;
+                      logger.debug('Unwrapped result is string:', responseText);
                     } else if (typeof unwrappedResult === 'object' && unwrappedResult !== null) {
                       // Object result - try to find payload
                       if (unwrappedResult.payload !== undefined) {
-                        responseText =
-                          typeof unwrappedResult.payload === 'string'
-                            ? unwrappedResult.payload
-                            : JSON.stringify(unwrappedResult.payload)
-                        logger.debug('Using payload from unwrapped result:', responseText)
+                        responseText = typeof unwrappedResult.payload === 'string' ? 
+                          unwrappedResult.payload : 
+                          JSON.stringify(unwrappedResult.payload);
+                        logger.debug('Using payload from unwrapped result:', responseText);
                       } else {
                         // Try to find any useful string
                         for (const key in unwrappedResult) {
                           if (typeof unwrappedResult[key] === 'string') {
-                            responseText = unwrappedResult[key]
-                            logger.debug(`Using ${key} from unwrapped result:`, responseText)
-                            break
+                            responseText = unwrappedResult[key];
+                            logger.debug(`Using ${key} from unwrapped result:`, responseText);
+                            break;
                           }
                         }
                       }
                     }
                   } else if (mentionResult.success === false && mentionResult.error) {
                     // Error response from IPC handler
-                    responseText = `Error: ${mentionResult.error.message || 'Unknown error'}`
-                    logger.debug('Found wrapped error response:', responseText)
+                    responseText = `Error: ${mentionResult.error.message || 'Unknown error'}`;
+                    logger.debug('Found wrapped error response:', responseText);
                   } else if (mentionResult.payload !== undefined) {
                     // Direct result with payload property
-                    responseText =
-                      typeof mentionResult.payload === 'string'
-                        ? mentionResult.payload
-                        : JSON.stringify(mentionResult.payload)
-                    logger.debug('Found direct payload property:', responseText)
+                    responseText = typeof mentionResult.payload === 'string' ? 
+                      mentionResult.payload : 
+                      JSON.stringify(mentionResult.payload);
+                    logger.debug('Found direct payload property:', responseText);
                   } else {
                     // Other types of objects - try properties directly
                     for (const key in mentionResult) {
                       if (typeof mentionResult[key] === 'string') {
-                        responseText = mentionResult[key]
-                        logger.debug(`Using property ${key} directly:`, responseText)
-                        break
+                        responseText = mentionResult[key];
+                        logger.debug(`Using property ${key} directly:`, responseText);
+                        break;
                       }
                     }
                   }
                 } else if (typeof mentionResult === 'string') {
                   // Direct string result
-                  responseText = mentionResult
-                  logger.debug('Result is direct string:', responseText)
+                  responseText = mentionResult;
+                  logger.debug('Result is direct string:', responseText);
                 } else if (!mentionResult) {
                   // Null or undefined result
-                  responseText = 'No responses received from mentioned users.'
-                  logger.debug('mentionResult is null or undefined')
+                  responseText = "No responses received from mentioned users.";
+                  logger.debug('mentionResult is null or undefined');
                 }
               }
-
+              
               // Update message with final response and mark as not loading
-              responseMetadata.isProcessing = false
-              console.log(`[MENTIONS_POLL] Preparing final response update`)
-              console.log(
-                `[MENTIONS_POLL] Final response text length: ${responseText.length} characters`
-              )
-              console.log(
-                `[MENTIONS_POLL] First 100 chars of response: "${responseText.substring(0, 100)}..."`
-              )
-
-              messages = messages.map((msg) => {
+              responseMetadata.isProcessing = false;
+              console.log(`[MENTIONS_POLL] Preparing final response update`);
+              console.log(`[MENTIONS_POLL] Final response text length: ${responseText.length} characters`);
+              console.log(`[MENTIONS_POLL] First 100 chars of response: "${responseText.substring(0, 100)}..."`);
+              
+              messages = messages.map(msg => {
                 if (msg.id === responseMessageId) {
-                  console.log(`[MENTIONS_POLL] Updating message ${msg.id} with final content`)
+                  console.log(`[MENTIONS_POLL] Updating message ${msg.id} with final content`);
                   return {
                     ...msg,
                     content: responseText,
                     isLoading: false,
                     responseMetadata: responseMetadata
-                  }
+                  };
                 }
-                return msg
-              })
-
+                return msg;
+              });
+              
               // Save the updated chat history
-              console.log(`[MENTIONS_POLL] Saving final chat history with updated message`)
-              await saveAIChatHistory(messages)
-              console.log(`[MENTIONS_POLL] Chat history saved successfully`)
+              console.log(`[MENTIONS_POLL] Saving final chat history with updated message`);
+              await saveAIChatHistory(messages);
+              console.log(`[MENTIONS_POLL] Chat history saved successfully`);
             }
           } else {
             // Update with dots to show it's still processing
-            const processingDots = '.'.repeat((processingTime / 1000) % 4)
-            const statusText = `Processing mentions${processingDots}`
-            updateProcessingMessage(statusText, responseMetadata)
-            console.log(`[MENTIONS_POLL] Updated processing animation: "${statusText}"`)
-
+            const processingDots = ".".repeat((processingTime / 1000) % 4);
+            const statusText = `Processing mentions${processingDots}`;
+            updateProcessingMessage(statusText, responseMetadata);
+            console.log(`[MENTIONS_POLL] Updated processing animation: "${statusText}"`);
+            
             // If we've reached max time, finish processing
             if (processingTime >= maxProcessingTime) {
-              console.log(
-                `[MENTIONS_POLL] Maximum processing time reached (${maxProcessingTime}ms)`
-              )
-              console.log(`[MENTIONS_POLL] No answers data available, ending poll`)
-              clearInterval(processingInterval)
-
+              console.log(`[MENTIONS_POLL] Maximum processing time reached (${maxProcessingTime}ms)`);
+              console.log(`[MENTIONS_POLL] No answers data available, ending poll`);
+              clearInterval(processingInterval);
+              
               // Get response text with all possible fallbacks from original mentionResult
-              let responseText = 'Processing complete, but no responses were received.'
-              console.log(`[MENTIONS_POLL] Using default timeout message: "${responseText}"`)
-
+              let responseText = "Processing complete, but no responses were received.";
+              console.log(`[MENTIONS_POLL] Using default timeout message: "${responseText}"`);
+              
               // Similar fallback logic as before for mentionResult
               if (mentionResult && typeof mentionResult === 'object') {
-                console.log(`[MENTIONS_POLL] Checking original mentionResult for fallback text`)
-                console.log(`[MENTIONS_POLL] mentionResult type: ${typeof mentionResult}`)
-
+                console.log(`[MENTIONS_POLL] Checking original mentionResult for fallback text`);
+                console.log(`[MENTIONS_POLL] mentionResult type: ${typeof mentionResult}`);
+                
                 if (mentionResult.success === true && mentionResult.data !== undefined) {
-                  console.log(`[MENTIONS_POLL] Found success:true response with data`)
-                  const unwrappedResult = mentionResult.data
-                  console.log(`[MENTIONS_POLL] Unwrapped result type: ${typeof unwrappedResult}`)
-
+                  console.log(`[MENTIONS_POLL] Found success:true response with data`);
+                  const unwrappedResult = mentionResult.data;
+                  console.log(`[MENTIONS_POLL] Unwrapped result type: ${typeof unwrappedResult}`);
+                  
                   if (typeof unwrappedResult === 'string') {
-                    responseText = unwrappedResult
-                    console.log(
-                      `[MENTIONS_POLL] Using string data from mentionResult: "${responseText.substring(0, 50)}..."`
-                    )
+                    responseText = unwrappedResult;
+                    console.log(`[MENTIONS_POLL] Using string data from mentionResult: "${responseText.substring(0, 50)}..."`);
                   }
                   // ...other fallback logic
                 }
               }
-
+              
               // Update message with final response and mark as not loading
-              responseMetadata.isProcessing = false
-              console.log(`[MENTIONS_POLL] Preparing final response update`)
-              console.log(
-                `[MENTIONS_POLL] Final response text length: ${responseText.length} characters`
-              )
-              console.log(
-                `[MENTIONS_POLL] First 100 chars of response: "${responseText.substring(0, 100)}..."`
-              )
-
-              messages = messages.map((msg) => {
+              responseMetadata.isProcessing = false;
+              console.log(`[MENTIONS_POLL] Preparing final response update`);
+              console.log(`[MENTIONS_POLL] Final response text length: ${responseText.length} characters`);
+              console.log(`[MENTIONS_POLL] First 100 chars of response: "${responseText.substring(0, 100)}..."`);
+              
+              messages = messages.map(msg => {
                 if (msg.id === responseMessageId) {
-                  console.log(`[MENTIONS_POLL] Updating message ${msg.id} with final content`)
+                  console.log(`[MENTIONS_POLL] Updating message ${msg.id} with final content`);
                   return {
                     ...msg,
                     content: responseText,
                     isLoading: false,
                     responseMetadata: responseMetadata
-                  }
+                  };
                 }
-                return msg
-              })
-
+                return msg;
+              });
+              
               // Save the updated chat history
-              console.log(`[MENTIONS_POLL] Saving final chat history with updated message`)
-              await saveAIChatHistory(messages)
-              console.log(`[MENTIONS_POLL] Chat history saved successfully`)
+              console.log(`[MENTIONS_POLL] Saving final chat history with updated message`);
+              await saveAIChatHistory(messages);
+              console.log(`[MENTIONS_POLL] Chat history saved successfully`);
             }
           }
-        }, checkInterval)
-
+        }, checkInterval);
+        
         // Clear input
-        newMessageText = ''
-
+        newMessageText = '';
+        
         // Exit the function - don't process as slash command or LLM query
-        return
+        return;
       } catch (error) {
-        logger.error('Error processing mentions:', error)
-        window.api.toast.show('Error processing mentions', { type: 'error' })
-        return
+        logger.error('Error processing mentions:', error);
+        window.api.toast.show('Error processing mentions', { type: 'error' });
+        return;
       }
     }
-
+    
     // 2. If no mentions, check if it's a slash command
     if (userInput.startsWith('/')) {
       // Handle as slash command (existing code will handle this)
-      handleSimpleCommandExecute()
-      return
+      handleSimpleCommandExecute();
+      return;
     }
-
+    
     // Normal message processing flow - only executes if not returned earlier
     const userMessage: AIMessage = {
       id: crypto.randomUUID(),
@@ -903,24 +886,19 @@
       logger.debug('Command mode activated. Text:', newMessageText)
     } else if (newMessageText.includes('@')) {
       // Check if we're in the middle of typing a mention
-      const lastAtIndex = newMessageText.lastIndexOf('@')
-      const textAfterAt = newMessageText.substring(lastAtIndex)
-
+      const lastAtIndex = newMessageText.lastIndexOf('@');
+      const textAfterAt = newMessageText.substring(lastAtIndex);
+      
       // If there's a space after the @ symbol, or if the mention is complete, hide the popup
       if (textAfterAt.includes(' ') && textAfterAt.indexOf(' ') > 1) {
         // Mention is complete (there's a space after the username)
-        userMentionPopupVisible = false
-        logger.debug('Mention complete, hiding popup')
+        userMentionPopupVisible = false;
+        logger.debug('Mention complete, hiding popup');
       } else {
         // Still typing a mention, show popup
-        hideCommandPopup()
-        userMentionPopupVisible = true
-        logger.debug(
-          'User mention mode activated. Text:',
-          newMessageText,
-          'Users count:',
-          users.length
-        )
+        hideCommandPopup();
+        userMentionPopupVisible = true;
+        logger.debug('User mention mode activated. Text:', newMessageText, 'Users count:', users.length);
       }
     } else {
       hideCommandPopup()
@@ -945,7 +923,7 @@
     // Handle Tab key for command autocompletion
     if (event.key === 'Tab') {
       event.preventDefault()
-
+      
       if (newMessageText.startsWith('/')) {
         // Autocomplete slash commands
         const filteredCmds = filterCommands(newMessageText)
@@ -967,20 +945,18 @@
       } else if (newMessageText.includes('@')) {
         // Autocomplete user mentions
         const mentionText = newMessageText.substring(newMessageText.lastIndexOf('@') + 1)
-        const filteredUsers = mentionText
-          ? users.filter((user) => user.name.toLowerCase().includes(mentionText.toLowerCase()))
+        const filteredUsers = mentionText 
+          ? users.filter(user => user.name.toLowerCase().includes(mentionText.toLowerCase())) 
           : users
-
+          
         // If there are suggestions available, use the first one
         if (filteredUsers.length > 0) {
           const suggestion = filteredUsers[0]
           const beforeMention = newMessageText.substring(0, newMessageText.lastIndexOf('@'))
-          const afterMention = newMessageText.substring(
-            newMessageText.lastIndexOf('@') + mentionText.length + 1
-          )
-
+          const afterMention = newMessageText.substring(newMessageText.lastIndexOf('@') + mentionText.length + 1)
+          
           newMessageText = `${beforeMention}@${suggestion.name} ${afterMention}`
-
+          
           // Set cursor position after the mention and space
           setTimeout(() => {
             if (inputTextarea) {
@@ -990,28 +966,27 @@
               inputTextarea.selectionEnd = cursorPos
             }
           }, 0)
-
+          
           // Hide the popup after selection
           userMentionPopupVisible = false
         }
       }
     }
-
+    
     // Handle arrow keys for navigating mention suggestions
     if (userMentionPopupVisible && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
       event.preventDefault()
-
+      
       const mentionText = newMessageText.substring(newMessageText.lastIndexOf('@') + 1)
-      const filteredUsers = mentionText
-        ? users.filter((user) => user.name.toLowerCase().includes(mentionText.toLowerCase()))
+      const filteredUsers = mentionText 
+        ? users.filter(user => user.name.toLowerCase().includes(mentionText.toLowerCase())) 
         : users
-
+      
       if (filteredUsers.length > 0) {
         if (event.key === 'ArrowDown') {
           selectedUserIndex = (selectedUserIndex + 1) % filteredUsers.length
         } else {
-          selectedUserIndex =
-            selectedUserIndex <= 0 ? filteredUsers.length - 1 : selectedUserIndex - 1
+          selectedUserIndex = selectedUserIndex <= 0 ? filteredUsers.length - 1 : selectedUserIndex - 1
         }
       }
     }
@@ -1032,20 +1007,18 @@
       }, 0)
     }
   }
-
+  
   // Handle user selection from mention popup
   function handleUserSelect(user) {
     const mentionText = newMessageText.substring(newMessageText.lastIndexOf('@') + 1)
     const beforeMention = newMessageText.substring(0, newMessageText.lastIndexOf('@'))
-    const afterMention = newMessageText.substring(
-      newMessageText.lastIndexOf('@') + mentionText.length + 1
-    )
-
+    const afterMention = newMessageText.substring(newMessageText.lastIndexOf('@') + mentionText.length + 1)
+    
     newMessageText = `${beforeMention}@${user.name} ${afterMention}`
-
+    
     // Hide the popup after selection
     userMentionPopupVisible = false
-
+    
     // Set cursor position after the mention and space
     if (inputTextarea) {
       setTimeout(() => {
@@ -1102,7 +1075,7 @@
             return {
               ...msg,
               content: result.displayText,
-              isLoading: true // Keep loading while we start LLM request
+              isLoading: true  // Keep loading while we start LLM request
             }
           }
           return msg
@@ -1153,21 +1126,19 @@
           logger.debug('LLM stream request sent successfully')
 
           // The rest will be handled by the streaming handlers
-          return
+          return;
         } catch (llmError) {
           // Update the placeholder with an error message if the LLM request fails
           logger.error('Error starting LLM request from command:', llmError)
 
           messages = messages.map((msg) => {
             if (msg.id === placeholderMessage.id) {
-              const errorMessage = llmError instanceof Error ? llmError.message : 'Unknown error'
-              logger.error(`Error details: ${errorMessage}`)
+              const errorMessage = llmError instanceof Error ? llmError.message : 'Unknown error';
+              logger.error(`Error details: ${errorMessage}`);
               logger.debug(`Updating placeholder message ${msg.id} with error`)
               return {
                 ...msg,
-                content:
-                  result.displayText +
-                  `\n\nError: Failed to start AI processing: ${errorMessage}\nPlease try again.`,
+                content: result.displayText + `\n\nError: Failed to start AI processing: ${errorMessage}\nPlease try again.`,
                 isLoading: false
               }
             }
@@ -1175,7 +1146,7 @@
           })
 
           // Reset waiting state
-          isWaitingForResponse = false
+          isWaitingForResponse = false;
         }
       } else {
         // Standard text result
@@ -1190,9 +1161,7 @@
         logger.debug(`Updating placeholder message ${placeholderMessage.id} with result`)
         messages = messages.map((msg) => {
           if (msg.id === placeholderMessage.id) {
-            logger.debug(
-              `Found placeholder message, updating content from "${msg.content}" to result`
-            )
+            logger.debug(`Found placeholder message, updating content from "${msg.content}" to result`)
             return {
               ...msg,
               content: result,
@@ -1248,9 +1217,7 @@
     // Log content of the last message
     if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1]
-      logger.debug(
-        `Last message (id: ${lastMsg.id}, role: ${lastMsg.role}) content length: ${lastMsg.content.length}`
-      )
+      logger.debug(`Last message (id: ${lastMsg.id}, role: ${lastMsg.role}) content length: ${lastMsg.content.length}`)
       logger.debug(`Last message first 100 chars: "${lastMsg.content.substring(0, 100)}"`)
     }
     await saveAIChatHistory(messages)
@@ -1459,13 +1426,12 @@
                 </span>
                 <span class="text-xs text-muted-foreground flex items-center gap-2">
                   {formatMessageTimestamp(message.timestamp)}
-
+                  
                   <!-- User response indicator -->
                   {#if message.responseMetadata && message.role === 'assistant'}
                     <span class="flex items-center text-xs bg-primary/10 px-2 py-0.5 rounded-full">
                       <User size={12} class="mr-1" />
-                      {message.responseMetadata.answeredCount}/{message.responseMetadata
-                        .queriedCount}
+                      {message.responseMetadata.answeredCount}/{message.responseMetadata.queriedCount}
                     </span>
                   {/if}
                 </span>
@@ -1498,16 +1464,15 @@
               {#if message.content && message.content.includes('[DOCUMENT_RESULTS_START]') && message.content.includes('[DOCUMENT_RESULTS_END]')}
                 {@const textParts = message.content.split('[DOCUMENT_RESULTS_START]')}
                 {@const documentPart = message.content.substring(
-                  message.content.indexOf('[DOCUMENT_RESULTS_START]') +
-                    '[DOCUMENT_RESULTS_START]'.length,
+                  message.content.indexOf('[DOCUMENT_RESULTS_START]') + '[DOCUMENT_RESULTS_START]'.length,
                   message.content.indexOf('[DOCUMENT_RESULTS_END]')
                 )}
                 {@const documents = (() => {
                   try {
-                    return JSON.parse(documentPart)
+                    return JSON.parse(documentPart);
                   } catch (e) {
-                    console.error('Failed to parse document results', e)
-                    return []
+                    console.error('Failed to parse document results', e);
+                    return [];
                   }
                 })()}
 
@@ -1519,17 +1484,16 @@
                 <!-- If we have document results, show document icon buttons -->
                 {#if documents && documents.length > 0}
                   <div class="mt-3 flex flex-wrap gap-2">
-                    <span class="text-xs text-muted-foreground mb-1 w-full">Related Documents:</span
-                    >
+                    <span class="text-xs text-muted-foreground mb-1 w-full">Related Documents:</span>
                     {#each documents as doc}
                       <button
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary transition-colors text-xs border border-primary/20"
                         title={doc.title}
                         on:click={() => {
                           // Show the document in our custom modal
-                          documentTitle = doc.title
-                          documentContent = doc.content
-                          showDocumentModal = true
+                          documentTitle = doc.title;
+                          documentContent = doc.content;
+                          showDocumentModal = true;
                         }}
                       >
                         <FileText size={14} />
@@ -1575,13 +1539,13 @@
         inputText={newMessageText}
         onSelectCommand={(cmd) => handleSimpleCommandSelect(cmd)}
       />
-
+      
       <!-- User Mention Popup -->
       <UserMentionPopup
         inputText={newMessageText}
         visible={userMentionPopupVisible}
-        {users}
-        {selectedUserIndex}
+        users={users}
+        selectedUserIndex={selectedUserIndex}
         currentUserId={userId}
         on:selectUser={(e) => handleUserSelect(e.detail)}
       />

@@ -3,6 +3,11 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { existsSync } from 'fs'
 
+// Create a type declaration to extend global object
+declare global {
+  var mainWindow: BrowserWindow | null
+}
+
 export function createMainWindow(): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -17,8 +22,23 @@ export function createMainWindow(): BrowserWindow {
     }
   })
 
+  // Store a reference to the main window in the global object
+  global.mainWindow = mainWindow
+
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  // Set Content Security Policy to allow connections to localhost:4232
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ws: wss: http://localhost:4232 https://localhost:4232; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;"
+        ]
+      }
+    })
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

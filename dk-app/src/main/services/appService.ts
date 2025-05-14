@@ -93,7 +93,7 @@ export function initializeAppTrackers(): void {
       // Make sure the apps directory exists
       const appsDir = getAppsDir()
       if (!existsSync(appsDir)) {
-        logger.info(`Creating apps directory: ${appsDir}`)
+        logger.debug(`Creating apps directory: ${appsDir}`)
         mkdirSync(appsDir, { recursive: true })
 
         // Create sample app if no apps exist yet
@@ -103,7 +103,7 @@ export function initializeAppTrackers(): void {
       logger.error('Error initializing app tracker filesystem structure:', error)
     }
   } else {
-    logger.info('SyftBox configuration not available. Skipping filesystem app initialization.')
+    logger.debug('SyftBox configuration not available. Skipping filesystem app initialization.')
   }
 }
 
@@ -124,11 +124,11 @@ function migrateAppDirectories(): void {
 
     // Skip migration if old installed directory doesn't exist
     if (!existsSync(oldInstalledDir)) {
-      logger.info('No migration needed - old installed directory not found')
+      logger.debug('No migration needed - old installed directory not found')
       return
     }
 
-    logger.info('Starting migration of apps to new directory structure')
+    logger.debug('Starting migration of apps to new directory structure')
 
     // Ensure the new apps directory exists
     if (!existsSync(newAppsDir)) {
@@ -142,7 +142,7 @@ function migrateAppDirectories(): void {
           .filter((dirent) => dirent.isDirectory())
           .map((dirent) => dirent.name)
 
-        logger.info(`Found ${appFolders.length} apps to migrate from installed directory`)
+        logger.debug(`Found ${appFolders.length} apps to migrate from installed directory`)
 
         for (const folder of appFolders) {
           const sourcePath = join(oldInstalledDir, folder)
@@ -150,7 +150,7 @@ function migrateAppDirectories(): void {
 
           // Check if app already exists in destination
           if (existsSync(destPath)) {
-            logger.warn(`App ${folder} already exists in apps directory, skipping migration`)
+            logger.debug(`App ${folder} already exists in apps directory, skipping migration`)
             continue
           }
 
@@ -179,11 +179,11 @@ function migrateAppDirectories(): void {
               }
             }
 
-            logger.info(`Migrated app ${folder} from installed directory with active=false`)
+            logger.debug(`Migrated app ${folder} from installed directory with active=false`)
           }
         }
 
-        logger.info('Migration from installed directory completed')
+        logger.debug('Migration from installed directory completed')
       } catch (error) {
         logger.error('Error migrating apps from installed directory:', error)
       }
@@ -196,7 +196,7 @@ function migrateAppDirectories(): void {
           .filter((dirent) => dirent.isDirectory())
           .map((dirent) => dirent.name)
 
-        logger.info(`Found ${appFolders.length} apps in active directory to update`)
+        logger.debug(`Found ${appFolders.length} apps in active directory to update`)
 
         for (const folder of appFolders) {
           const appPath = join(oldActiveDir, folder)
@@ -212,12 +212,12 @@ function migrateAppDirectories(): void {
               const metadataPath = join(appPath, 'metadata.json')
               writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
 
-              logger.info(`Updated app ${folder} metadata with active=true`)
+              logger.debug(`Updated app ${folder} metadata with active=true`)
             }
           }
         }
 
-        logger.info('Active directory apps metadata update completed')
+        logger.debug('Active directory apps metadata update completed')
       } catch (error) {
         logger.error('Error updating active directory apps metadata:', error)
       }
@@ -231,9 +231,9 @@ function migrateAppDirectories(): void {
         if (remainingFiles.length === 0) {
           // Safe to remove the directory
           rmSync(oldInstalledDir, { recursive: true, force: true })
-          logger.info('Old installed directory removed after successful migration')
+          logger.debug('Old installed directory removed after successful migration')
         } else {
-          logger.warn(
+          logger.debug(
             'Old installed directory not empty after migration, manual cleanup may be needed'
           )
         }
@@ -242,7 +242,7 @@ function migrateAppDirectories(): void {
       }
     }
 
-    logger.info('App directory migration completed successfully')
+    logger.debug('App directory migration completed successfully')
   } catch (error) {
     logger.error('Error during app directory migration:', error)
   }
@@ -260,7 +260,7 @@ function createSampleApp(appsDir: string): void {
       const appPath = join(appsDir, folderName)
 
       if (!existsSync(appPath)) {
-        logger.info(`Creating sample app: ${app.name}...`)
+        logger.debug(`Creating sample app: ${app.name}...`)
         mkdirSync(appPath, { recursive: true })
 
         // Add active field to metadata (set to false by default)
@@ -272,7 +272,7 @@ function createSampleApp(appsDir: string): void {
       }
     }
 
-    logger.info('Sample apps created successfully.')
+    logger.debug('Sample apps created successfully.')
   } catch (error) {
     logger.error('Error creating sample apps:', error)
   }
@@ -298,7 +298,6 @@ export function scanInstalledApps(): Record<string, AppMetadata> {
     // Ensure apps directory exists
     const appsDir = getAppsDir()
     if (!existsSync(appsDir)) {
-      console.log(`Creating apps directory: ${appsDir}`)
       mkdirSync(appsDir, { recursive: true })
     }
 
@@ -316,12 +315,11 @@ export function scanInstalledApps(): Record<string, AppMetadata> {
         }
       }
     } catch (error) {
-      console.error(`Error scanning app directory:`, error)
+      // Error handled by returning empty object
     }
 
     return appMetadata
   } catch (error) {
-    console.error('Error scanning installed apps:', error)
     return {}
   }
 }
@@ -333,7 +331,6 @@ export function readAppMetadata(folderPath: string): AppMetadata | null {
   try {
     const metadataPath = join(folderPath, 'metadata.json')
     if (!existsSync(metadataPath)) {
-      console.warn(`No metadata.json found in ${folderPath}`)
       return null
     }
 
@@ -342,7 +339,6 @@ export function readAppMetadata(folderPath: string): AppMetadata | null {
 
     // Validate required fields
     if (!metadata.name || !metadata.description || !metadata.version || !metadata.icon) {
-      console.warn(`Invalid metadata.json in ${folderPath}, missing required fields`)
       return null
     }
 
@@ -351,7 +347,6 @@ export function readAppMetadata(folderPath: string): AppMetadata | null {
       metadata.hasUpdate = false
     }
     if (metadata.hasUpdate && !metadata.updateVersion) {
-      console.warn(`App ${metadata.name} has hasUpdate=true but no updateVersion`)
       metadata.hasUpdate = false
     }
 
@@ -361,12 +356,10 @@ export function readAppMetadata(folderPath: string): AppMetadata | null {
 
       // Update the metadata.json file with active field
       writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
-      console.log(`Updated metadata.json in ${folderPath} with active field set to false`)
     }
 
     return metadata
   } catch (error) {
-    console.error(`Error reading metadata from ${folderPath}:`, error)
     return null
   }
 }
@@ -388,7 +381,7 @@ export function getAppTrackers(): AppTracker[] {
   try {
     // Early return if SyftBox is not configured
     if (!syftboxConfig || !syftboxConfig.data_dir) {
-      logger.info('SyftBox not configured. Returning empty list.')
+      logger.debug('SyftBox not configured. Returning empty list.')
       return []
     }
 
@@ -432,7 +425,7 @@ export function getAppTrackers(): AppTracker[] {
       logger.error(`Error scanning apps directory ${appsDir}:`, error)
     }
 
-    logger.info(`Returning ${appTrackers.length} app trackers from filesystem`)
+    logger.debug(`Returning ${appTrackers.length} app trackers from filesystem`)
     return appTrackers
   } catch (error) {
     logger.error('Error loading app trackers from filesystem:', error)
@@ -458,7 +451,6 @@ function moveFolder(source: string, destination: string): boolean {
   try {
     // Create destination directory if it doesn't exist
     if (!existsSync(destination)) {
-      console.log(`Creating destination directory: ${destination}`)
       mkdirSync(destination, { recursive: true })
     }
 
@@ -468,23 +460,17 @@ function moveFolder(source: string, destination: string): boolean {
 
     // If destination already exists, remove it first
     if (existsSync(destPath)) {
-      console.log(`Destination folder already exists: ${destPath}. Will be replaced.`)
       // In a full implementation, you would use fs.rmSync recursively here
-      // For now, we'll just warn and continue
+      // For now, we'll just continue
     }
 
     // Perform the move operation
-    console.log(`Moving folder from ${source} to ${destPath}`)
-
     // Use node's built-in require for child_process
     // Note: In a production app, you should import this at the top of the file
     const childProcess = require('child_process')
     childProcess.execSync(`mv "${source}" "${destination}"`)
-
-    console.log(`Successfully moved folder from ${source} to ${destPath}`)
     return true
   } catch (error) {
-    console.error(`Error moving folder from ${source} to ${destination}:`, error)
     return false
   }
 }
@@ -494,8 +480,8 @@ function moveFolder(source: string, destination: string): boolean {
  * @param id App tracker ID
  * @returns Updated app tracker
  */
-export function toggleAppTracker(id: string): AppTracker | null {
-  logger.info(`Toggling app tracker with ID ${id}`)
+export async function toggleAppTracker(id: string): Promise<AppTracker | null> {
+  logger.debug(`Toggling app tracker with ID ${id}`)
 
   // Get all apps from filesystem
   const allApps = getAppTrackers()
@@ -539,31 +525,37 @@ export function toggleAppTracker(id: string): AppTracker | null {
         // Get the tag field from metadata if it exists
         const tagField = metadata.tag || appTracker.name.toLowerCase()
 
-        // Make request to toggle active state in the backend
-        fetch(`${appConfig.dk_api}/rag/toggle-active-metadata`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            filter_field: 'app',
-            filter_value: tagField
-          })
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            logger.info(
-              `Successfully sent metadata toggle request to dk_api for app ${appTracker.name}`,
-              data
-            )
-            logger.info(`Response from toggle-active-metadata: ${JSON.stringify(data)}`)
-          })
-          .catch((error) => {
-            logger.error(
-              `Error sending metadata toggle request to dk_api for app ${appTracker.name}:`,
-              error
-            )
-          })
+        // Make request to toggle active state in the backend using axios
+        logger.debug(
+          `Sending metadata toggle request to ${appConfig.dk_api}/rag/toggle-active-metadata for app ${appTracker.name}`
+        )
+
+        // Use async/await with a try/catch block instead of promise chains
+        try {
+          const response = await axios.post(
+            `${appConfig.dk_api}/rag/toggle-active-metadata`,
+            {
+              filter_field: 'app',
+              filter_value: tagField
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              timeout: 5000 // 5 second timeout
+            }
+          )
+
+          logger.debug(
+            `Successfully sent metadata toggle request to dk_api for app ${appTracker.name}`
+          )
+          logger.debug(`Response from toggle-active-metadata: ${JSON.stringify(response.data)}`)
+        } catch (requestError) {
+          logger.error(
+            `Error sending metadata toggle request to dk_api for app ${appTracker.name}:`,
+            requestError
+          )
+        }
       } catch (error) {
         logger.error(`Error preparing metadata toggle request for app ${appTracker.name}:`, error)
       }
@@ -575,7 +567,7 @@ export function toggleAppTracker(id: string): AppTracker | null {
       enabled: newActiveState // Update state based on metadata.active
     }
 
-    logger.info(
+    logger.debug(
       `Successfully toggled app ${appTracker.name} to ${newActiveState ? 'active' : 'inactive'}`
     )
     return updatedTracker
@@ -592,7 +584,7 @@ export function toggleAppTracker(id: string): AppTracker | null {
  * @returns Success status and message
  */
 export function uninstallAppTracker(id: string): { success: boolean; message: string } {
-  logger.info(`Uninstalling app tracker with ID ${id}`)
+  logger.debug(`Uninstalling app tracker with ID ${id}`)
 
   // Get all apps from filesystem
   const allApps = getAppTrackers()
@@ -622,7 +614,7 @@ export function uninstallAppTracker(id: string): { success: boolean; message: st
     }
 
     // Delete the app folder
-    logger.info(`Deleting app folder at ${appTracker.path}`)
+    logger.debug(`Deleting app folder at ${appTracker.path}`)
     rmSync(appTracker.path, { recursive: true, force: true })
 
     return {
@@ -650,11 +642,24 @@ export async function getDocumentCount(): Promise<DocumentStats & { error?: stri
 
     if (appConfig.dk_api) {
       try {
-        const response = await fetch(`${appConfig.dk_api}/rag/count`)
-        const data = await response.json()
-        return { count: data.count }
+        // Use axios for consistent API handling across the app
+        const response = await axios.get(`${appConfig.dk_api}/rag/count`, {
+          timeout: 5000 // 5 second timeout
+        })
+
+        // Check if response data has the expected structure
+        if (response.data && typeof response.data.count === 'number') {
+          logger.debug(`Successfully retrieved document count: ${response.data.count}`)
+          return { count: response.data.count }
+        } else {
+          logger.debug('Invalid response format from RAG document count endpoint')
+          return {
+            count: documentCount,
+            error: 'Invalid response format from server. Using cached data.'
+          }
+        }
       } catch (fetchError) {
-        console.error('Failed to fetch document count from API:', fetchError)
+        logger.error('Failed to fetch document count from API:', fetchError)
         // Return error message along with fallback count
         return {
           count: documentCount,
@@ -663,13 +668,14 @@ export async function getDocumentCount(): Promise<DocumentStats & { error?: stri
       }
     } else {
       // Fallback to in-memory value if dk_api is not configured
+      logger.debug('No dk_api configured in app settings. Using mock document count.')
       return {
         count: documentCount,
         error: 'No API endpoint configured (dk_api missing from config). Using mock data.'
       }
     }
   } catch (error) {
-    console.error('Failed to fetch document count from API:', error)
+    logger.error('Failed to fetch document count from API:', error)
     // Fallback to in-memory value in case of error
     return {
       count: documentCount,
@@ -689,6 +695,7 @@ export async function cleanupDocuments(): Promise<{ success: boolean; message: s
     const { appConfig } = await import('../services/config')
 
     if (!appConfig.dk_api) {
+      logger.debug('Cannot clean up documents: No dk_api endpoint configured')
       return {
         success: false,
         message: 'No API endpoint configured (dk_api missing from config).'
@@ -696,34 +703,55 @@ export async function cleanupDocuments(): Promise<{ success: boolean; message: s
     }
 
     try {
-      // Send DELETE request to dk_api/rag/all
-      const response = await fetch(`${appConfig.dk_api}/rag/all`, {
-        method: 'DELETE',
+      logger.debug(`Sending DELETE request to ${appConfig.dk_api}/rag/all`)
+
+      // Send DELETE request to dk_api/rag/all using axios for consistency
+      const response = await axios.delete(`${appConfig.dk_api}/rag/all`, {
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 10000 // 10 second timeout
       })
 
-      if (response.ok) {
+      // Check if request was successful (status 200-299)
+      if (response.status >= 200 && response.status < 300) {
         // Reset in-memory document count to 0
         documentCount = 0
 
-        logger.info('Successfully cleaned up all documents')
+        logger.debug('Successfully cleaned up all documents')
         return {
           success: true,
           message: 'All documents have been successfully removed.'
         }
       } else {
-        const errorData = await response.text()
+        // This branch is less likely to execute with axios as it throws errors for non-2xx responses
+        const errorData = response.data || 'Unknown error'
         logger.error(`Failed to cleanup documents. Status: ${response.status}. Error: ${errorData}`)
         return {
           success: false,
           message: `Failed to cleanup documents. Server returned: ${response.status} ${errorData}`
         }
       }
-    } catch (fetchError) {
-      logger.error('Failed to connect to cleanup API:', fetchError)
-      const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError)
+    } catch (axiosError) {
+      logger.error('Failed to connect to cleanup API:', axiosError)
+
+      // Extract message from axios error
+      let errorMessage = 'Unknown error'
+      if (axios.isAxiosError(axiosError)) {
+        if (axiosError.response) {
+          // The request was made and the server responded with a status outside 2xx
+          errorMessage = `Server returned ${axiosError.response.status}: ${axiosError.response.data || axiosError.message}`
+        } else if (axiosError.request) {
+          // The request was made but no response received
+          errorMessage = 'No response received from server (timeout or connection error)'
+        } else {
+          // Something happened in setting up the request
+          errorMessage = axiosError.message
+        }
+      } else if (axiosError instanceof Error) {
+        errorMessage = axiosError.message
+      }
+
       return {
         success: false,
         message: `Failed to connect to ${appConfig.dk_api}/rag/all: ${errorMessage}`
@@ -747,21 +775,20 @@ export async function cleanupDocuments(): Promise<{ success: boolean; message: s
  */
 export async function searchRAGDocuments(query: string, numResults: number = 5): Promise<any> {
   try {
-    // Cast to access the potentially missing property
-    const appConfigWithRag = appConfig as any
-    const ragServerBaseUrl =
-      appConfigWithRag.rag_server_url?.replace(/\/rag$/, '') || 'http://localhost:4232'
-
-    if (!ragServerBaseUrl) {
-      logger.error('RAG server URL not defined in config')
+    // Use dk_api as the preferred endpoint
+    if (!appConfig.dk_api) {
+      logger.error('dk_api URL not defined in config')
       return { documents: [] }
     }
+
+    // Use dk_api for all RAG endpoints
+    const ragServerBaseUrl = appConfig.dk_api
 
     let response
 
     // For empty query, get all active documents
     if (!query.trim()) {
-      logger.info(`Getting all active documents`)
+      logger.debug(`Getting all active documents from ${ragServerBaseUrl}/rag/active/true`)
 
       // Simple GET request without any parameters
       response = await axios.get(`${ragServerBaseUrl}/rag/active/true`, {
@@ -769,7 +796,7 @@ export async function searchRAGDocuments(query: string, numResults: number = 5):
       })
     } else {
       // Normal search with query
-      logger.info(`Searching RAG documents with query: "${query}", numResults: ${numResults}`)
+      logger.debug(`Searching RAG documents with query: "${query}", numResults: ${numResults}`)
 
       response = await axios.get(`${ragServerBaseUrl}/rag`, {
         params: {
@@ -858,7 +885,7 @@ export function installAppTracker(
     // Copy app files if sourcePath is provided
     if (sourcePath && existsSync(sourcePath)) {
       // Implementation for copying app files from source
-      logger.info(`Source path provided: ${sourcePath}. File copying would happen here.`)
+      logger.debug(`Source path provided: ${sourcePath}. File copying would happen here.`)
     }
 
     // Create app tracker object directly
@@ -938,7 +965,7 @@ export function updateAppTracker(id: string): {
 
           // Write updated metadata back to file
           writeFileSync(metadataPath, JSON.stringify(updatedMetadata, null, 2))
-          logger.info(`Updated metadata.json for app at ${appTracker.path}`)
+          logger.debug(`Updated metadata.json for app at ${appTracker.path}`)
 
           // Create updated tracker object
           const updatedAppTracker = {
@@ -985,8 +1012,7 @@ export function loadSyftboxConfig(): boolean {
   try {
     // Check if file exists
     if (!existsSync(configPath)) {
-      console.warn(`Syftbox config file not found: ${configPath}`)
-      console.log('SyftBox integration will be disabled')
+      // SyftBox integration will be disabled
       syftboxConfig = null
       return false
     }
@@ -994,16 +1020,14 @@ export function loadSyftboxConfig(): boolean {
     // Read and parse config file
     const configFile = readFileSync(configPath, 'utf8')
     syftboxConfig = JSON.parse(configFile)
-    console.log(`Loaded SyftBox configuration from ${configPath}`)
 
     // Verify data_dir exists in the filesystem
     if (syftboxConfig && syftboxConfig.data_dir && !existsSync(syftboxConfig.data_dir)) {
-      console.warn(`SyftBox data directory does not exist: ${syftboxConfig.data_dir}`)
+      // Data directory does not exist - continue anyway
     }
 
     return true
   } catch (error) {
-    console.error(`Failed to load SyftBox config file ${configPath}:`, error)
     syftboxConfig = null
     return false
   }

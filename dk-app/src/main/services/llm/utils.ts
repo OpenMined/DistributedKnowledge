@@ -9,6 +9,24 @@ import * as path from 'path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
+/**
+ * Sets up Model Context Protocol tools for a specific provider
+ *
+ * @param client The MCP client instance
+ * @param provider The LLM provider to setup tools for
+ * @returns An array of available tools
+ */
+export async function setupMCPTools(client: Client, provider: string): Promise<any[]> {
+  if (!client) {
+    throw new Error('MCP Client is not initialized')
+  }
+
+  // This is a placeholder implementation
+  // In a real implementation, we would query the MCP API for available tools
+  // or load them from a configuration file
+  return []
+}
+
 export async function setupMCPConfig(provider: string = 'openai', options: any = {}) {
   // Initialize MCP client
   const client = new Client({
@@ -74,6 +92,14 @@ export async function setupMCPConfig(provider: string = 'openai', options: any =
   }
 
   return { client: client, tools: allTools }
+}
+
+interface Message {
+  role: string
+  content: string | any[]
+  tool_calls?: any[]
+  name?: string
+  tool_call_id?: string
 }
 
 interface OllamaResponse {
@@ -767,8 +793,13 @@ export function processLLMResponse(
         console.log(`[${logId}] Processing ${toolCalls.length} tool calls from Ollama response`)
       }
 
+      // Convert content to string if it's an array
+      const content = Array.isArray(responseObj.message.content)
+        ? JSON.stringify(responseObj.message.content)
+        : String(responseObj.message.content)
+
       return {
-        content: responseObj.message.content,
+        content: content,
         toolCalls: toolCalls
       }
     }

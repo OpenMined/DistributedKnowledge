@@ -28,16 +28,16 @@ let db: BetterSqlite3.Database | null = null
 
 export function initDatabaseService(): void {
   try {
-    dbLogger.info('Initializing database service...')
+    dbLogger.debug('Initializing database service...')
 
     if (!appConfig.database?.path) {
-      dbLogger.warn(
+      dbLogger.debug(
         'Database path not provided in config. Database service will not be initialized.'
       )
       return
     }
 
-    dbLogger.info(`Using database path: ${appConfig.database.path}`)
+    dbLogger.debug(`Using database path: ${appConfig.database.path}`)
 
     // Check if database file already exists
     const dbFileExists = existsSync(appConfig.database.path)
@@ -46,7 +46,7 @@ export function initDatabaseService(): void {
     // Ensure directory exists
     const dbDir = dirname(appConfig.database.path)
     if (!existsSync(dbDir)) {
-      logger.info(`Creating database directory: ${dbDir}`)
+      logger.debug(`Creating database directory: ${dbDir}`)
       mkdirSync(dbDir, { recursive: true })
     }
 
@@ -57,30 +57,30 @@ export function initDatabaseService(): void {
         return logger
       }
     })
-    logger.info(`Connected to SQLite database at ${appConfig.database.path}`)
+    logger.debug(`Connected to SQLite database at ${appConfig.database.path}`)
 
     // Initialize database schema if needed
     initSchema()
 
     // Close database when app quits
     app.on('quit', () => {
-      logger.info('Application quitting, closing database...')
+      logger.debug('Application quitting, closing database...')
       closeDatabase()
     })
 
     // Also close database on will-quit event as a backup
     app.on('will-quit', () => {
-      logger.info('Application will quit, closing database...')
+      logger.debug('Application will quit, closing database...')
       closeDatabase()
     })
 
     // Register a 'before-quit' handler to ensure we close the database
     app.on('before-quit', (event) => {
-      logger.info('Application before-quit, closing database...')
+      logger.debug('Application before-quit, closing database...')
       closeDatabase()
     })
 
-    logger.info('Database service initialization complete')
+    logger.debug('Database service initialization complete')
   } catch (error) {
     logger.error('Failed to initialize database:', error)
   }
@@ -117,13 +117,13 @@ function initSchema(): void {
 
     // Add message_type column if it doesn't exist
     if (!columnNames.includes('message_type')) {
-      dbLogger.info('Adding message_type column to messages table...')
+      dbLogger.debug('Adding message_type column to messages table...')
       db!.exec("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'")
     }
 
     // Add attachment_data column if it doesn't exist
     if (!columnNames.includes('attachment_data')) {
-      dbLogger.info('Adding attachment_data column to messages table...')
+      dbLogger.debug('Adding attachment_data column to messages table...')
       db!.exec('ALTER TABLE messages ADD COLUMN attachment_data TEXT')
     }
 
@@ -149,14 +149,14 @@ export function closeDatabase(): void {
       // Close the database
       db.close()
       db = null
-      logger.info('Database connection closed successfully')
+      logger.debug('Database connection closed successfully')
     } catch (error) {
       logger.error('Error closing database connection:', error)
       // Still set db to null to avoid repeated close attempts
       db = null
     }
   } else {
-    logger.info('No active database connection to close')
+    logger.debug('No active database connection to close')
   }
 }
 
@@ -204,7 +204,7 @@ export function saveMessage(
       )
 
       // Log the saved message for debugging
-      dbLogger.info(
+      dbLogger.debug(
         `Message saved to database: ID=${result.lastInsertRowid}, from=${fromUser}, to=${toUser}`
       )
 

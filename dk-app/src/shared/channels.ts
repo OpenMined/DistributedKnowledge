@@ -30,13 +30,27 @@ export enum AppsChannels {
   GetAppTrackers = 'get-app-trackers',
   ToggleAppTracker = 'toggle-app-tracker',
   GetDocumentCount = 'get-document-count',
+  GetDocuments = 'get-documents',
   CleanupDocuments = 'cleanup-documents',
   InstallAppTracker = 'install-app-tracker',
   UpdateAppTracker = 'update-app-tracker',
   UninstallAppTracker = 'uninstall-app-tracker',
   GetAppIconPath = 'get-app-icon-path',
   SearchRAGDocuments = 'search-rag-documents',
-  DeleteDocument = 'delete-document'
+  DeleteDocument = 'delete-document',
+  GetApiManagement = 'get-api-management',
+  UpdateApiStatus = 'update-api-status',
+  ApproveApiRequest = 'approve-api-request',
+  DenyApiRequest = 'deny-api-request',
+  GetPolicies = 'get-policies',
+  GetPolicy = 'get-policy',
+  GetAPIsByPolicy = 'get-apis-by-policy',
+  CreatePolicy = 'create-policy',
+  UpdatePolicy = 'update-policy',
+  DeletePolicy = 'delete-policy',
+  ChangeAPIPolicy = 'change-api-policy',
+  CreateApi = 'create-api',
+  DeleteApi = 'delete-api'
 }
 
 export enum TrackerChannels {
@@ -95,6 +109,8 @@ export enum LLMChannels {
   GetAIChatHistory = 'llm:getAIChatHistory',
   ClearAIChatHistory = 'llm:clearAIChatHistory',
   ProcessCommand = 'llm:processCommand',
+  ProcessMentions = 'llm:processMentions',
+  FetchAnswers = 'llm:fetchAnswers',
   GetCommands = 'llm:getCommands'
 }
 

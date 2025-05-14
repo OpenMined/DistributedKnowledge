@@ -32,12 +32,12 @@ const messageCache: Record<string, ChatMessage[]> = {}
 export async function initializeClient(): Promise<Client | null> {
   try {
     // Log the server URL for debugging
-    logger.info(`Connecting to server: ${appConfig.serverURL}`)
+    logger.debug(`Connecting to server: ${appConfig.serverURL}`)
 
     // For development/testing, set a localhost URL if none specified
     if (!appConfig.serverURL || appConfig.serverURL === 'http://localhost:3000') {
       // Use testing data since we're defaulting to localhost
-      logger.info('Using default localhost URL with test data')
+      logger.debug('Using default localhost URL with test data')
       // Don't attempt to establish a real connection since it will fail
       return null
     }
@@ -64,15 +64,15 @@ export async function initializeClient(): Promise<Client | null> {
     try {
       // Try to register first (in case this is a new user)
       await wsClient.register(appConfig.userID)
-      logger.info('User registered successfully')
+      logger.debug('User registered successfully')
     } catch (error) {
-      logger.info(`Registration failed, likely user already exists: ${error}`)
+      logger.debug(`Registration failed, likely user already exists: ${error}`)
     }
 
     try {
       // Then log in
       await wsClient.login()
-      logger.info('User authenticated successfully')
+      logger.debug('User authenticated successfully')
 
       // Once logged in, establish WebSocket connection
       await wsClient.connect()

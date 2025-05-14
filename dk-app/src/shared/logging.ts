@@ -16,17 +16,17 @@ const isDevelopment = process.env.NODE_ENV !== 'production'
 
 // Determine logs directory location
 function getLogDirectory() {
-  // For packaged app, use the centralized logging directory from utils
+  // For packaged app, use the centralized logging directory
   if (process.type === 'browser') {
     try {
-      const { getAppPaths } = require('../main/utils')
-      const appPaths = getAppPaths()
-      // Use the logsDir from centralized path config
-      if (appPaths && appPaths.logsDir) {
-        return appPaths.logsDir
-      }
+      // Avoid circular dependency by direct electron app usage
+      const { app } = require('electron')
+      const userData = app.getPath('userData')
+      const configDir = path.join(userData, 'config')
+      const basePath = path.dirname(configDir)
+      return path.join(basePath, 'logs')
     } catch (error) {
-      console.error('Failed to get paths from utils:', error)
+      console.error('Failed to get logs directory:', error)
     }
 
     // Fallback to old behavior if central config fails
@@ -85,11 +85,22 @@ const logger = createLogger({
 
 // Add console transport in development mode
 if (isDevelopment) {
-  logger.add(
-    new transports.Console({
-      format: consoleFormat
-    })
-  )
+  const consoleTransport = new transports.Console({
+    format: consoleFormat,
+    handleExceptions: true
+  })
+
+  // Add error handling for EPIPE and other write errors
+  consoleTransport.on('error', (error: any) => {
+    // Silently handle EPIPE errors that occur when the console stream is closed
+    if (error.code === 'EPIPE') {
+      return
+    }
+    // Log other errors to stderr directly
+    process.stderr.write(`Winston console transport error: ${error.message}\n`)
+  })
+
+  logger.add(consoleTransport)
 }
 
 export default logger

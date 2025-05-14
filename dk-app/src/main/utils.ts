@@ -5,6 +5,7 @@ import { BrowserWindow, app } from 'electron'
 import { createServiceLogger } from '../shared/logging'
 import { ToastOptions } from '../shared/types'
 import { homedir, userInfo } from 'os'
+import { getAppPaths as getAppPathsInternal } from './getAppPaths'
 
 // Create a specific logger for utils
 const logger = createServiceLogger('utils')
@@ -80,48 +81,12 @@ export function showToast(message: string, options: ToastOptions = {}): void {
  * @returns An object containing various application-specific paths
  */
 export function getAppPaths() {
-  // Base directories
-  const userData = app.getPath('userData')
-  const appData = app.getPath('appData')
-
-  // Using os.userInfo() to get accurate user homedir even in confined environments like Snap
-  const userHomedir = userInfo().homedir
-  const username = userInfo().username
-
-  // Config base directory
-  const configDir = path.join(userData, 'config')
-
-  // Calculate base directory for all app data (parent of config directory)
-  const basePath = path.dirname(configDir)
+  const paths = getAppPathsInternal()
 
   // Log paths for debugging
-  logger.info(
-    `App paths: userData=${userData}, appData=${appData}, userHomedir=${userHomedir}, username=${username}, basePath=${basePath}`
+  logger.debug(
+    `App paths: basePath=${paths.basePath}, configDir=${paths.configDir}, logsDir=${paths.logsDir}`
   )
 
-  return {
-    // Base path (parent directory of config)
-    basePath,
-
-    // Config paths
-    configDir,
-    configFile: path.join(configDir, 'config.json'),
-
-    // Data paths
-    dataDir: path.join(userData, 'data'),
-
-    // Binary paths
-    binDir: path.join(userData, 'bin'),
-    dkBinary: path.join(userData, 'bin', 'dk'),
-
-    // Resource paths for resources and logs (using base path)
-    resourcesDir: path.join(basePath, 'resources'),
-    logsDir: path.join(basePath, 'logs'),
-
-    // SyftBox paths (platform-specific)
-    syftboxConfig:
-      process.platform === 'win32'
-        ? path.join(appData, 'syftbox', 'config.json')
-        : path.join(userHomedir, '.syftbox', 'config.json')
-  }
+  return paths
 }

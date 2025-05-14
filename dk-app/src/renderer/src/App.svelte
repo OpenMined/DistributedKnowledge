@@ -8,7 +8,7 @@
   import AIChatHistory from './components/AIChatHistory.svelte'
   import AppsSection from './components/AppsSection.svelte'
   import DocumentsSection from './components/DocumentsSection.svelte'
-  import APIsSection from './components/APIsSection.svelte'
+  import ApiManagementSection from './components/ApiManagementSection.svelte'
   import OnboardingWizard from './components/OnboardingWizard.svelte'
   import Toaster from './components/ui/Toaster.svelte'
   import { Search, FileText, AppWindow, Globe } from 'lucide-svelte'
@@ -348,7 +348,7 @@
     {:else if currentView === 'documents'}
       <DocumentsSection />
     {:else if currentView === 'apis'}
-      <APIsSection />
+      <ApiManagementSection />
     {:else if currentView === 'search-data'}
       <div class="flex flex-col items-center justify-center h-full">
         <!-- Logo or app branding could go here -->

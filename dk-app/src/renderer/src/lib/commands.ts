@@ -18,7 +18,7 @@ export interface Command {
 export const commands: Command[] = [
   { name: 'clear', description: 'Clear chat history' },
   { name: 'echo', description: 'Echo a message back' },
-  { name: 'answer', description: 'Search documents and reply with the input text', serverSide: true }
+  { name: 'rag', description: 'Search documents and reply with the input text', serverSide: true }
 ]
 
 // Keep a cache of server-side commands for command popup
@@ -51,7 +51,7 @@ export async function initializeCommands(): Promise<void> {
       }
     }
   } catch (error) {
-    logger.warn('Failed to load server commands:', error)
+    logger.debug('Failed to load server commands:', error)
     // Keep using client-side commands as fallback
   }
 }
@@ -79,7 +79,9 @@ export async function executeCommand(commandText: string): Promise<string> {
       try {
         // Get a random user ID - in a real app this would be the actual user ID
         const userId = crypto.randomUUID()
-        logger.debug(`Executing server-side command: ${commandName}, serverSide=${command.serverSide}`)
+        logger.debug(
+          `Executing server-side command: ${commandName}, serverSide=${command.serverSide}`
+        )
 
         // Call server-side command processor
         logger.debug(`Calling processCommand with "${commandText}" for user ${userId}`)
@@ -101,26 +103,34 @@ export async function executeCommand(commandText: string): Promise<string> {
               type: 'llm_request',
               displayText: result.payload,
               messages: result.llmRequest.messages
-            };
+            }
           }
           // Standard string payload response
           else if (typeof result.payload === 'string') {
-            logger.debug(`Server returned valid direct payload with length: ${result.payload.length}`)
+            logger.debug(
+              `Server returned valid direct payload with length: ${result.payload.length}`
+            )
             logger.debug(`First 100 chars: ${result.payload.substring(0, 100)}`)
 
-            return result.payload;
+            return result.payload
           }
           // Handle nested response structure (result.data.payload)
-          else if (result.success === true && result.data && typeof result.data.payload === 'string') {
-            logger.debug(`Server returned valid nested payload with length: ${result.data.payload.length}`)
+          else if (
+            result.success === true &&
+            result.data &&
+            typeof result.data.payload === 'string'
+          ) {
+            logger.debug(
+              `Server returned valid nested payload with length: ${result.data.payload.length}`
+            )
             logger.debug(`First 100 chars: ${result.data.payload.substring(0, 100)}`)
 
-            return result.data.payload;
+            return result.data.payload
           }
           // Handle other valid response formats
           else if (result.payload && typeof result.payload.payload === 'string') {
             logger.debug(`Server returned valid double-nested payload`)
-            return result.payload.payload;
+            return result.payload.payload
           }
         }
 
@@ -133,7 +143,9 @@ export async function executeCommand(commandText: string): Promise<string> {
         // Fall back to client-side implementation if available
       }
     } else {
-      logger.debug(`Not executing as server-side command: ${commandName}, serverSide=${command?.serverSide}, processCommand available=${!!window.api?.llm?.processCommand}`)
+      logger.debug(
+        `Not executing as server-side command: ${commandName}, serverSide=${command?.serverSide}, processCommand available=${!!window.api?.llm?.processCommand}`
+      )
     }
 
     // Client-side fallback implementation
@@ -144,7 +156,7 @@ export async function executeCommand(commandText: string): Promise<string> {
       case 'echo':
         return `Echo: ${args || 'No message provided'}`
 
-      case 'answer':
+      case 'rag':
         // In the client-side implementation, we don't have direct access to the document service
         // so we'll just use a simple response but mark it as being processed server-side
         return `Replied: ${args || 'No message provided'}\n\n(Processing document search on server...)`

@@ -27,7 +27,7 @@ async function fetchTrackersFromServer(): Promise<Record<string, any>> {
     // Build the tracker endpoint path
     const trackerEndpoint = '/tracker-apps'
 
-    logger.info(
+    logger.debug(
       `Connecting to tracker endpoint: ${isHttps ? 'https' : 'http'}://${hostname}:${port}${trackerEndpoint}`
     )
 
@@ -90,7 +90,7 @@ function transformTrackerData(serverData: Record<string, any>): TrackerListItem[
   const appPaths = getAppPaths()
 
   // Save the SVG icons to the resourcesDir directory for caching
-  const iconDir = path.join(appPaths.resourcesDir, 'tracker-icons')
+  const iconDir = path.join(appPaths.resourcesDir || '', 'tracker-icons')
 
   // Ensure directory exists
   if (!fs.existsSync(iconDir)) {
@@ -144,21 +144,21 @@ function transformTrackerData(serverData: Record<string, any>): TrackerListItem[
  */
 export async function getTrackerList(_event: IpcMainInvokeEvent): Promise<TrackerListResponse> {
   try {
-    logger.info('Fetching tracker list from local server')
+    logger.debug('Fetching tracker list from local server')
 
     try {
       // Try to fetch from local server
       const serverData = await fetchTrackersFromServer()
       const trackers = transformTrackerData(serverData)
 
-      logger.info(`Successfully fetched ${trackers.length} trackers from server`)
+      logger.debug(`Successfully fetched ${trackers.length} trackers from server`)
 
       return {
         success: true,
         trackers
       }
     } catch (serverError) {
-      logger.warn('Failed to fetch trackers from server, using fallback data:', serverError)
+      logger.debug('Failed to fetch trackers from server, using fallback data:', serverError)
 
       // Fallback to hardcoded data if server request fails
       const trackers = [
@@ -254,7 +254,7 @@ export async function installTracker(
   trackerId: string
 ): Promise<TrackerInstallResponse> {
   try {
-    logger.info(`Installing tracker with ID: ${trackerId}`)
+    logger.debug(`Installing tracker with ID: ${trackerId}`)
 
     if (!trackerId) {
       return {
@@ -267,7 +267,7 @@ export async function installTracker(
     const result = await trackerService.downloadAndExtractTracker(trackerId)
 
     if (result.success) {
-      logger.info(`Successfully installed tracker ${trackerId}`)
+      logger.debug(`Successfully installed tracker ${trackerId}`)
       return {
         success: true,
         message: result.message,
@@ -294,19 +294,19 @@ export async function installTracker(
  * Register all tracker marketplace related IPC handlers
  */
 export function registerTrackerMarketplaceHandlers(): void {
-  logger.info('Registering tracker marketplace IPC handlers')
+  logger.debug('Registering tracker marketplace IPC handlers')
 
   // Handle tracker list requests
   ipcMain.handle(Channels.TrackerMarketplaceGetTrackerList, (event) => {
-    logger.info('GetTrackerList handler called')
+    logger.debug('GetTrackerList handler called')
     return getTrackerList(event)
   })
 
   // Handle tracker installation requests
   ipcMain.handle(Channels.TrackerMarketplaceInstallTracker, (event, trackerId: string) => {
-    logger.info('InstallTracker handler called')
+    logger.debug('InstallTracker handler called')
     return installTracker(event, trackerId)
   })
 
-  logger.info('Tracker marketplace IPC handlers registered successfully')
+  logger.debug('Tracker marketplace IPC handlers registered successfully')
 }
