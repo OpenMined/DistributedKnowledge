@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"database/sql"
 	"dk/client"
+	"dk/db"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -128,18 +129,29 @@ type DkKey struct{}
 type ParamsKey struct{}
 type chromemCollectionKey struct{}
 type databaseKey struct{}
+type userIDKey struct{}
 
 func WithDatabase(ctx context.Context, db *sql.DB) context.Context {
 	return context.WithValue(ctx, databaseKey{}, db)
 }
 
+func WithDatabaseConnection(ctx context.Context, dbConn *db.DatabaseConnection) context.Context {
+	if dbConn != nil && dbConn.DB != nil {
+		// Store both the DatabaseConnection and the raw *sql.DB
+		ctx = context.WithValue(ctx, databaseKey{}, dbConn.DB)
+	}
+	return ctx
+}
+
 func DatabaseFromContext(ctx context.Context) (*sql.DB, error) {
 	db, ok := ctx.Value(databaseKey{}).(*sql.DB)
 	if !ok {
-		return nil, fmt.Errorf("collection not found in context")
+		return nil, fmt.Errorf("database not found in context")
 	}
 	return db, nil
 }
+
+// Legacy function; prefer DBFromContext from db_context.go which supports both context key types
 
 func WithChromemCollection(ctx context.Context, collection *chromem.Collection) context.Context {
 	return context.WithValue(ctx, chromemCollectionKey{}, collection)
@@ -430,6 +442,17 @@ func RegisterTracker(ctx context.Context, tracker TrackerInfo) error {
 
 	return nil
 }
+
+// UserIDContextKey is the context key for user ID
+var UserIDContextKey = userIDKey{}
+
+// WithUserID adds a user ID to the context
+func WithUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, UserIDContextKey, userID)
+}
+
+// UserIDFromContext is now defined in db_context.go
+// It supports extracting user ID from both UserIDContextKey and the "user_id" string key
 
 // RegisterTrackerList sends an updated tracker list to the websocket server
 // This uses the new format where the entire tracker list is sent at once

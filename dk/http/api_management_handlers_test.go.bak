@@ -1,0 +1,929 @@
+package http
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"dk/db"
+	"dk/utils"
+
+	"github.com/google/uuid"
+)
+
+// setupTestDB sets up a test database with necessary test data
+func setupTestDB(t *testing.T) (*db.DB, error) {
+	testDB, err := db.OpenTestDB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open test db: %w", err)
+	}
+
+	// Initialize API management tables
+	err = db.InitAPIManagementTables(testDB.DB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize API management tables: %w", err)
+	}
+
+	return testDB, nil
+}
+
+// setupTestContext creates a test context with a database connection
+func setupTestContext(t *testing.T) (context.Context, *db.DB, error) {
+	testDB, err := setupTestDB(t)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ctx := context.Background()
+	// Add the database to context using both keys for compatibility
+	ctx = context.WithValue(ctx, "db", testDB.DB)
+	ctx = utils.WithDatabase(ctx, testDB.DB)
+
+	return ctx, testDB, nil
+}
+
+// createTestAPI creates a test API entity
+func createTestAPI(ctx context.Context, t *testing.T) (*db.API, error) {
+	testDB, err := utils.DBFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DB from context: %w", err)
+	}
+
+	api := &db.API{
+		Name:        "Test API",
+		Description: "Test API Description",
+		IsActive:    true,
+		HostUserID:  "test-user",
+	}
+
+	err := db.CreateAPI(testDB, api)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create test API entity: %w", err)
+	}
+
+	return api, nil
+}
+
+// createTestRequest creates a test API request
+func createTestRequest(ctx context.Context, t *testing.T, apiID string) (*db.APIRequest, error) {
+	testDB, err := utils.DBFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DB from context: %w", err)
+	}
+
+	request := &db.APIRequest{
+		APIName:       "Test API",
+		Description:   "Test Request Description",
+		Status:        "pending",
+		RequesterID:   "test-requester",
+		SubmittedDate: time.Now(),
+	}
+
+	// Note: We'll need to implement CreateAPIRequest if it doesn't exist yet
+	// This is just a placeholder for now
+	request.ID = uuid.New().String()
+
+	return request, nil
+}
+
+// TestHandleGetDocuments tests the HandleGetDocuments function
+func TestHandleGetDocuments(t *testing.T) {
+	ctx, testDB, err := setupTestContext(t)
+	if err != nil {
+		t.Fatalf("Failed to setup test context: %v", err)
+	}
+	defer testDB.Close()
+	
+	// Create test API
+	api, err := createTestAPI(ctx, t)
+	if err != nil {
+		t.Fatalf("Failed to create test API: %v", err)
+	}
+	
+	// Create test document association
+	docAssoc := &db.DocumentAssociation{
+		EntityType:   db.EntityTypeAPI,
+		EntityID:     api.ID,
+		DocumentPath: "test_document.pdf",
+		FileName:     "test_document.pdf",
+	}
+	
+	err = db.CreateDocumentAssociation(ctx, testDB, docAssoc)
+	if err != nil {
+		t.Fatalf("Failed to create document association: %v", err)
+	}
+	
+	// Test cases
+	tests := []struct {
+		name           string
+		queryParams    map[string]string
+		expectedStatus int
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name: "GetDocuments_Success",
+			queryParams: map[string]string{
+				"entity_type": db.EntityTypeAPI,
+				"entity_id":   fmt.Sprintf("%d", api.ID),
+			},
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var resp DocumentListResponse
+				err := json.NewDecoder(rec.Body).Decode(&resp)
+				if err != nil {
+					t.Fatalf("Failed to decode response: %v", err)
+				}
+				
+				if len(resp.Documents) != 1 {
+					t.Fatalf("Expected 1 document, got %d", len(resp.Documents))
+				}
+				
+				if resp.Documents[0].FilePath != docAssoc.DocumentPath {
+					t.Errorf("Expected document path %s, got %s", docAssoc.DocumentPath, resp.Documents[0].FilePath)
+				}
+			},
+		},
+		{
+			name: "GetDocuments_EmptyWithInvalidEntity",
+			queryParams: map[string]string{
+				"entity_type": db.EntityTypeAPI,
+				"entity_id":   "999", // Non-existent entity
+			},
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var resp DocumentListResponse
+				err := json.NewDecoder(rec.Body).Decode(&resp)
+				if err != nil {
+					t.Fatalf("Failed to decode response: %v", err)
+				}
+				
+				if len(resp.Documents) != 0 {
+					t.Fatalf("Expected 0 documents, got %d", len(resp.Documents))
+				}
+			},
+		},
+		{
+			name: "GetDocuments_MissingEntityType",
+			queryParams: map[string]string{
+				"entity_id": fmt.Sprintf("%d", api.ID),
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect an error
+				if rec.Code != http.StatusBadRequest {
+					t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rec.Code)
+				}
+			},
+		},
+		{
+			name: "GetDocuments_MissingEntityID",
+			queryParams: map[string]string{
+				"entity_type": db.EntityTypeAPI,
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect an error
+				if rec.Code != http.StatusBadRequest {
+					t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rec.Code)
+				}
+			},
+		},
+	}
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create request with query parameters
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/documents", nil)
+			q := req.URL.Query()
+			for k, v := range tc.queryParams {
+				q.Add(k, v)
+			}
+			req.URL.RawQuery = q.Encode()
+			
+			// Create response recorder
+			rec := httptest.NewRecorder()
+			
+			// Call handler
+			HandleGetDocuments(ctx, rec, req)
+			
+			// Check status code
+			if rec.Code != tc.expectedStatus {
+				t.Errorf("Expected status code %d, got %d", tc.expectedStatus, rec.Code)
+			}
+			
+			// Run validation function
+			tc.validateFunc(t, rec)
+		})
+	}
+}
+
+// TestHandleGetDocument tests the HandleGetDocument function
+func TestHandleGetDocument(t *testing.T) {
+	ctx, testDB, err := setupTestContext(t)
+	if err != nil {
+		t.Fatalf("Failed to setup test context: %v", err)
+	}
+	defer testDB.Close()
+	
+	// Create test API
+	api, err := createTestAPI(ctx, t)
+	if err != nil {
+		t.Fatalf("Failed to create test API: %v", err)
+	}
+	
+	// Create test document association
+	docAssoc := &db.DocumentAssociation{
+		EntityType:   db.EntityTypeAPI,
+		EntityID:     api.ID,
+		DocumentPath: "test_document.pdf",
+		FileName:     "test_document.pdf",
+	}
+	
+	err = db.CreateDocumentAssociation(ctx, testDB, docAssoc)
+	if err != nil {
+		t.Fatalf("Failed to create document association: %v", err)
+	}
+	
+	// Test cases
+	tests := []struct {
+		name           string
+		documentID     int64
+		expectedStatus int
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:           "GetDocument_Success",
+			documentID:     docAssoc.ID,
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var resp Document
+				err := json.NewDecoder(rec.Body).Decode(&resp)
+				if err != nil {
+					t.Fatalf("Failed to decode response: %v", err)
+				}
+				
+				if resp.ID != docAssoc.ID {
+					t.Errorf("Expected document ID %d, got %d", docAssoc.ID, resp.ID)
+				}
+				
+				if resp.FilePath != docAssoc.DocumentPath {
+					t.Errorf("Expected document path %s, got %s", docAssoc.DocumentPath, resp.FilePath)
+				}
+			},
+		},
+		{
+			name:           "GetDocument_NotFound",
+			documentID:     999, // Non-existent document
+			expectedStatus: http.StatusNotFound,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect a not found error
+				if rec.Code != http.StatusNotFound {
+					t.Errorf("Expected status code %d, got %d", http.StatusNotFound, rec.Code)
+				}
+			},
+		},
+	}
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create request
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/documents/%d", tc.documentID), nil)
+			
+			// Add document ID to route parameters
+			req = req.WithContext(context.WithValue(req.Context(), "documentID", fmt.Sprintf("%d", tc.documentID)))
+			
+			// Create response recorder
+			rec := httptest.NewRecorder()
+			
+			// Call handler
+			HandleGetDocument(ctx, rec, req)
+			
+			// Check status code
+			if rec.Code != tc.expectedStatus {
+				t.Errorf("Expected status code %d, got %d", tc.expectedStatus, rec.Code)
+			}
+			
+			// Run validation function
+			tc.validateFunc(t, rec)
+		})
+	}
+}
+
+// TestHandleUploadDocument tests the HandleUploadDocument function
+func TestHandleUploadDocument(t *testing.T) {
+	ctx, testDB, err := setupTestContext(t)
+	if err != nil {
+		t.Fatalf("Failed to setup test context: %v", err)
+	}
+	defer testDB.Close()
+	
+	// Create test API
+	api, err := createTestAPI(ctx, t)
+	if err != nil {
+		t.Fatalf("Failed to create test API: %v", err)
+	}
+	
+	// Mock the RAG document creation since we can't actually upload files in tests
+	// This would be a good place to use a mock for the RAG system
+	
+	// Test cases
+	tests := []struct {
+		name           string
+		requestBody    map[string]interface{}
+		expectedStatus int
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name: "UploadDocument_Success",
+			requestBody: map[string]interface{}{
+				"entity_type": db.EntityTypeAPI,
+				"entity_id":   api.ID,
+				"file_name":   "test_upload.pdf",
+				"file_path":   "test_upload.pdf",
+			},
+			expectedStatus: http.StatusCreated,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var resp Document
+				err := json.NewDecoder(rec.Body).Decode(&resp)
+				if err != nil {
+					t.Fatalf("Failed to decode response: %v", err)
+				}
+				
+				if resp.EntityType != db.EntityTypeAPI {
+					t.Errorf("Expected entity type %s, got %s", db.EntityTypeAPI, resp.EntityType)
+				}
+				
+				if resp.EntityID != api.ID {
+					t.Errorf("Expected entity ID %d, got %d", api.ID, resp.EntityID)
+				}
+				
+				if resp.FileName != "test_upload.pdf" {
+					t.Errorf("Expected file name %s, got %s", "test_upload.pdf", resp.FileName)
+				}
+			},
+		},
+		{
+			name: "UploadDocument_MissingEntityType",
+			requestBody: map[string]interface{}{
+				"entity_id": api.ID,
+				"file_name": "test_upload.pdf",
+				"file_path": "test_upload.pdf",
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect an error
+				if rec.Code != http.StatusBadRequest {
+					t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rec.Code)
+				}
+			},
+		},
+		{
+			name: "UploadDocument_MissingEntityID",
+			requestBody: map[string]interface{}{
+				"entity_type": db.EntityTypeAPI,
+				"file_name":   "test_upload.pdf",
+				"file_path":   "test_upload.pdf",
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect an error
+				if rec.Code != http.StatusBadRequest {
+					t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rec.Code)
+				}
+			},
+		},
+		{
+			name: "UploadDocument_InvalidEntityType",
+			requestBody: map[string]interface{}{
+				"entity_type": "invalid_type",
+				"entity_id":   api.ID,
+				"file_name":   "test_upload.pdf",
+				"file_path":   "test_upload.pdf",
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect an error
+				if rec.Code != http.StatusBadRequest {
+					t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rec.Code)
+				}
+			},
+		},
+	}
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create request body
+			body, err := json.Marshal(tc.requestBody)
+			if err != nil {
+				t.Fatalf("Failed to marshal request body: %v", err)
+			}
+			
+			// Create request
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/documents", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			
+			// Create response recorder
+			rec := httptest.NewRecorder()
+			
+			// Call handler
+			HandleUploadDocument(ctx, rec, req)
+			
+			// Check status code
+			if rec.Code != tc.expectedStatus {
+				t.Errorf("Expected status code %d, got %d", tc.expectedStatus, rec.Code)
+			}
+			
+			// Run validation function
+			tc.validateFunc(t, rec)
+		})
+	}
+}
+
+// TestHandleDeleteDocument tests the HandleDeleteDocument function
+func TestHandleDeleteDocument(t *testing.T) {
+	ctx, testDB, err := setupTestContext(t)
+	if err != nil {
+		t.Fatalf("Failed to setup test context: %v", err)
+	}
+	defer testDB.Close()
+	
+	// Create test API
+	api, err := createTestAPI(ctx, t)
+	if err != nil {
+		t.Fatalf("Failed to create test API: %v", err)
+	}
+	
+	// Create test document association
+	docAssoc := &db.DocumentAssociation{
+		EntityType:   db.EntityTypeAPI,
+		EntityID:     api.ID,
+		DocumentPath: "test_document.pdf",
+		FileName:     "test_document.pdf",
+	}
+	
+	err = db.CreateDocumentAssociation(ctx, testDB, docAssoc)
+	if err != nil {
+		t.Fatalf("Failed to create document association: %v", err)
+	}
+	
+	// Test cases
+	tests := []struct {
+		name           string
+		documentID     int64
+		softDelete     bool
+		expectedStatus int
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:           "SoftDeleteDocument_Success",
+			documentID:     docAssoc.ID,
+			softDelete:     true,
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Check if the document is soft deleted
+				updatedDoc, err := db.GetDocumentAssociation(ctx, testDB, docAssoc.ID)
+				if err != nil {
+					t.Fatalf("Failed to get document: %v", err)
+				}
+				
+				if !updatedDoc.IsDeleted {
+					t.Errorf("Expected document to be soft deleted")
+				}
+			},
+		},
+		{
+			name:           "HardDeleteDocument_Success",
+			documentID:     docAssoc.ID,
+			softDelete:     false,
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Check if the document is hard deleted
+				_, err := db.GetDocumentAssociation(ctx, testDB, docAssoc.ID)
+				if err == nil {
+					t.Errorf("Expected document to be hard deleted")
+				}
+			},
+		},
+		{
+			name:           "DeleteDocument_NotFound",
+			documentID:     999, // Non-existent document
+			softDelete:     true,
+			expectedStatus: http.StatusNotFound,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect a not found error
+				if rec.Code != http.StatusNotFound {
+					t.Errorf("Expected status code %d, got %d", http.StatusNotFound, rec.Code)
+				}
+			},
+		},
+	}
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a fresh document for each test case
+			if tc.documentID == docAssoc.ID && tc.name != "DeleteDocument_NotFound" {
+				// Reset the document for the test
+				docAssoc = &db.DocumentAssociation{
+					EntityType:   db.EntityTypeAPI,
+					EntityID:     api.ID,
+					DocumentPath: "test_document.pdf",
+					FileName:     "test_document.pdf",
+				}
+				
+				err = db.CreateDocumentAssociation(ctx, testDB, docAssoc)
+				if err != nil {
+					t.Fatalf("Failed to create document association: %v", err)
+				}
+			}
+			
+			// Create request
+			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/documents/%d", tc.documentID), nil)
+			
+			// Add document ID to route parameters
+			req = req.WithContext(context.WithValue(req.Context(), "documentID", fmt.Sprintf("%d", tc.documentID)))
+			
+			// Add query parameter for soft delete
+			q := req.URL.Query()
+			q.Add("soft_delete", fmt.Sprintf("%t", tc.softDelete))
+			req.URL.RawQuery = q.Encode()
+			
+			// Create response recorder
+			rec := httptest.NewRecorder()
+			
+			// Call handler
+			HandleDeleteDocument(ctx, rec, req)
+			
+			// Check status code
+			if rec.Code != tc.expectedStatus {
+				t.Errorf("Expected status code %d, got %d", tc.expectedStatus, rec.Code)
+			}
+			
+			// Run validation function
+			tc.validateFunc(t, rec)
+		})
+	}
+}
+
+// TestHandleRestoreDocument tests the HandleRestoreDocument function
+func TestHandleRestoreDocument(t *testing.T) {
+	ctx, testDB, err := setupTestContext(t)
+	if err != nil {
+		t.Fatalf("Failed to setup test context: %v", err)
+	}
+	defer testDB.Close()
+	
+	// Create test API
+	api, err := createTestAPI(ctx, t)
+	if err != nil {
+		t.Fatalf("Failed to create test API: %v", err)
+	}
+	
+	// Create test document association that is soft deleted
+	docAssoc := &db.DocumentAssociation{
+		EntityType:   db.EntityTypeAPI,
+		EntityID:     api.ID,
+		DocumentPath: "test_document.pdf",
+		FileName:     "test_document.pdf",
+		IsDeleted:    true,
+	}
+	
+	err = db.CreateDocumentAssociation(ctx, testDB, docAssoc)
+	if err != nil {
+		t.Fatalf("Failed to create document association: %v", err)
+	}
+	
+	// Test cases
+	tests := []struct {
+		name           string
+		documentID     int64
+		expectedStatus int
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:           "RestoreDocument_Success",
+			documentID:     docAssoc.ID,
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Check if the document is restored
+				updatedDoc, err := db.GetDocumentAssociation(ctx, testDB, docAssoc.ID)
+				if err != nil {
+					t.Fatalf("Failed to get document: %v", err)
+				}
+				
+				if updatedDoc.IsDeleted {
+					t.Errorf("Expected document to be restored")
+				}
+			},
+		},
+		{
+			name:           "RestoreDocument_NotFound",
+			documentID:     999, // Non-existent document
+			expectedStatus: http.StatusNotFound,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect a not found error
+				if rec.Code != http.StatusNotFound {
+					t.Errorf("Expected status code %d, got %d", http.StatusNotFound, rec.Code)
+				}
+			},
+		},
+	}
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create request
+			req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/documents/%d/restore", tc.documentID), nil)
+			
+			// Add document ID to route parameters
+			req = req.WithContext(context.WithValue(req.Context(), "documentID", fmt.Sprintf("%d", tc.documentID)))
+			
+			// Create response recorder
+			rec := httptest.NewRecorder()
+			
+			// Call handler
+			HandleRestoreDocument(ctx, rec, req)
+			
+			// Check status code
+			if rec.Code != tc.expectedStatus {
+				t.Errorf("Expected status code %d, got %d", tc.expectedStatus, rec.Code)
+			}
+			
+			// Run validation function
+			tc.validateFunc(t, rec)
+		})
+	}
+}
+
+// TestHandleCopyDocument tests the HandleCopyDocument function
+func TestHandleCopyDocument(t *testing.T) {
+	ctx, testDB, err := setupTestContext(t)
+	if err != nil {
+		t.Fatalf("Failed to setup test context: %v", err)
+	}
+	defer testDB.Close()
+	
+	// Create test API
+	sourceAPI, err := createTestAPI(ctx, t)
+	if err != nil {
+		t.Fatalf("Failed to create source API: %v", err)
+	}
+	
+	// Create target API
+	targetAPI := &db.APIEntity{
+		Name:        "Target API",
+		Description: "Target API Description",
+		Status:      db.StatusActive,
+		Version:     "1.0.0",
+	}
+	
+	err = db.CreateAPIEntity(ctx, testDB, targetAPI)
+	if err != nil {
+		t.Fatalf("Failed to create target API: %v", err)
+	}
+	
+	// Create test document association
+	docAssoc := &db.DocumentAssociation{
+		EntityType:   db.EntityTypeAPI,
+		EntityID:     sourceAPI.ID,
+		DocumentPath: "test_document.pdf",
+		FileName:     "test_document.pdf",
+	}
+	
+	err = db.CreateDocumentAssociation(ctx, testDB, docAssoc)
+	if err != nil {
+		t.Fatalf("Failed to create document association: %v", err)
+	}
+	
+	// Test cases
+	tests := []struct {
+		name           string
+		documentID     int64
+		requestBody    map[string]interface{}
+		expectedStatus int
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:       "CopyDocument_Success",
+			documentID: docAssoc.ID,
+			requestBody: map[string]interface{}{
+				"target_entity_type": db.EntityTypeAPI,
+				"target_entity_id":   targetAPI.ID,
+			},
+			expectedStatus: http.StatusCreated,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var resp Document
+				err := json.NewDecoder(rec.Body).Decode(&resp)
+				if err != nil {
+					t.Fatalf("Failed to decode response: %v", err)
+				}
+				
+				if resp.EntityType != db.EntityTypeAPI {
+					t.Errorf("Expected entity type %s, got %s", db.EntityTypeAPI, resp.EntityType)
+				}
+				
+				if resp.EntityID != targetAPI.ID {
+					t.Errorf("Expected entity ID %d, got %d", targetAPI.ID, resp.EntityID)
+				}
+				
+				if resp.FilePath != docAssoc.DocumentPath {
+					t.Errorf("Expected file path %s, got %s", docAssoc.DocumentPath, resp.FilePath)
+				}
+			},
+		},
+		{
+			name:       "CopyDocument_MissingTargetEntityType",
+			documentID: docAssoc.ID,
+			requestBody: map[string]interface{}{
+				"target_entity_id": targetAPI.ID,
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect an error
+				if rec.Code != http.StatusBadRequest {
+					t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rec.Code)
+				}
+			},
+		},
+		{
+			name:       "CopyDocument_MissingTargetEntityID",
+			documentID: docAssoc.ID,
+			requestBody: map[string]interface{}{
+				"target_entity_type": db.EntityTypeAPI,
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect an error
+				if rec.Code != http.StatusBadRequest {
+					t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rec.Code)
+				}
+			},
+		},
+		{
+			name:       "CopyDocument_InvalidTargetEntityType",
+			documentID: docAssoc.ID,
+			requestBody: map[string]interface{}{
+				"target_entity_type": "invalid_type",
+				"target_entity_id":   targetAPI.ID,
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect an error
+				if rec.Code != http.StatusBadRequest {
+					t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rec.Code)
+				}
+			},
+		},
+		{
+			name:       "CopyDocument_DocumentNotFound",
+			documentID: 999, // Non-existent document
+			requestBody: map[string]interface{}{
+				"target_entity_type": db.EntityTypeAPI,
+				"target_entity_id":   targetAPI.ID,
+			},
+			expectedStatus: http.StatusNotFound,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect a not found error
+				if rec.Code != http.StatusNotFound {
+					t.Errorf("Expected status code %d, got %d", http.StatusNotFound, rec.Code)
+				}
+			},
+		},
+	}
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create request body
+			body, err := json.Marshal(tc.requestBody)
+			if err != nil {
+				t.Fatalf("Failed to marshal request body: %v", err)
+			}
+			
+			// Create request
+			req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/documents/%d/copy", tc.documentID), bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			
+			// Add document ID to route parameters
+			req = req.WithContext(context.WithValue(req.Context(), "documentID", fmt.Sprintf("%d", tc.documentID)))
+			
+			// Create response recorder
+			rec := httptest.NewRecorder()
+			
+			// Call handler
+			HandleCopyDocument(ctx, rec, req)
+			
+			// Check status code
+			if rec.Code != tc.expectedStatus {
+				t.Errorf("Expected status code %d, got %d", tc.expectedStatus, rec.Code)
+			}
+			
+			// Run validation function
+			tc.validateFunc(t, rec)
+		})
+	}
+}
+
+// TestHandleUpdateDocument tests the HandleUpdateDocument function
+func TestHandleUpdateDocument(t *testing.T) {
+	ctx, testDB, err := setupTestContext(t)
+	if err != nil {
+		t.Fatalf("Failed to setup test context: %v", err)
+	}
+	defer testDB.Close()
+	
+	// Create test API
+	api, err := createTestAPI(ctx, t)
+	if err != nil {
+		t.Fatalf("Failed to create test API: %v", err)
+	}
+	
+	// Create test document association
+	docAssoc := &db.DocumentAssociation{
+		EntityType:   db.EntityTypeAPI,
+		EntityID:     api.ID,
+		DocumentPath: "test_document.pdf",
+		FileName:     "test_document.pdf",
+	}
+	
+	err = db.CreateDocumentAssociation(ctx, testDB, docAssoc)
+	if err != nil {
+		t.Fatalf("Failed to create document association: %v", err)
+	}
+	
+	// Test cases
+	tests := []struct {
+		name           string
+		documentID     int64
+		requestBody    map[string]interface{}
+		expectedStatus int
+		validateFunc   func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:       "UpdateDocument_Success",
+			documentID: docAssoc.ID,
+			requestBody: map[string]interface{}{
+				"file_name": "updated_document.pdf",
+			},
+			expectedStatus: http.StatusOK,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				var resp Document
+				err := json.NewDecoder(rec.Body).Decode(&resp)
+				if err != nil {
+					t.Fatalf("Failed to decode response: %v", err)
+				}
+				
+				if resp.FileName != "updated_document.pdf" {
+					t.Errorf("Expected file name %s, got %s", "updated_document.pdf", resp.FileName)
+				}
+			},
+		},
+		{
+			name:       "UpdateDocument_DocumentNotFound",
+			documentID: 999, // Non-existent document
+			requestBody: map[string]interface{}{
+				"file_name": "updated_document.pdf",
+			},
+			expectedStatus: http.StatusNotFound,
+			validateFunc: func(t *testing.T, rec *httptest.ResponseRecorder) {
+				// Just check status code as we expect a not found error
+				if rec.Code != http.StatusNotFound {
+					t.Errorf("Expected status code %d, got %d", http.StatusNotFound, rec.Code)
+				}
+			},
+		},
+	}
+	
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create request body
+			body, err := json.Marshal(tc.requestBody)
+			if err != nil {
+				t.Fatalf("Failed to marshal request body: %v", err)
+			}
+			
+			// Create request
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/documents/%d", tc.documentID), bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			
+			// Add document ID to route parameters
+			req = req.WithContext(context.WithValue(req.Context(), "documentID", fmt.Sprintf("%d", tc.documentID)))
+			
+			// Create response recorder
+			rec := httptest.NewRecorder()
+			
+			// Call handler
+			HandleUpdateDocument(ctx, rec, req)
+			
+			// Check status code
+			if rec.Code != tc.expectedStatus {
+				t.Errorf("Expected status code %d, got %d", tc.expectedStatus, rec.Code)
+			}
+			
+			// Run validation function
+			tc.validateFunc(t, rec)
+		})
+	}
+}

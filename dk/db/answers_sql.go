@@ -45,22 +45,45 @@ func InsertAnswer(ctx context.Context, db *sql.DB, a Answer) error {
 
 // AnswersForQuestion returns the map[user]answer for one query id.
 func AnswersForQuestion(ctx context.Context, db *sql.DB, qID string) (map[string]string, error) {
-	rows, err := db.QueryContext(ctx,
-		`SELECT user, answer FROM answers WHERE question = ? ORDER BY created_at ASC`, qID)
+	fmt.Printf("[SQL-DEBUG] Starting AnswersForQuestion for query ID: '%s'\n", qID)
+
+	// Build the SQL query
+	query := `SELECT user, answer FROM answers WHERE question = ? ORDER BY created_at ASC`
+	fmt.Printf("[SQL-DEBUG] Executing SQL: '%s' with parameter: '%s'\n", query, qID)
+
+	// Execute the query
+	rows, err := db.QueryContext(ctx, query, qID)
 	if err != nil {
+		fmt.Printf("[SQL-ERROR] Failed to execute query: %v\n", err)
 		return nil, fmt.Errorf("query answers: %w", err)
 	}
 	defer rows.Close()
+	fmt.Println("[SQL-DEBUG] Query executed successfully")
 
+	// Process the results
 	out := make(map[string]string)
+	rowCount := 0
+
+	fmt.Println("[SQL-DEBUG] Processing result rows...")
 	for rows.Next() {
+		rowCount++
 		var user, ans string
 		if err := rows.Scan(&user, &ans); err != nil {
+			fmt.Printf("[SQL-ERROR] Failed to scan row %d: %v\n", rowCount, err)
 			return nil, fmt.Errorf("scan answer row: %w", err)
 		}
+		fmt.Printf("[SQL-DEBUG] Row %d: user='%s', answer length=%d\n", rowCount, user, len(ans))
 		out[user] = ans
 	}
-	return out, rows.Err()
+
+	// Check for any errors during iteration
+	if err := rows.Err(); err != nil {
+		fmt.Printf("[SQL-ERROR] Error during row iteration: %v\n", err)
+		return nil, fmt.Errorf("iterate answers: %w", err)
+	}
+
+	fmt.Printf("[SQL-DEBUG] AnswersForQuestion complete. Found %d answers for query ID '%s'\n", len(out), qID)
+	return out, nil
 }
 
 // AllAnswers returns the nested map[question]map[user]answer.

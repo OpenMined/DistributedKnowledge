@@ -26,7 +26,7 @@ func loadParameters() utils.Parameters {
 	params.PublicKeyPath = flag.String("public", "path/to/public_key.pem", "Path to the public key file in PEM format")
 	params.UserID = flag.String("userId", "defaultUser", "User ID for authentication")
 
-	// Keep the rag_sources flag so that it isn’t nil.
+	// Keep the rag_sources flag so that it isn't nil.
 	params.RagSourcesFile = flag.String("rag_sources", "/path/to/rag_sources.jsonl", "Path to the JSONL file containing source data")
 	params.ServerURL = flag.String("server", "https://localhost:8080", "Address to the websocket server")
 	params.HTTPPort = flag.String("http_port", "8081", "Port for the HTTP server")
@@ -76,14 +76,26 @@ func main() {
 	params := loadParameters()
 	rootCtx := context.Background()
 
+	// Initialize the database connection
 	database, err := db.Initialize(*params.DBPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
+
+	// Create the database connection object
+	dbConn := &db.DatabaseConnection{
+		DB: database,
+	}
+
 	defer database.Close()
 
 	if err := db.RunMigrations(database); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	// Initialize API Management System migrations
+	if err := db.RunAPIMigrations(database); err != nil {
+		log.Printf("Warning: Failed to run API Management migrations: %v", err)
 	}
 
 	publicKey, privateKey, err := utils.LoadOrCreateKeys(*params.PrivateKeyPath, *params.PublicKeyPath)
@@ -120,7 +132,7 @@ func main() {
 			log.Printf("LLM provider '%s' initialized successfully with model '%s'", modelConfig.Provider, modelConfig.Model)
 		}
 	}
-	rootCtx = utils.WithDatabase(rootCtx, database)
+	rootCtx = utils.WithDatabaseConnection(rootCtx, dbConn)
 
 	rootCtx = utils.WithDK(rootCtx, client)
 	client.SetReadLimit(1024 * 1024)
@@ -142,7 +154,7 @@ func main() {
 			ctx = utils.WithParams(ctx, params)
 			ctx = utils.WithChromemCollection(ctx, chromemCollection)
 			ctx = utils.WithDK(ctx, client)
-			ctx = utils.WithDatabase(ctx, database)
+			ctx = utils.WithDatabaseConnection(ctx, dbConn)
 			// Add LLM provider to MCP context if available.
 			if llmProvider != nil {
 				ctx = core.WithLLMProvider(ctx, llmProvider)
@@ -154,7 +166,30 @@ func main() {
 	rootCtx = utils.WithParams(rootCtx, params)
 	go core.HandleRequests(rootCtx)
 
-	http.SetupHTTPServer(rootCtx, *params.HTTPPort)
+	// Set up the HTTP server with the database connection for usage tracking
+	http.SetupHTTPServer(rootCtx, *params.HTTPPort, dbConn)
+
+	// Start policy worker to apply scheduled policy changes
+	// Check every 5 minutes for pending changes
+	utils.StartPolicyWorker(rootCtx, database, 5*time.Minute)
+
+	// Start background job to refresh usage summaries
+	// Run every 6 hours to calculate and update summaries
+	go func() {
+		ticker := time.NewTicker(6 * time.Hour)
+		defer ticker.Stop()
+
+		// Run once immediately at startup
+		if err := db.UpdateAPIUsageSummaries(database); err != nil {
+			log.Printf("Error updating API usage summaries: %v", err)
+		}
+
+		for range ticker.C {
+			if err := db.UpdateAPIUsageSummaries(database); err != nil {
+				log.Printf("Error updating API usage summaries: %v", err)
+			}
+		}
+	}()
 
 	// Wait for an interrupt signal to gracefully shut down.
 	sigChan := make(chan os.Signal, 1)

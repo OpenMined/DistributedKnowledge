@@ -41,6 +41,7 @@ func SetupChromemCollection(vectorPath string) *chromem.Collection {
 func RetrieveDocuments(ctx context.Context, question string, numResults int, metadataFilter map[string]string) ([]Document, error) {
 	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
 	if err != nil {
+		log.Printf("[RAG] Failed to get Chromem collection from context: %v", err)
 		return nil, err
 	}
 
@@ -61,20 +62,35 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int, met
 
 	// Get the total document count to avoid requesting more than available
 	totalCount := chromemCollection.Count()
+	log.Printf("[RAG] Query request: %s, numResults: %d, filters: %v", query, numResults, filter)
+	log.Printf("[RAG] Total document count: %d", totalCount)
 
 	// Use the smaller of numResults or totalCount to avoid "nResults must be <= number of documents" error
 	queryLimit := numResults
 	if totalCount < numResults {
 		queryLimit = totalCount
 	}
+	log.Printf("[RAG] Adjusted query limit: %d", queryLimit)
 
 	// Only query if we have documents
 	if queryLimit > 0 {
 		var err error
+		log.Printf("[RAG] Executing query with limit: %d, filter: %v", queryLimit, filter)
 		docRes, err = chromemCollection.Query(ctx, query, queryLimit, filter, nil)
 		if err != nil {
+			log.Printf("[RAG] Query error: %v", err)
+			// If there's an error and it might be due to no documents matching the filter,
+			// return an empty result instead of an error
+			if strings.Contains(err.Error(), "nResults must be <= number of documents") {
+				log.Printf("[RAG] No documents match the filter criteria, returning empty results")
+				return []Document{}, nil
+			}
 			return nil, fmt.Errorf("error querying collection: %w", err)
 		}
+		log.Printf("[RAG] Query returned %d results", len(docRes))
+	} else {
+		log.Printf("[RAG] Query limit is 0, skipping query and returning empty results")
+		return []Document{}, nil
 	}
 
 	var results []Document = []Document{}
@@ -101,8 +117,10 @@ func RetrieveDocuments(ctx context.Context, question string, numResults int, met
 		results = append(results, content)
 	}
 
+	log.Printf("[RAG] Processed %d results", len(results))
 	if len(results) > numResults {
 		results = results[:numResults]
+		log.Printf("[RAG] Trimmed results to %d items", len(results))
 	}
 
 	return results, nil
@@ -486,4 +504,154 @@ func DeleteAllDocuments(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// CheckChromemHealth verifies that the Chromem database is working properly
+// It attempts a basic query to validate the database connection and functionality
+func CheckChromemHealth(ctx context.Context) error {
+	log.Printf("[RAG] Running health check on Chromem database")
+
+	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		log.Printf("[RAG] Health check failed: Could not get Chromem collection from context: %v", err)
+		return fmt.Errorf("failed to get Chromem collection: %w", err)
+	}
+
+	// Check collection count
+	count := chromemCollection.Count()
+	log.Printf("[RAG] Health check: database contains %d documents", count)
+
+	if count > 0 {
+		// Try retrieving at least one document to validate the database
+		const dummyQuery = "search_query: _"
+
+		// First try without any filter to ensure basic functionality
+		log.Printf("[RAG] Health check: attempting basic query without filters")
+		_, err = chromemCollection.Query(ctx, dummyQuery, 1, nil, nil)
+		if err != nil {
+			log.Printf("[RAG] Health check failed: Basic query test failed: %v", err)
+			return fmt.Errorf("database basic query test failed: %w", err)
+		}
+
+		// Then try with active:true filter to test filter functionality
+		log.Printf("[RAG] Health check: attempting query with active:true filter")
+		filter := map[string]string{"active": "true"}
+		results, err := chromemCollection.Query(ctx, dummyQuery, count, filter, nil)
+
+		if err != nil {
+			log.Printf("[RAG] Health check warning: Filter query test failed: %v", err)
+			// Don't return error here, as some collections might not have the active field
+		} else {
+			log.Printf("[RAG] Health check: found %d documents with active:true", len(results))
+		}
+	}
+
+	log.Printf("[RAG] Health check completed successfully")
+	return nil
+}
+
+// EnsureDocumentMetadata scans all documents and ensures they have the required metadata fields
+// This is useful for fixing documents that might be missing the 'active' flag or other required fields
+func EnsureDocumentMetadata(ctx context.Context) (map[string]int, error) {
+	log.Printf("[RAG] Starting document metadata validation and repair")
+
+	chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+	if err != nil {
+		log.Printf("[RAG] Metadata repair failed: Could not get Chromem collection: %v", err)
+		return nil, fmt.Errorf("failed to get Chromem collection: %w", err)
+	}
+
+	// Get the total document count
+	count := chromemCollection.Count()
+	log.Printf("[RAG] Processing %d documents for metadata validation", count)
+
+	if count == 0 {
+		log.Printf("[RAG] No documents to process")
+		return map[string]int{"total": 0, "fixed": 0}, nil
+	}
+
+	// Get all documents using a dummy query with large limit
+	const dummyQuery = "search_query: _"
+	results, err := chromemCollection.Query(ctx, dummyQuery, count, nil, nil)
+	if err != nil {
+		log.Printf("[RAG] Failed to retrieve documents for metadata validation: %v", err)
+		return nil, fmt.Errorf("failed to retrieve documents: %w", err)
+	}
+
+	log.Printf("[RAG] Retrieved %d documents for metadata validation", len(results))
+
+	// Track statistics
+	stats := map[string]int{
+		"total":             len(results),
+		"fixed":             0,
+		"missing_active":    0,
+		"missing_date":      0,
+		"already_compliant": 0,
+	}
+
+	// Process each document
+	for _, doc := range results {
+		needsUpdate := false
+		updatedMetadata := make(map[string]string)
+
+		// Copy existing metadata
+		for k, v := range doc.Metadata {
+			updatedMetadata[k] = v
+		}
+
+		// Ensure 'active' field exists
+		if _, exists := updatedMetadata["active"]; !exists {
+			updatedMetadata["active"] = "true"
+			needsUpdate = true
+			stats["missing_active"]++
+			log.Printf("[RAG] Document '%s' is missing 'active' field, will be set to 'true'",
+				doc.Metadata["file"])
+		}
+
+		// Ensure 'date' field exists
+		if _, exists := updatedMetadata["date"]; !exists {
+			// Format current time in the required format
+			currentTime := time.Now().Format("Jan 2, 2006, 03:04 PM")
+			updatedMetadata["date"] = currentTime
+			needsUpdate = true
+			stats["missing_date"]++
+			log.Printf("[RAG] Document '%s' is missing 'date' field, will be set to '%s'",
+				doc.Metadata["file"], currentTime)
+		}
+
+		// Update document if needed
+		if needsUpdate {
+			// Get the document filename
+			filename := doc.Metadata["file"]
+			if filename == "" {
+				log.Printf("[RAG] Warning: Document has no filename, skipping repair")
+				continue
+			}
+
+			// Extract content (remove the search_document prefix)
+			content := strings.TrimPrefix(doc.Content, "search_document: ")
+
+			// Remove and re-add the document
+			log.Printf("[RAG] Updating document '%s' with fixed metadata", filename)
+
+			if err := RemoveDocument(ctx, filename); err != nil {
+				log.Printf("[RAG] Error removing document '%s': %v", filename, err)
+				continue
+			}
+
+			if err := AddDocument(ctx, filename, content, false, updatedMetadata); err != nil {
+				log.Printf("[RAG] Error re-adding document '%s': %v", filename, err)
+				continue
+			}
+
+			stats["fixed"]++
+		} else {
+			stats["already_compliant"]++
+		}
+	}
+
+	log.Printf("[RAG] Metadata validation complete: %d documents processed, %d fixed",
+		stats["total"], stats["fixed"])
+
+	return stats, nil
 }

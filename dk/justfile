@@ -1,6 +1,45 @@
 set shell := ["bash", "-cu"]
 
 build-all:
-    GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -o bin/windows_dk.exe .
-    GOOS=darwin GOARCH=amd64 go build -o bin/mac_dk .
-    GOOS=linux GOARCH=amd64 go build -o bin/linux_dk .
+    GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/windows_dk.exe -ldflags="-s -w -extldflags '-static'" .
+    GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -o bin/mac_dk -ldflags="-s -w -extldflags '-static'" .
+    GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/linux_dk -ldflags="-s -w -extldflags '-static'" .
+
+start:
+    ./bin/linux_dk -userId Ionesio -private /home/ubuntu/.config/dk/keys/private -public /home/ubuntu/.config/dk/keys/public -project_path /home/ubuntu/.config/dk/data -server https://distributedknowledge.org -syftbox_config /home/ubuntu/.syftbox/config.json -http_port 4232
+
+clean:
+    rm -rf ~/.config/dk/data/app.db*
+
+# Test commands
+test:
+    chmod +x ./scripts/test_all.sh
+    ./scripts/test_all.sh --all
+
+test-quick:
+    chmod +x ./scripts/test_all.sh
+    ./scripts/test_all.sh --quick
+
+test-unit:
+    chmod +x ./scripts/test_all.sh
+    ./scripts/test_all.sh --unit
+
+test-integration:
+    chmod +x ./scripts/test_all.sh
+    ./scripts/test_all.sh --integration
+
+test-db:
+    chmod +x ./scripts/test_all.sh
+    ./scripts/test_all.sh --unit --db
+
+test-api:
+    chmod +x ./scripts/test_all.sh
+    ./scripts/test_all.sh --unit --api-management
+
+test-http:
+    chmod +x ./scripts/test_all.sh
+    ./scripts/test_all.sh --unit --http
+
+test-usage:
+    chmod +x ./scripts/test_all.sh
+    ./scripts/test_all.sh --usage-tracking

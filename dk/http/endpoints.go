@@ -3,12 +3,16 @@ package http
 import (
 	"context"
 	"dk/core"
+	"dk/db"
 	"dk/utils"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 // RagRequest represents the JSON structure for POST /rag requests
@@ -101,12 +105,165 @@ type API struct {
 }
 
 // setupHTTPServer initializes and starts the HTTP server
-func SetupHTTPServer(ctx context.Context, port string) {
-	mux := http.NewServeMux()
+func SetupHTTPServer(ctx context.Context, port string, dbConn *db.DatabaseConnection) {
+	// Create a router with the gorilla/mux package for more flexibility
+	router := mux.NewRouter()
+
+	// Add the policy enforcement middleware
+	router.Use(PolicyEnforcementMiddleware(dbConn))
+
+	// Register usage tracking handlers
+	RegisterUsageTrackingHandlers(router, dbConn)
+
+	// API Management Endpoints
+
+	// API Entities
+	router.HandleFunc("/api/apis", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetAPIs(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/apis/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetAPI(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/apis", func(w http.ResponseWriter, r *http.Request) {
+		HandleCreateAPI(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/apis/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleUpdateAPI(ctx, w, r)
+	}).Methods("PATCH")
+
+	router.HandleFunc("/api/apis/{id}/deprecate", func(w http.ResponseWriter, r *http.Request) {
+		HandleDeprecateAPI(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/apis/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleDeleteAPI(ctx, w, r)
+	}).Methods("DELETE")
+
+	// Policy Management Endpoints
+	router.HandleFunc("/api/policies", func(w http.ResponseWriter, r *http.Request) {
+		HandleListPolicies(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/policies/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetPolicy(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/policies/{id}/apis", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetAPIsByPolicy(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/policies", func(w http.ResponseWriter, r *http.Request) {
+		HandleCreatePolicy(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/policies/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleUpdatePolicy(ctx, w, r)
+	}).Methods("PATCH")
+
+	router.HandleFunc("/api/policies/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleDeletePolicy(ctx, w, r)
+	}).Methods("DELETE")
+
+	router.HandleFunc("/api/apis/{id}/policy", func(w http.ResponseWriter, r *http.Request) {
+		HandleChangeAPIPolicy(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/apis/{id}/policy/history", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetAPIPolicyHistory(ctx, w, r)
+	}).Methods("GET")
+
+	// User Access Management Endpoints
+	router.HandleFunc("/api/apis/{id}/users", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetAPIUsers(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/apis/{id}/users", func(w http.ResponseWriter, r *http.Request) {
+		HandleGrantAPIAccess(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/apis/{id}/users/{user_id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleUpdateAPIUserAccess(ctx, w, r)
+	}).Methods("PATCH")
+
+	router.HandleFunc("/api/apis/{id}/users/{user_id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleRevokeAPIUserAccess(ctx, w, r)
+	}).Methods("DELETE")
+
+	router.HandleFunc("/api/apis/{id}/users/{user_id}/restore", func(w http.ResponseWriter, r *http.Request) {
+		HandleRestoreAPIUserAccess(ctx, w, r)
+	}).Methods("POST")
+
+	// API Request Endpoints
+	router.HandleFunc("/api/requests", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetAPIRequests(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/requests/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetAPIRequest(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/requests", func(w http.ResponseWriter, r *http.Request) {
+		HandleCreateAPIRequest(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/requests/{id}/status", func(w http.ResponseWriter, r *http.Request) {
+		HandleUpdateAPIRequestStatus(ctx, w, r)
+	}).Methods("PATCH")
+
+	router.HandleFunc("/api/requests/{id}/resubmit", func(w http.ResponseWriter, r *http.Request) {
+		HandleResubmitAPIRequest(ctx, w, r)
+	}).Methods("POST")
+
+	// Document Management Endpoints
+	router.HandleFunc("/api/documents", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetDocuments(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/documents/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetDocument(ctx, w, r)
+	}).Methods("GET")
+
+	router.HandleFunc("/api/documents", func(w http.ResponseWriter, r *http.Request) {
+		HandleUploadDocument(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/documents/associate", func(w http.ResponseWriter, r *http.Request) {
+		HandleAssociateDocument(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/documents/{id}", func(w http.ResponseWriter, r *http.Request) {
+		HandleSoftDeleteDocument(ctx, w, r)
+	}).Methods("DELETE")
+
+	router.HandleFunc("/api/documents/{id}/restore", func(w http.ResponseWriter, r *http.Request) {
+		HandleRestoreDocument(ctx, w, r)
+	}).Methods("POST")
+
+	router.HandleFunc("/api/documents/{id}/permanent", func(w http.ResponseWriter, r *http.Request) {
+		HandlePermanentDeleteDocument(ctx, w, r)
+	}).Methods("DELETE")
+
+	// GET /rag/count - Get the total number of documents in the vector database
+	router.HandleFunc("/rag/count", func(w http.ResponseWriter, r *http.Request) {
+		chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+		if err != nil {
+			sendErrorResponse(w, "Failed to access vector database: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		count := chromemCollection.Count()
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(CountResponse{Count: count})
+	}).Methods("GET")
 
 	// GET /rag/{file_name} – fetch one document by exact file name
-	mux.HandleFunc("GET /rag/{filename}", func(w http.ResponseWriter, r *http.Request) {
-		fileName := r.PathValue("filename") // Go 1.22+ path parameter helper
+	router.HandleFunc("/rag/{filename}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		fileName := vars["filename"]
 		if fileName == "" {
 			sendErrorResponse(w, "File name is required", http.StatusBadRequest)
 			return
@@ -118,18 +275,18 @@ func SetupHTTPServer(ctx context.Context, port string) {
 			return
 		}
 		if doc == nil {
-
 			sendErrorResponse(w, "Document not found", http.StatusNotFound)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(SingleDocumentResponse{Document: *doc})
-	})
+	}).Methods("GET")
 
-	mux.HandleFunc("GET /rag/{filterField}/{filterValue}", func(w http.ResponseWriter, r *http.Request) {
-		filterField := r.PathValue("filterField") // Go 1.22+ path parameter helper
-		filterValue := r.PathValue("filterValue") // Go 1.22+ path parameter helper
+	router.HandleFunc("/rag/{filterField}/{filterValue}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		filterField := vars["filterField"]
+		filterValue := vars["filterValue"]
 
 		if filterField == "" || filterValue == "" {
 			sendErrorResponse(w, "Filter field and value are required", http.StatusBadRequest)
@@ -159,10 +316,10 @@ func SetupHTTPServer(ctx context.Context, port string) {
 		log.Printf("Found %d documents with %s: %s", len(docs), filterField, filterValue)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(RagResponse{Documents: docs})
-	})
+	}).Methods("GET")
 
 	// PATCH /rag – replace a document's content
-	mux.HandleFunc("PATCH /rag", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/rag", func(w http.ResponseWriter, r *http.Request) {
 		var req PatchRagRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			sendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
@@ -181,11 +338,10 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "Document updated successfully"})
-	})
+	}).Methods("PATCH")
 
 	// POST /rag - Add document to vector database
-	mux.HandleFunc("POST /rag", func(w http.ResponseWriter, r *http.Request) {
-
+	router.HandleFunc("/rag", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Some user made a request ")
 		var req RagRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -206,16 +362,19 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{"status": "Document added successfully"})
-	})
+	}).Methods("POST")
 
 	// GET /rag - Retrieve documents based on query with optional metadata filtering
-	mux.HandleFunc("GET /rag", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/rag", func(w http.ResponseWriter, r *http.Request) {
 		// Check content type to determine if it's a JSON request
 		contentType := r.Header.Get("Content-Type")
+		log.Printf("[HTTP] /rag request received with content-type: %s", contentType)
+
 		if contentType == "application/json" {
 			// Handle JSON request with metadata filtering
 			var req RagQueryRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				log.Printf("[HTTP] Error decoding JSON request body: %v", err)
 				sendErrorResponse(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -235,13 +394,29 @@ func SetupHTTPServer(ctx context.Context, port string) {
 				req.Metadata = make(map[string]string)
 			}
 
+			log.Printf("[HTTP] Processing RAG query: '%s' with numResults: %d and metadata: %v",
+				req.Query, req.NumResults, req.Metadata)
+
 			// Retrieve documents with metadata filter
 			docs, err := core.RetrieveDocuments(ctx, req.Query, req.NumResults, req.Metadata)
 			if err != nil {
+				log.Printf("[HTTP] Error retrieving documents: %v", err)
+
+				// Check for specific error conditions
+				if strings.Contains(err.Error(), "nResults must be <= number of documents") {
+					// Return empty results instead of error
+					log.Printf("[HTTP] Returning empty result set for query: %s", req.Query)
+					response := RagResponse{Documents: []core.Document{}}
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(response)
+					return
+				}
+
 				sendErrorResponse(w, "Failed to retrieve documents: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 
+			log.Printf("[HTTP] Successfully retrieved %d documents for query: '%s'", len(docs), req.Query)
 			response := RagResponse{Documents: docs}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
@@ -267,20 +442,35 @@ func SetupHTTPServer(ctx context.Context, port string) {
 			// Create an empty metadata map for the URL parameter version
 			metadata := make(map[string]string)
 
+			log.Printf("[HTTP] Processing URL-based RAG query: '%s' with numResults: %d", query, numResults)
+
 			docs, err := core.RetrieveDocuments(ctx, query, numResults, metadata)
 			if err != nil {
+				log.Printf("[HTTP] Error retrieving documents with URL parameters: %v", err)
+
+				// Check for specific error conditions
+				if strings.Contains(err.Error(), "nResults must be <= number of documents") {
+					// Return empty results instead of error
+					log.Printf("[HTTP] Returning empty result set for URL query: %s", query)
+					response := RagResponse{Documents: []core.Document{}}
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(response)
+					return
+				}
+
 				sendErrorResponse(w, "Failed to retrieve documents: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 
+			log.Printf("[HTTP] Successfully retrieved %d documents for URL query: '%s'", len(docs), query)
 			response := RagResponse{Documents: docs}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
 		}
-	})
+	}).Methods("GET")
 
 	// DELETE /rag - Remove document from vector database
-	mux.HandleFunc("DELETE /rag", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/rag", func(w http.ResponseWriter, r *http.Request) {
 		filename := r.URL.Query().Get("filename")
 		if filename == "" {
 			sendErrorResponse(w, "Filename parameter is required", http.StatusBadRequest)
@@ -294,24 +484,10 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "Document removed successfully"})
-	})
-
-	// GET /rag/count - Get the total number of documents in the vector database
-	mux.HandleFunc("GET /rag/count", func(w http.ResponseWriter, r *http.Request) {
-		chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
-		if err != nil {
-			sendErrorResponse(w, "Failed to access vector database: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		count := chromemCollection.Count()
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(CountResponse{Count: count})
-	})
+	}).Methods("DELETE")
 
 	// POST /rag/toggle-active-metadata - Toggle 'active' metadata field on documents
-	mux.HandleFunc("POST /rag/toggle-active-metadata", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/rag/toggle-active-metadata", func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
 			FilterField string `json:"filter_field"`
 			FilterValue string `json:"filter_value"`
@@ -336,10 +512,10 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "Active metadata toggled successfully"})
-	})
+	}).Methods("POST")
 
 	// DELETE /rag/all - Delete all documents from the vector database
-	mux.HandleFunc("DELETE /rag/all", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/rag/all", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Received request to delete all documents from vector database")
 
 		if err := core.DeleteAllDocuments(ctx); err != nil {
@@ -349,10 +525,39 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "All documents successfully deleted from vector database"})
-	})
+	}).Methods("DELETE")
+
+	// GET /rag/health - Check health of the vector database
+	router.HandleFunc("/rag/health", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Received request to check vector database health")
+
+		chromemCollection, err := utils.ChromemCollectionFromContext(ctx)
+		if err != nil {
+			log.Printf("Failed to access vector database: %v", err)
+			sendErrorResponse(w, "Failed to access vector database: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		documentCount := chromemCollection.Count()
+		err = core.CheckChromemHealth(ctx)
+
+		if err != nil {
+			log.Printf("Vector database health check failed: %v", err)
+			sendErrorResponse(w, "Vector database health check failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":         "healthy",
+			"message":        "Vector database is operational",
+			"document_count": documentCount,
+		})
+	}).Methods("GET")
 
 	// POST /api - Register a new API to the websocket server
-	mux.HandleFunc("POST /api", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
 		var api API
 		if err := json.NewDecoder(r.Body).Decode(&api); err != nil {
 			sendErrorResponse(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -379,10 +584,10 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{"status": "API registered successfully"})
-	})
+	}).Methods("POST")
 
 	// POST /user/trackers - Update the user's tracker list in the websocket server
-	mux.HandleFunc("POST /user/trackers", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/user/trackers", func(w http.ResponseWriter, r *http.Request) {
 		var trackerList TrackerListPayload
 		if err := json.NewDecoder(r.Body).Decode(&trackerList); err != nil {
 			sendErrorResponse(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -417,11 +622,42 @@ func SetupHTTPServer(ctx context.Context, port string) {
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{"status": "Tracker list updated successfully"})
-	})
+	}).Methods("POST")
+
+	// POST /remote/message - Send a remote message to peers
+	router.HandleFunc("/remote/message", func(w http.ResponseWriter, r *http.Request) {
+		HandleSendRemoteMessage(ctx, w, r)
+	}).Methods("POST")
+
+	// POST /rag/fix-metadata - Ensure all documents have required metadata fields
+	router.HandleFunc("/rag/fix-metadata", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[HTTP] Received request to fix document metadata")
+
+		stats, err := core.EnsureDocumentMetadata(ctx)
+		if err != nil {
+			log.Printf("[HTTP] Error fixing document metadata: %v", err)
+			sendErrorResponse(w, "Failed to fix document metadata: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("[HTTP] Successfully fixed document metadata: %v", stats)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "success",
+			"message": "Document metadata fixed successfully",
+			"stats":   stats,
+		})
+	}).Methods("POST")
+
+	// GET or POST /answers - Retrieve answers for a given query string
+	router.HandleFunc("/answers", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetAnswersByQuery(ctx, w, r)
+	}).Methods("GET", "POST")
 
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: mux,
+		Handler: router,
 	}
 
 	// Start the server in a goroutine
