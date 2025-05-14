@@ -34,7 +34,7 @@ function getOSPlatform(): string {
   if (platform === 'win32') {
     return 'windows'
   } else if (platform === 'darwin') {
-    return 'mac'
+    return 'darwin'
   } else if (platform === 'linux') {
     return 'linux'
   } else {
@@ -147,6 +147,7 @@ async function downloadSyftBoxBinary(
     const request = https.get(downloadUrl, (response) => {
       if (response.statusCode !== 200) {
         logger.error(`Failed to download SyftBox binary: HTTP ${response.statusCode}`)
+        logger.error(`Download URL used: ${downloadUrl}`)
         fileStream.close()
         fs.unlink(tarPath, () => {})
         resolve(false)
@@ -389,7 +390,7 @@ export async function startExternalProcesses(): Promise<void> {
       if (process.env.SNAP) {
         logger.debug('Running in Snap environment, make sure interfaces are connected')
       }
-    } else if (osPlatform === 'mac') {
+    } else if (osPlatform === 'darwin') {
       // On macOS, try our app's bin directory first
       syftboxPath = path.join(binDir, 'syftbox')
     } else if (osPlatform === 'windows') {
@@ -414,29 +415,27 @@ export async function startExternalProcesses(): Promise<void> {
           'If running in Snap environment, make sure system-files interface is connected'
         )
         logger.error('Run: sudo snap connect dk:syftbox-exec-plug :system-files')
-      } else if (osPlatform === 'mac') {
+      } else if (osPlatform === 'darwin') {
         logger.error('You may need to grant additional permissions to this application')
       }
 
       return
     }
 
-    logger.info(`Starting syftbox binary: ${syftboxPath}`)
 
     // Get the syftbox config path from the utility function
     // that matches what's used in the onboarding process
     const appPaths = getAppPaths()
     const syftboxConfigPath = appPaths.syftboxConfig
 
+
     // Ensure the syftbox config directory exists
     const syftboxConfigDir = path.dirname(syftboxConfigPath || '')
+    
     if (!existsSync(syftboxConfigDir)) {
-      logger.debug(`Creating syftbox config directory: ${syftboxConfigDir}`)
       mkdirSync(syftboxConfigDir, { recursive: true })
     }
 
-    // Log the config path we're using
-    logger.debug(`Using syftbox config at: ${syftboxConfigPath || 'undefined'}`)
 
     // Spawn the syftbox process with config parameter
     try {
@@ -453,10 +452,7 @@ export async function startExternalProcesses(): Promise<void> {
       const userLocalBin = path.join(userHomeDir, '.local/bin')
       const newPath = `${process.env.PATH || ''}${platformPaths}:${commonPaths}:${userLocalBin}`
 
-      // Log the updated PATH for debugging
-      logger.debug(`User home directory resolved to: ${userHomeDir}`)
-      logger.debug(`Adding user's local bin to PATH: ${userLocalBin}`)
-      logger.debug(`Full PATH environment variable: ${newPath}`)
+
 
       syftboxProcess = spawn(syftboxPath, ['--config', syftboxConfigPath || ''], {
         stdio: 'pipe',
@@ -468,29 +464,52 @@ export async function startExternalProcesses(): Promise<void> {
           PATH: newPath
         }
       })
+
     } catch (error) {
       logger.error(`Failed to spawn syftbox process: ${error}`)
+      logger.error(
+        `Spawn error details - Type: ${typeof error}, Message: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      )
+      if (error instanceof Error && error.stack) {
+        logger.error(`Error stack trace: ${error.stack}`)
+      }
       return
     }
 
     if (syftboxProcess) {
-      logger.debug('Syftbox binary started with PID:', syftboxProcess.pid)
 
       syftboxProcess.stdout?.on('data', (data) => {
-        logger.debug(`Syftbox binary stdout: ${data}`)
+        const output = data.toString().trim()
+        // Only log errors
+        if (output.includes('Error') || output.includes('error')) {
+          logger.error(`Syftbox stdout error: ${output}`)
+        }
       })
 
       syftboxProcess.stderr?.on('data', (data) => {
-        logger.error(`Syftbox binary stderr: ${data}`)
+        const errorOutput = data.toString().trim()
+        logger.error(`Syftbox stderr: ${errorOutput}`)
+        
+        // Keep essential error categorization for troubleshooting
+        if (errorOutput.includes('permission denied')) {
+          logger.error(`Permission error detected: ${errorOutput}`)
+        } else if (errorOutput.includes('not found')) {
+          logger.error(`Binary or dependency not found: ${errorOutput}`)
+        }
       })
 
       syftboxProcess.on('error', (error) => {
         logger.error(`Failed to start syftbox binary: ${error}`)
+        logger.error(`Process error details: ${error instanceof Error ? error.message : 'Unknown error'}`)
         syftboxProcess = null
       })
 
       syftboxProcess.on('close', (code) => {
-        logger.debug(`Syftbox binary exited with code ${code}`)
+        if (code !== 0) {
+          logger.error(`Syftbox terminated with non-zero exit code: ${code}`)
+        }
         syftboxProcess = null
       })
     }
