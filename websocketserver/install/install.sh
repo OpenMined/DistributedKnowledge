@@ -385,9 +385,9 @@ fi
 # -----------------------------------------------------------------------------
 if [ "$OS_TYPE" == "Darwin" ]; then
     if command -v curl &>/dev/null; then
-        sudo curl -fsSL "https://distributedknowledge.org/download/mac" -o "$INSTALL_PATH/dk"
+        sudo curl -fsSL "https://distributedknowledge.org/download/darwin" -o "$INSTALL_PATH/dk"
     elif command -v wget &>/dev/null; then
-        sudo wget -q "https://distributedknowledge.org/download/mac" -O "$INSTALL_PATH/dk"
+        sudo wget -q "https://distributedknowledge.org/download/darwin" -O "$INSTALL_PATH/dk"
     else
         echo "Error: Neither curl nor wget is available." >&2
         exit 1
