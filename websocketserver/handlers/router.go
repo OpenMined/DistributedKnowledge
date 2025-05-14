@@ -40,8 +40,11 @@ func SetupRoutes(mux *http.ServeMux, database *sql.DB, authService *auth.Service
 
 	// Download routes
 	mux.HandleFunc("/download/linux", DownloadLinuxHandler)
-	mux.HandleFunc("/download/mac", DownloadMacHandler)
+	mux.HandleFunc("/download/darwin", DownloadMacHandler)
 	mux.HandleFunc("/download/windows", DownloadWindowsHandler)
+	mux.HandleFunc("/download/app/linux", DownloadLinuxAppHandler)
+	mux.HandleFunc("/download/app/darwin", DownloadMacAppHandler)
+	mux.HandleFunc("/download/app/windows", DownloadWindowsAppHandler)
 	mux.HandleFunc("/install.sh", ProvideInstallationScriptHandler)
 
 	// Static file serving
